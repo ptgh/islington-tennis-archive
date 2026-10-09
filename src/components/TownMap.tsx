@@ -15,6 +15,7 @@ import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
 import { courtAreas } from '../scene/courtGeometry'
 import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
+import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import { addSkyEnvironment, scenePixelRatio } from '../scene/renderQuality'
 import '../scene/TownMap.css'
 

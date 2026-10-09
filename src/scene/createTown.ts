@@ -404,7 +404,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
       const radius=height*(lobe===0?.37:.24+rnd()*.07);
       treeCrowns.push({x:x+Math.cos(angle)*ring,y:height*(lobe===0?.84:.63+rnd()*.16),z:z+Math.sin(angle)*ring,
         sx:radius,sy:radius*(silhouette===1?1.4:silhouette===2?.65:.85+rnd()*.3),sz:radius,ry:rnd()*6,
-        color: lobe > 0 && (lobe + species) % 5 === 0 ? foliageColors[(species + 1) % foliageColors.length] : color,sway});
+        color: lobe > 0 && (lobe + species) % 5 === 0 ? foliageColors[(species + 1) % foliageColors.length] : color});
     }
     if (detailedLocal) {
       for (let branch = 0; branch < 4; branch++) {
@@ -418,7 +418,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
         const angle = tip * 2.399 + height, radius = height * .14
         treeCrowns.push({ x: x + Math.cos(angle) * height * .38, y: height * (.68 + tip * .025),
           z: z + Math.sin(angle) * height * .38, sx: radius, sy: radius * .8,
-          sz: radius, color: foliageColors[(species + tip) % foliageColors.length], sway })
+          sz: radius, color: foliageColors[(species + tip) % foliageColors.length] })
       }
     }
   }
