@@ -8,7 +8,7 @@ export interface Venue {
   action: 'book' | 'visit' | 'enquire'; actionUrl: string; actionLabel: string;
   accessNote: string; sources: {label:string;url:string}[];
   /** Court opening hours and hire fees, copied from the operator's official pages. */
-  hours?: string; fees?: string; pricesUrl?: string; pricesChecked?: string;
+  hours?: string; fees?: string; bookingUrl?: string; bookingLabel?: string; pricesUrl?: string; pricesChecked?: string;
 }
 
 export const VERIFIED_DATE = '20 September 2026';
@@ -22,6 +22,7 @@ export const venues: Venue[] = [
     station:'Highbury & Islington',stationLines:'Victoria · Overground · National Rail',
     action:'book',actionLabel:'Find a court time',actionUrl:'https://bookings.better.org.uk/location/islington-tennis-centre/highbury-fields-activities',
     hours:'Every day 8am–9pm.',fees:'Adult, one hour: £12.35 non-member, £10.60 Better Pay As You Go member (same price peak and off-peak). Junior 11–17, off-peak only: £5.55 non-member, £4.40 member. Junior off-peak is 8am–6pm Monday to Friday and all day at weekends. Over-60s with a Better Adult Senior Membership play free 8am–4pm Monday to Friday; otherwise £10.60.',pricesUrl:'https://www.better.org.uk/leisure-centre/london/islington/islington-parks/prices',pricesChecked:'9 October 2026',
+    bookingUrl:'https://bookings.better.org.uk/location/islington-tennis-centre/highbury-fields-activities',bookingLabel:'Book on Better',
     accessNote:'Public pay-and-play. Prices, available times and booking rules are set by Better.',
     sources:[{label:'Better — Highbury Fields',url:'https://www.better.org.uk/leisure-centre/london/islington/islington-parks/3046-islington-parks'},{label:'Islington Council — Highbury Fields',url:'https://www.islington.gov.uk/physical-activity-parks-and-trees/parks-and-green-space/your-local-parks/highbury-fields'},{label:'Operator’s venue map',url:'https://goo.gl/maps/fyzSCdrukCD3BCbq7'}],
   },
@@ -34,6 +35,7 @@ export const venues: Venue[] = [
     station:'Caledonian Road',stationLines:'Piccadilly',
     action:'book',actionLabel:'Find a court time',actionUrl:'https://www.better.org.uk/book-activity',
     hours:'Centre open Monday to Thursday 7am–11pm; Friday to Sunday 7am–10pm (week of 5 October 2026; some areas vary).',fees:'Indoor court, one hour: adults £40.00 non-member, £35.50 member, concession £35.50 peak / £17.40 off-peak; juniors 11–17 £40.00 / £35.50 peak, £17.75 / £14.35 off-peak. Outdoor court, one hour: adults £14.85 non-member, £12.75 member, concession £12.75 peak / £11.15 off-peak; juniors 11–17 £14.85 / £12.75 peak, £6.80 / £5.45 off-peak.',pricesUrl:'https://www.better.org.uk/leisure-centre/london/islington/islingtontc/prices',pricesChecked:'9 October 2026',
+    bookingUrl:'https://www.better.org.uk/book-activity',bookingLabel:'Book on Better',
     accessNote:'Public pay-and-play. Choose Islington Tennis Centre & Gym in Better’s booking service. Indoor and outdoor courts have separate availability and prices.',
     sources:[{label:'Better — tennis and court hire',url:'https://www.better.org.uk/leisure-centre/london/islington/islingtontc/tennis'},{label:'Better — centre and directions',url:'https://www.better.org.uk/leisure-centre/london/islington/islingtontc'}],
   },
@@ -46,6 +48,7 @@ export const venues: Venue[] = [
     station:'Essex Road',stationLines:'National Rail',
     action:'book',actionLabel:'Find a court time',actionUrl:'https://bookings.better.org.uk/location/islington-tennis-centre/rosemary-gardens-activities',
     hours:'Tennis courts: Monday to Friday 8am–9pm; Saturday and Sunday 8am–7pm.',fees:'Adult, one hour: £12.35 non-member, £10.60 Better Pay As You Go member (same price peak and off-peak). Junior 11–17, off-peak only: £5.55 non-member, £4.40 member. Junior off-peak is 8am–6pm Monday to Friday and all day at weekends. Over-60 Pay As You Go members play free off-peak (8am–4pm Monday to Friday).',pricesUrl:'https://www.better.org.uk/leisure-centre/london/islington/islington-parks/prices',pricesChecked:'9 October 2026',
+    bookingUrl:'https://bookings.better.org.uk/location/islington-tennis-centre/rosemary-gardens-activities',bookingLabel:'Book on Better',
     accessNote:'Public pay-and-play. There are steps to the tennis courts. Coaching is also available through Tennis for All; coaching and court hire are separate.',
     sources:[{label:'Better — Rosemary Gardens',url:'https://www.better.org.uk/leisure-centre/london/islington/islington-parks/rosemary-gardens-football-pitch-and-tennis-courts'},{label:'Islington Council — facilities and travel',url:'https://www.islington.gov.uk/physical-activity-parks-and-trees/parks-and-green-space/your-local-parks/rosemary-gardens'},{label:'Council directory — floodlights',url:'https://findyour.islington.gov.uk/kb5/islington/directory/service.page?communitychannelnew=5&id=t6RbuROrxPk'},{label:'Operator’s venue map',url:'https://goo.gl/maps/pnRXp7idVnjAuL1R8'}],
   },
@@ -58,6 +61,7 @@ export const venues: Venue[] = [
     station:'Tufnell Park',stationLines:'Northern',
     action:'book',actionLabel:'Find a court time',actionUrl:'https://bookings.better.org.uk/location/islington-tennis-centre/tufnell-park-activities',
     hours:'Every day 8am until dusk.',fees:'Adult, one hour: £12.35 non-member, £10.60 Better Pay As You Go member (same price peak and off-peak). Junior 11–17, off-peak only: £5.55 non-member, £4.40 member. Junior off-peak is 8am–6pm Monday to Friday and all day at weekends. Over-60s with a Better Adult Senior Membership play free 8am–4pm Monday to Friday; otherwise £10.60.',pricesUrl:'https://www.better.org.uk/leisure-centre/london/islington/islington-parks/prices',pricesChecked:'9 October 2026',
+    bookingUrl:'https://bookings.better.org.uk/location/islington-tennis-centre/tufnell-park-activities',bookingLabel:'Book on Better',
     accessNote:'Public pay-and-play. Better lists opening hours from 8am until dusk; check its calendar for court times.',
     sources:[{label:'Better — Tufnell Park Playing Fields',url:'https://www.better.org.uk/leisure-centre/london/islington/islington-parks/tufnell-park-playing-fields'},{label:'Operator’s venue map',url:'https://goo.gl/maps/X7MRUu78VChS9GWP7'}],
   },
@@ -70,6 +74,7 @@ export const venues: Venue[] = [
     station:'Farringdon / Angel',stationLines:'See directions for your journey',
     action:'visit',actionLabel:'Plan a visit',actionUrl:'https://www.islington.gov.uk/physical-activity-parks-and-trees/parks-and-green-space/your-local-parks/spa-fields',
     hours:"Open during the park's opening hours, which the council publishes on its parks opening times page.",fees:'Free; the court cannot be booked.',pricesUrl:'https://www.islington.gov.uk/physical-activity-parks-and-trees/parks-and-green-space/your-local-parks/opening-and-closing-times-of-parks',pricesChecked:'9 October 2026',
+    bookingUrl:'https://www.islington.gov.uk/physical-activity-parks-and-trees/parks-and-green-space/your-local-parks/spa-fields',bookingLabel:'No booking — just turn up',
     accessNote:'Free play. The council says this court cannot be booked. Availability depends on other park users.',
     sources:[{label:'Islington Council — Spa Fields',url:'https://www.islington.gov.uk/physical-activity-parks-and-trees/parks-and-green-space/your-local-parks/spa-fields'},{label:'Parks & Gardens — park location',url:'https://www.parksandgardens.org/places/spa-fields-gardens'}],
   },
@@ -81,6 +86,7 @@ export const venues: Venue[] = [
     description:'The school lists four outdoor tennis courts among its PE facilities. Public tennis hire has not been verified.',
     station:'Angel',stationLines:'Northern',
     action:'enquire',actionLabel:'Visit the school website',actionUrl:'https://www.egaschool.co.uk/314/physical-education-pe',
+    hours:'The school does not publish public opening hours for its tennis courts; they are used for PE lessons and school clubs.',fees:'No public hire prices are published. Contact the school to ask whether any community hire is possible.',pricesUrl:'https://www.egaschool.co.uk/314/physical-education-pe',bookingUrl:'https://www.egaschool.co.uk/314/physical-education-pe',bookingLabel:'No public booking — contact the school',pricesChecked:'9 October 2026',
     accessNote:'Restricted school facilities. A listing does not give permission to enter. Contact the school about any community access.',
     sources:[{label:'EGA School — PE facilities',url:'https://www.egaschool.co.uk/314/physical-education-pe'}],
   },
@@ -92,6 +98,7 @@ export const venues: Venue[] = [
     description:'A nearby members’ club in Crouch End, outside Islington. Fourteen tennis courts, with two covered for the winter months.',
     station:'Highgate',stationLines:'Northern · onward walk or bus',
     action:'enquire',actionLabel:'Membership & coaching',actionUrl:'https://coolhurst.co.uk/tennis/',
+    hours:'The club does not publish court opening hours; members book courts through the club. Ten of the fourteen courts are floodlit.',fees:'Tennis membership, annual or monthly: full £650 or £58.00; aged 30 and under £450 or £40.50; aged 24 and under £220 or £19.50; aged 65 and over £520 or £46.50; aged 75 and over £325 or £29.00; junior unrestricted (18 and under) £180 or £16.00; junior restricted £60 or £5.50. Tennis membership is currently full with a waiting list. Coaching and group sessions are open to non-members, with discounts for members.',pricesUrl:'https://coolhurst.co.uk/membership/',bookingUrl:'https://coolhurst.clubsolution.co.uk/newlook/proc_liste.asp?type=202',bookingLabel:'Book coaching and group sessions',pricesChecked:'9 October 2026',
     accessNote:'Membership is subject to availability; the club currently advertises a waiting list. Some coaching is open to non-members.',
     sources:[{label:'Coolhurst — tennis and access',url:'https://coolhurst.co.uk/tennis/'},{label:'OpenStreetMap via Mapcarta — club location',url:'https://mapcarta.com/W371638490'}],
   },
@@ -103,6 +110,7 @@ export const venues: Venue[] = [
     description:'A Barbican residents’ club using two hard courts owned by the City of London School for Girls. Outside Islington, in the City of London.',
     station:'Barbican',stationLines:'Circle · Hammersmith & City · Metropolitan',
     action:'enquire',actionLabel:'Read access requirements',actionUrl:'https://clubspark.lta.org.uk/BarbicanLTC',
+    hours:'Club members have the two courts from 6pm on weekdays, and from 8am at weekends and during school holidays. The school has priority after 6pm in term time. Members may book up to 3 hours in any 7 days, single hours in evenings and weekends.',fees:'The club does not publish its membership fee online. Membership is only open to Barbican Estate residents.',pricesUrl:'https://clubspark.lta.org.uk/BarbicanLTC',bookingUrl:'https://clubspark.lta.org.uk/BarbicanLTC',bookingLabel:'Residents: contact the club',pricesChecked:'9 October 2026',
     accessNote:'Membership is limited to Barbican Estate residents. Accompanied guests may play under club rules, outside specified school hours. No public pay-and-play access.',
     sources:[{label:'Barbican Lawn Tennis Club',url:'https://clubspark.lta.org.uk/BarbicanLTC'},{label:'Barbican — club rules',url:'https://clubspark.lta.org.uk/BarbicanLTC/CLUBRULES/Rules'},{label:'OpenStreetMap via Mapcarta — school location',url:'https://mapcarta.com/W1467662623'}],
   },
