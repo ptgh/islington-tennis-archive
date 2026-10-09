@@ -1,4 +1,4 @@
-import { createOpenAI } from "npm:@ai-sdk/openai@3";
+import { createOpenAI } from "npm:@ai-sdk/openai@4";
 import { streamText, type ModelMessage } from "npm:ai@7";
 
 import {
