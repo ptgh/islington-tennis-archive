@@ -187,7 +187,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
         })
       }
     }
-    if(coverage>.75 && b.width<25 && b.depth<45 && f.tags['roof:shape']!=='flat') {
+    if(coverage>.68 && b.width<30 && b.depth<55 && f.tags['roof:shape']!=='flat') {
       // Roof ridge runs along the long axis of each real footprint.
       place(b.x,b.z,b.angle+Math.PI/2,1,()=>{
         const width=b.depth,depth=b.width,rise=Math.min(3.3,depth*.36)
@@ -218,6 +218,12 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     } else {
       // Complex mansion blocks retain their exact outline and get a restrained roof/parapet.
       for(let i=1;i<f.points.length;i++)segment(f.points[i-1],f.points[i],.35,height+.3,roofTone,.65)
+      // Flat-roofed blocks get chimney stacks and lift housings so no roof reads as a bare slab.
+      if(!inVenue&&b.width>6&&b.depth>6)place(b.x,b.z,b.angle,1,()=>{
+        const r=random(f.id+7)
+        box((r-.5)*b.width*.4,height+.9,(r*3%1-.5)*b.depth*.4,1.8,1.5,1.4,'#c9c2b2')
+        for(const sx of [-1,1]){box(sx*b.width*.3,height+1.1,b.depth*.28,.8,1.9,.9,colour);for(const dx of [-.2,.2])box(sx*b.width*.3+dx,height+2.25,b.depth*.28,.16,.5,.16,'#aa7355')}
+      })
       if(inVenue)place(b.x,b.z,b.angle,1,()=>{
         for(let z=-b.depth/2+5;z<b.depth/2-3;z+=9)for(const x of [-b.width*.18,b.width*.18]) {
           box(x,height+.22,z,1.65,.28,2.65,'#9aa89b')

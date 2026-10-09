@@ -202,6 +202,10 @@ export function createTown(venues: MapVenue[]): TownWorld {
   const surveyedPaths: Instance[] = []
   const roadEdges: Instance[] = []
   const laneMarks: Instance[] = []
+  const kerbs: Instance[] = []
+  const gutters: Instance[] = []
+  const kerbMaterial = standard('#cfc8b8', { roughness: .92 })
+  const gutterMaterial = standard('#3f4442', { roughness: .7, transparent: true, opacity: .35 })
   for (const road of roads) {
     for (let i = 1; i < road.points.length; i++) {
       const a = road.points[i - 1]
@@ -221,6 +225,15 @@ export function createTown(venues: MapVenue[]): TownWorld {
         const sx = length / subdivisions + (road.surveyed?.025:.4)
         roadEdges.push({ x, y: .035, z, sx, sy: .07, sz: width + (road.surveyed||local?.32:2.4), ry: angle })
         ;(road.path?surveyedPaths:roadBodies).push({ x, y: .08, z, sx, sy: .06, sz: width, ry: angle })
+        if (!road.path) {
+          // Raised stone kerbs either side catch the light and give carriageways a real edge.
+          const ux = (b[0] - a[0]) / length, uz = (b[1] - a[1]) / length
+          for (const side of [-1, 1]) {
+            const off = width / 2 + .09
+            kerbs.push({ x: x - uz * off * side, y: .13, z: z + ux * off * side, sx, sy: .12, sz: .18, ry: angle })
+            if (j % 3 === 0 && !local) gutters.push({ x: x - uz * (width / 2 - .25) * side, y: .113, z: z + ux * (width / 2 - .25) * side, sx: sx * .9, sy: .01, sz: .32, ry: angle })
+          }
+        }
         if (road.avenue && j % 2 === 0) laneMarks.push({ x, y: .12, z, sx: local?.45:2.2, sy: .025, sz: local?.035:.15, ry: angle })
       }
     }
@@ -228,6 +241,8 @@ export function createTown(venues: MapVenue[]): TownWorld {
   instances(box, verge, roadEdges, false)
   instances(box, tarmac, roadBodies, false)
   instances(box, pathMaterial, surveyedPaths, false)
+  instances(box, kerbMaterial, kerbs)
+  instances(box, gutterMaterial, gutters, false)
   instances(box, lane, laneMarks, false)
   const streetLamps=createStreetLamps(primaryRoads,exclusions);root.add(streetLamps.root)
 
@@ -394,8 +409,10 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const color = foliageColors[species]
     const height = (3.8 + rnd() * 2.2) * size
     const detailedLocal = detailedNeighbourhood(x, z, 95)
-    const silhouette = detailedLocal ? species % 3 : 0
+    // Mixed species everywhere: round limes, columnar poplars, wide spreading planes.
+    const silhouette = species % 3
     treeTrunks.push({ x, y: height * .4, z, sx: .19 * size, sy: height * .8, sz: .19 * size })
+    // Gaps between lobes let sunlight through, so crowns cast broken, dappled shade.
     // Irregular clusters give mature trees layered crowns and soft, broken silhouettes.
     for (let lobe=0;lobe<7;lobe++) {
       const angle=lobe*2.399+height, ring=lobe===0?0:height*(silhouette===1?.19:silhouette===2?.31:.25);
