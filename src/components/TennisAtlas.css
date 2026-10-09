@@ -19,6 +19,8 @@
 .tennis-atlas.is-court-view .atlas-header h2{font-size:32px}
 .tennis-atlas.is-court-view .atlas-navigation{padding:0 23px 10px}
 .tennis-atlas.is-court-view .atlas-content{flex:1;overflow:hidden}
+.atlas-court-container{height:100%;min-height:0}
+.atlas-court-container[hidden]{display:none}
 .atlas-explore-courts{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;width:100%;padding:12px 14px;margin:15px 0 10px;border:1px solid #c7d6bf;border-radius:10px;background:#edf1e5;color:#244b3d;text-align:left;font-size:13px}
 .atlas-explore-courts:hover{background:#e0ebd9}
 .atlas-explore-courts small{grid-column:1/-1;color:#71836f;font-size:11px}
@@ -107,6 +109,7 @@
 .atlas-calendar-note{font-size:12px;line-height:1.7;color:#65795f;margin:17px 0 0}
 @keyframes atlas-travel{to{stroke-dashoffset:-110}}
 @media(max-width:760px){
+ .tennis-atlas.is-court-view .atlas-content{min-height:0}
  .tennis-atlas.is-court-view .atlas-header{padding:12px 15px 9px}.tennis-atlas.is-court-view .atlas-header h2{font-size:25px}.tennis-atlas.is-court-view .atlas-navigation{padding:0 12px 10px}
  .atlas-launch{top:167px;right:97px;width:68px}
  .tennis-atlas{width:calc(100vw - 18px);max-width:calc(100vw - 18px);height:calc(100dvh - 18px);max-height:calc(100dvh - 18px);border-radius:18px}
