@@ -28,6 +28,7 @@ import { skyPosition } from './scene/sceneAtmosphere';
 import { AskIslington } from './components/AskIslington';
 import { threadIdFromHash } from './data/askThreads';
 import { LoadingScreen } from './components/LoadingScreen';
+import { AccountCircle } from './components/AccountCircle';
 
 export default function App() {
   const [weather,setWeather]=useState<WeatherSceneKind>('rain');
@@ -135,6 +136,7 @@ export default function App() {
     <div className="map-vignette"/><Weather onWeather={setWeather}/><MapPlaces onLocate={(lat,lng)=>{setPanelOpen(false);setStations(true);map.current?.locate(lat,lng);}}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
     <button className="pill ask-launch" onClick={()=>{window.location.hash='#/ask';}} aria-haspopup="dialog">Ask</button>
+    <AccountCircle venues={venues} onRacquets={openMyFrame} onPartners={()=>{changeSection('play');setPartnersOpen(true);}}/>
     <header className="app-header"><button className="brand" onClick={home} aria-label="Islington Tennis home"><Icon name="ball" size={35}/><span>Islington Tennis</span></button><div className="header-actions"><button className="pill about-button" onClick={()=>setAbout(true)} aria-label="About"><span>About</span><Icon name="info" size={17}/></button><LightingControl night={night} time={lightingTime} onTime={setLightingTime} onNight={toggleNight}/></div></header>
     <aside id="court-browser" className={`directory-panel ${hasDetail?'has-detail':''}`} aria-label="Explore the tennis hub" inert={!panelOpen} aria-hidden={!panelOpen?true:undefined}>
       <button className="mobile-handle" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen} aria-label={panelOpen?'Minimise tennis hub':'Open tennis hub'}><span/></button>

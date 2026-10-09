@@ -1,0 +1,19 @@
+.account-launch{position:absolute;right:30px;top:196px;z-index:5}
+.app .account-launch.pill{width:44px;height:44px;min-width:44px;padding:0;border-radius:50%;position:absolute}
+.account-launch[data-signed-in=true]{background:var(--ink);color:var(--paper);border-color:var(--paper)}
+.account-dialog{width:440px;padding:24px;position:fixed;overflow-y:auto}
+.account-dialog .partners{overflow:visible;display:block}
+.account-dialog .detail-scroll{padding:0;overflow:visible}
+.account-dialog .back-button{display:none}
+.account-dialog .partners h1{font-size:38px;margin:18px 32px 18px 0}
+.account-dialog .account-links{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 20px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.account-dialog .partners-form input{min-height:44px}
+.account-dialog .partners-form .primary-button{justify-content:center;min-height:44px}
+.account-dialog .partners-form .pill{width:100%}
+.account-dialog .partners-form .access-note{margin:0}
+@media(max-width:760px){
+ .account-launch{right:19px;top:221px}
+ .app .account-launch.pill{width:40px;height:40px;min-width:40px}
+ .account-dialog{max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);padding:22px 20px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+ .account-dialog .partners h1{font-size:34px}
+}
