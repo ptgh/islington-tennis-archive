@@ -35,7 +35,16 @@
 .racquet-story-art{align-self:start;text-align:center}.racquet-story-art .racquet-media{height:225px;margin:0 0 7px}.racquet-story-art small{font-size:10px;color:#6b8069}.racquet-story-copy{padding:3px 27px 2px 0}.racquet-story-copy h4{font:31px/1.05 var(--serif);margin:7px 0}.racquet-story-copy strong{font-size:12px;color:#55705a}.racquet-story-copy p{font-size:12px;line-height:1.7;color:#657864;margin:13px 0}.racquet-story-copy a{display:inline-flex;align-items:center;gap:6px;margin-top:3px;font-size:11px;color:#315c49;text-underline-offset:3px}.racquet-story-close{position:absolute;top:14px;right:14px;display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#e8eee2}
 @media(max-width:760px){.racquet-story{grid-template-columns:100px minmax(0,1fr);gap:13px;padding:15px}.racquet-story-art .racquet-media{height:142px}.racquet-story-copy{padding-right:20px}.racquet-story-copy h4{font-size:25px}.racquet-story-copy p{font-size:11px}}
 @media(max-width:480px){.racquet-story{grid-template-columns:1fr}.racquet-story-art{display:flex;align-items:center;gap:12px;text-align:left}.racquet-story-art .racquet-media{width:80px;height:100px;flex:none;margin:0}.racquet-story-copy{padding-right:0}}
-.racquet-studio-body{scrollbar-width:none}
+.racquet-studio-body{scrollbar-width:thin;flex:1;padding-bottom:calc(20px + env(safe-area-inset-bottom));scroll-padding-top:180px}
+.racquet-collection{padding-top:0}
+.racquet-collection-toolbar{position:relative;background:var(--paper);padding-top:27px;padding-bottom:4px}
+.racquet-media img{transform:none;padding:7px;object-fit:contain}
+.racquet-studio-head>div{min-width:0}
+.racquet-studio-head h2{overflow-wrap:break-word;line-height:1.12}
+.racquet-tile{height:320px}
+.racquet-tile strong{min-height:0;overflow-wrap:anywhere;flex:1;width:100%;margin-bottom:5px}
+.racquet-tile-character{flex:none;line-height:1.4}
+@media(max-width:760px){.racquet-collection-toolbar{padding-top:18px}.racquet-section-top{gap:10px;margin-bottom:12px}.racquet-tile{height:300px}.racquet-tile strong{font-size:17px}.racquet-studio-body{scroll-padding-top:205px}.racquet-studio-head{padding-top:max(18px,env(safe-area-inset-top))}}
 .racquet-studio-body::-webkit-scrollbar{display:none}
 .racquet-player-rail p{font-size:12.5px;line-height:1.55;color:#526d58}
 .racquet-player-rail article button{font-size:12px}

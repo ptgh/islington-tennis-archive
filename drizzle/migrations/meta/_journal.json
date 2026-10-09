@@ -8,6 +8,13 @@
       "when": 1791547231544,
       "tag": "0000_court_slots_and_player_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791556066541,
+      "tag": "0001_limit_public_court_feed_reads",
+      "breakpoints": true
     }
   ]
 }
