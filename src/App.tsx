@@ -27,6 +27,7 @@ import { LightingControl } from './components/LightingControl';
 import { skyPosition } from './scene/sceneAtmosphere';
 import { AskIslington } from './components/AskIslington';
 import { threadIdFromHash } from './data/askThreads';
+import { LoadingScreen } from './components/LoadingScreen';
 
 export default function App() {
   const [weather,setWeather]=useState<WeatherSceneKind>('rain');
@@ -146,7 +147,7 @@ export default function App() {
     <div className="place-title"><h2>Islington</h2><p>London, at play.</p><span className="title-rule"/></div>
     <div className="map-toolbar" aria-label="Map controls"><div className="zoom-buttons"><button aria-label="Zoom in" title="Zoom in" onClick={()=>map.current?.zoomIn()}><Icon name="plus"/></button><button aria-label="Zoom out" title="Zoom out" onClick={()=>map.current?.zoomOut()}><Icon name="minus"/></button></div><button className="icon-button" aria-label="Rotate map" title="Rotate map" onClick={()=>map.current?.rotate()}><Icon name="rotate"/></button><button className="icon-button" aria-label="Reset map view" title="Reset map view" onClick={()=>visitId?leaveVisit():map.current?.reset()}><Icon name="reset"/></button></div>
     <footer className="map-footer"><div className="layer-controls"><button className="pill" aria-pressed={stations} onClick={()=>setStations(!stations)}><span className="roundel tiny"/> Stations</button><button className="pill" aria-pressed={showBuses} onClick={()=>setShowBuses(!showBuses)}><Icon name="bus" size={14}/> Buses</button><button className="pill" aria-pressed={motionRunning} onClick={()=>setMotionRunning(!motionRunning)}><Icon name={motionRunning?'pause':'play'} size={13}/><span>{motionRunning?'Pause world':'Play world'}</span></button></div><button className="map-note" onClick={()=>setAbout(true)}>An illustrated neighbourhood <Icon name="info" size={13}/></button></footer>
-    {!ready&&<div className="loading-label" role="status"><Icon name="ball" size={20}/> Building your little world…</div>}
+    <LoadingScreen ready={ready}/>
     <button className="map-attribution" onClick={()=>setAbout(true)} aria-haspopup="dialog">Map credits</button>
     {atlas&&<TennisAtlas lightingTime={lightingTime} onLightingTime={setLightingTime} night={night} motionRunning={motionRunning} weather={weather} onNight={toggleNight} onMotion={()=>setMotionRunning(!motionRunning)} today={londonDate(todayClock)} onClose={()=>setAtlas(false)} onHome={()=>{setAtlas(false);home();}}/>}
     {racquetRoom&&<RacquetStudio initialView={racquetView} onPartners={()=>{setRacquetRoom(false);changeSection('play');setPartnersOpen(true);}} onClose={()=>setRacquetRoom(false)}/>}
