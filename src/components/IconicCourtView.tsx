@@ -66,7 +66,7 @@ function buildScene(id: IconicClubId) {
   const material = (colour: string) => {
     let value = materials.get(colour)
     if (!value) {
-      const base = grassColours.has(colour) ? finishes.parkGrass : pavingColours.has(colour) ? finishes.paving : ['#a9775a', '#986b55', '#ad866b'].includes(colour) ? finishes.brick : colour === '#3d5143' ? finishes.slate : null
+      const base = grassColours.has(colour) ? finishes.parkGrass : [...pavingColours, '#ccc5b0', '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? finishes.paving : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#746b51' ? finishes.timber : null
       value = base ? base.clone() : new THREE.MeshStandardMaterial({ roughness: .9 })
       value.color.set(colour)
       if (colour === '#f5f2df') { value.emissive.set('#f5f2df'); value.emissiveIntensity = .12 }
@@ -137,19 +137,20 @@ function buildScene(id: IconicClubId) {
     // Three silhouettes (round, columnar, spreading) so no two neighbours repeat.
     const kind = Math.floor(Math.abs(Math.sin(x * 12.9 + z * 78.2)) * 3)
     const spread = kind === 1 ? .28 : kind === 2 ? .62 : .48, lift = kind === 1 ? 1.25 : 1
-    for (let lobe = 0; lobe < 7; lobe++) {
+    for (let lobe = 0; lobe < 4; lobe++) {
       const angle = lobe * 2.399 + x, radius = lobe === 0 ? 0 : size * spread
       transform.position.set(x + Math.cos(angle) * radius, size * (lobe === 0 ? 1.7 : 1.35 + (kind === 1 ? lobe * .12 : 0)) * lift, z + Math.sin(angle) * radius)
       transform.rotation.set(0, angle, 0)
       transform.scale.setScalar(size * (lobe === 0 ? .65 : .46))
       transform.updateMatrix()
       foliageBatches.get(shade)!.push(placement.clone().multiply(transform.matrix))
+      if(lobe>0)beam(new THREE.Vector3(x,size*.8,z),new THREE.Vector3(x+Math.cos(angle)*radius,size*1.5,z+Math.sin(angle)*radius),size*.055,'#746b51')
     }
   }
   const court = (cx: number, cz: number, width = 12, depth = 23, apron = 3) => {
     box(cx, .08, cz, width + apron * 2, .12, depth + apron * 2, '#2f6948', false)
-    box(cx, .155, cz, width, .03, depth, '#668e4d', false)
-    for (let i = 0; i < 10; i++) box(cx - width / 2 + (i + .5) * width / 10, .179, cz, width / 10, .005, depth, i % 2 ? '#6d9653' : '#739b57', false)
+    box(cx, .155, cz, width, .03, depth, '#8eac70', false)
+    for (let i = 0; i < 10; i++) box(cx - width / 2 + (i + .5) * width / 10, .179, cz, width / 10, .005, depth, i % 2 ? '#8eac70' : '#95b579', false)
     // Slightly exaggerated paint remains legible at miniature overview scale.
     const line = (x: number, z: number, w: number, d: number) => box(cx + x, .25, cz + z, w, .025, d, '#f5f2df', false)
     const doubles = width * .44, singles = width * .36, baseline = depth * .44, service = depth * .23
@@ -160,8 +161,8 @@ function buildScene(id: IconicClubId) {
       line(0, side * service, singles * 2, .18)
       line(0, side * service / 2, .16, service)
     }
-    for (let strand = 0; strand <= 36; strand++) box(cx - doubles + strand * doubles / 18, .61, cz, .023, .65, .023, '#3f5b49', false)
-    for (const y of [.35, .5, .65, .8]) box(cx, y, cz, doubles * 2, .018, .018, '#3f5b49', false)
+    transform.position.set(cx,.61,cz);transform.rotation.set(0,0,0);transform.scale.set(doubles*2,.65,.015)
+    instance(finishes.net,true)
     box(cx, .96, cz, doubles * 2 + .5, .045, .07, '#fcf8e9', false)
     for (const side of [-1, 1]) cylinder(cx + side * (doubles + .25), .54, cz, .055, 1.08, '#3f5b49')
     // Court-side furniture and fine perimeter fencing use the main map's miniature scale.
@@ -427,7 +428,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
       camera.updateProjectionMatrix()
     }
     const overview = new THREE.Vector3(compact ? 0 : -85, 0, compact ? 0 : 35)
-    const offset = new THREE.Vector3(420, 570, 650)
+    const offset = new THREE.Vector3(420, 510, 680)
     camera.position.copy(offset).add(overview)
     camera.lookAt(overview)
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -445,8 +446,8 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
     const frame = () => {
       const state = runtime.current
       world.animate(0, false, state.night, state.weather, state.lightingTime)
-      renderer.toneMappingExposure = state.night ? .86 : 1.05
-      occlusion.blendIntensity = state.night ? .16 : .36
+      renderer.toneMappingExposure = state.night ? .86 : 1.18
+      occlusion.blendIntensity = state.night ? .16 : .30
       renderer.shadowMap.needsUpdate = true
       composer.render()
     }
