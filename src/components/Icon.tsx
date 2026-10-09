@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 
-export type IconName = 'ball' | 'court' | 'search' | 'arrow' | 'external' | 'back' | 'close' | 'sun' | 'moon' | 'plus' | 'minus' | 'reset' | 'rotate' | 'train' | 'pin' | 'layers' | 'pause' | 'play' | 'check' | 'info' | 'bus' | 'bag' | 'people';
+export type IconName = 'ball' | 'court' | 'search' | 'arrow' | 'external' | 'back' | 'close' | 'sun' | 'moon' | 'plus' | 'minus' | 'reset' | 'rotate' | 'train' | 'pin' | 'layers' | 'pause' | 'play' | 'check' | 'info' | 'bus' | 'bag' | 'people' | 'person';
 const paths: Record<IconName, React.ReactNode> = {
+  person: <><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></>,
   bus: <><rect x="4" y="3" width="16" height="16" rx="3"/><path d="M4 9h16M4 14h16M9 3v11M15 3v11M7 19v2m10-2v2M7 16h1m8 0h1"/></>,
   bag: <><path d="M5 7h14l1 14H4L5 7Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></>,
   people: <><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v3"/></>,

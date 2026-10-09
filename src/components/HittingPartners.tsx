@@ -10,7 +10,7 @@ import { parseRacquetProfile, RACQUET_PROFILE_KEY, racquets } from '../data/racq
 type CourtChoice = { id: string; name: string };
 const empty: PlayerProfile = { display_name: '', level: 'Improver', utr_rating: null, preferred_courts: [], contact: '', visible: false };
 
-export function HittingPartners({ venues, onBack, onRacquets }: { venues: CourtChoice[]; onBack: () => void; onRacquets: () => void }) {
+export function HittingPartners({ venues, onBack, onRacquets, account = false, initialMode = 'in', onPartners }: { venues: CourtChoice[]; onBack: () => void; onRacquets: () => void; account?: boolean; initialMode?: 'in' | 'up'; onPartners?: () => void }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -21,26 +21,28 @@ export function HittingPartners({ venues, onBack, onRacquets }: { venues: CourtC
   return <div className="court-detail partners">
     <button className="back-button" onClick={onBack}><Icon name="back" size={17}/> All play options</button>
     <div className="detail-scroll">
-      <div className="access-label"><span/>Hitting partners</div>
-      <h1 tabIndex={-1}>Find a hitting partner</h1>
-      <p className="detail-description">Add a short player card, then see other players at your level and courts. Signing in is optional and only needed for this.</p>
-      <button className="service-map-link" onClick={onRacquets} aria-haspopup="dialog"><Icon name="bag" size={20}/><span>My frame<small>Your setup in the racquet room</small></span><Icon name="arrow" size={16}/></button>
-      {!ready ? null : session ? <Signed session={session} venues={venues}/> : <SignIn/>}
+      <div className="access-label"><span/>{account ? 'Your account' : 'Hitting partners'}</div>
+      <h1 tabIndex={-1}>{account ? session ? 'Your player profile' : 'Join the court.' : 'Find a hitting partner'}</h1>
+      {!account && <p className="detail-description">Add a short player card, then see other players at your level and courts. Signing in is optional and only needed for this.</p>}
+      {account ? <nav className="account-links" aria-label="Player shortcuts"><button className="text-button" onClick={onRacquets}><Icon name="bag" size={18}/>Racquet room</button><button className="text-button" onClick={onPartners}><Icon name="people" size={18}/>Connect with players</button></nav> : <button className="service-map-link" onClick={onRacquets} aria-haspopup="dialog"><Icon name="bag" size={20}/><span>My frame<small>Your setup in the racquet room</small></span><Icon name="arrow" size={16}/></button>}
+      {!ready ? <p role="status">Loading your account…</p> : session ? <Signed session={session} venues={venues} account={account}/> : <SignIn initialMode={initialMode}/>}
     </div>
   </div>;
 }
 
-function SignIn() {
+function SignIn({ initialMode }: { initialMode: 'in' | 'up' }) {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'in' | 'up'>('in'); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'in' | 'up'>(initialMode); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setMsg('');
+    try {
     const { data, error } = mode === 'in'
       ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
       : await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: window.location.origin } });
-    setBusy(false);
     if (error) setMsg(error.message);
     else if (mode === 'up' && !data.session) setMsg('Check your email to confirm your account, then sign in.');
+    } catch { setMsg('Couldn’t connect. Please try again.'); }
+    finally { setBusy(false); }
   };
   const google = async () => {
     const r = await lovable.auth.signInWithOAuth('google', { redirect_uri: window.location.origin });
@@ -50,16 +52,16 @@ function SignIn() {
     <button type="button" className="pill" onClick={google}>Continue with Google</button>
     <label>Email<input type="email" required maxLength={255} value={email} onChange={e => setEmail(e.target.value)} autoComplete="email"/></label>
     <label>Password<input type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === 'in' ? 'current-password' : 'new-password'}/></label>
-    <button className="primary-button" disabled={busy}>{mode === 'in' ? 'Sign in' : 'Create account'}</button>
-    <button type="button" className="text-button" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>{mode === 'in' ? 'New here? Create an account' : 'Already have an account? Sign in'}</button>
+    <button className="primary-button" disabled={busy}>{busy ? 'Please wait…' : mode === 'in' ? 'Sign in' : 'Create account'}</button>
+    <button type="button" className="text-button" disabled={busy} onClick={() => { setMsg(''); setMode(mode === 'in' ? 'up' : 'in'); }}>{mode === 'in' ? 'New here? Create an account' : 'Already have an account? Sign in'}</button>
     {msg && <p role="status" className="access-note">{msg}</p>}
   </form>;
 }
 
-function Signed({ session, venues }: { session: Session; venues: CourtChoice[] }) {
+function Signed({ session, venues, account = false }: { session: Session; venues: CourtChoice[]; account?: boolean }) {
   const [me, setMe] = useState<PlayerProfile>(empty);
   const [others, setOthers] = useState<(PlayerProfile & { id: string })[]>([]);
-  const [court, setCourt] = useState(''); const [msg, setMsg] = useState(''); const [editing, setEditing] = useState(false);
+  const [court, setCourt] = useState(''); const [msg, setMsg] = useState(''); const [editing, setEditing] = useState(account);
   const uid = session.user.id;
   const [frame, setFrame] = useState(() => { try { return parseRacquetProfile(localStorage.getItem(RACQUET_PROFILE_KEY)); } catch { return parseRacquetProfile(null); } });
   useEffect(() => {
@@ -97,7 +99,7 @@ function Signed({ session, venues }: { session: Session; venues: CourtChoice[] }
       {msg && <p role="status" className="access-note">{msg}</p>}
     </form> : <div className="partner-card mine"><strong>{me.display_name}</strong><span>{me.level}{me.utr_rating ? ` · UTR ${me.utr_rating}` : ''}</span><small>{names(me.preferred_courts)}</small><button className="text-button" onClick={() => setEditing(true)}>Edit my card</button></div>}
     {(frame.racquetId || frame.otherRacquet) && <p className="play-context">My frame · {racquets.find(r => r.id === frame.racquetId)?.name || frame.otherRacquet}{frame.strings ? ` · ${frame.strings}` : ''}</p>}
-    {!editing && <>
+    {!editing && !account && <>
     <h2 className="small-heading">Players looking for a hit</h2>
     <SelectField label="Show players at" value={court} onChange={setCourt} options={[{value:'',label:'All courts'},...venues.map(v => ({value:v.id,label:v.name}))]}/>
     {shown.map(p => <div className="partner-card" key={p.id}><strong>{p.display_name}</strong><span>{p.level}{p.utr_rating ? ` · UTR ${p.utr_rating}` : ''}</span><small>{names(p.preferred_courts)}</small>{p.contact && <small>Contact: {p.contact}</small>}</div>)}
