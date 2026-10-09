@@ -629,6 +629,5 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
     </div>
     <div className="atlas-court-controls" aria-label="Court view controls"><button onClick={() => engine.current?.zoom(1.25)} aria-label="Zoom in">+</button><button onClick={() => engine.current?.zoom(.8)} aria-label="Zoom out">−</button><button onClick={() => engine.current?.reset()} aria-label="Reset court view"><Icon name="reset" size={18}/></button></div>
     <p className="atlas-court-hint">Drag to move · scroll to zoom · double-click to reset</p>
-    <a className="atlas-court-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Map © OpenStreetMap contributors</a>
   </section>
 }
