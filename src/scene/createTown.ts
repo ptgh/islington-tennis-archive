@@ -270,6 +270,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     return false
   }
   function house(x: number, z: number, angle: number, width: number, depth: number, height: number, color: string) {
+    const detailedHighbury = Math.hypot(x - highbury.x, z - highbury.z) < 115
     const coord = (localx: number, localz: number) => ({
       x: x + localx * Math.cos(angle) + localz * Math.sin(angle),
       z: z - localx * Math.sin(angle) + localz * Math.cos(angle),
@@ -321,6 +322,28 @@ export function createTown(venues: MapVenue[]): TownWorld {
     chimneys.push({ ...p, y: height + 1.3, sx: .64, sy: 1.45, sz: .67, ry: angle, color })
     trims.push({...p,y:height+2.03,sx:.78,sy:.14,sz:.81,ry:angle});
     for(const dx of [-.17,.17]){const pot=coord(width*.28+dx,depth*.19);pots.push({...pot,y:height+2.31,sx:.13,sy:.49,sz:.13});}
+    if (detailedHighbury) {
+      // Georgian facade relief is batched with existing town geometry.
+      for (const side of [-1, 1]) {
+        for (const y of [2.7, 4.4, height - .5]) {
+          const band = coord(0, side * (depth / 2 + .17))
+          trims.push({ ...band, y, sx: width + .08, sy: .12, sz: .22, ry: angle })
+        }
+        const pipe = coord(width * .46, side * (depth / 2 + .22))
+        roofDetails.push({ ...pipe, y: height / 2, sx: .08, sy: height, sz: .08, ry: angle })
+        const bay = coord(-width * .24, side * (depth / 2 + .32))
+        trims.push({ ...bay, y: 1.1, sx: 1.13, sy: 1.8, sz: .63, ry: angle })
+        const pane = coord(-width * .24, side * (depth / 2 + .66))
+        windows.push({ ...pane, y: 1.23, sx: .77, sy: 1.15, sz: .06, ry: angle, color: glassTone })
+        trims.push({ ...pane, y: 1.23, sx: .04, sy: 1.17, sz: .08, ry: angle })
+        const rail = coord(0, side * (depth / 2 + 1.5))
+        doors.push({ ...rail, y: .85, sx: width, sy: .055, sz: .055, ry: angle })
+        for (let post = 0; post < 9; post++) {
+          const p = coord((post / 8 - .5) * width, side * (depth / 2 + 1.5))
+          doors.push({ ...p, y: .5, sx: .035, sy: .85, sz: .035, ry: angle })
+        }
+      }
+    }
   }
 
   for (const segment of roadSegments) {
@@ -361,22 +384,40 @@ export function createTown(venues: MapVenue[]): TownWorld {
 
   const treeTrunks: Instance[] = []
   const treeCrowns: Instance[] = []
+  const treeBranches: Instance[] = []
   const shrubs: Instance[] = []
   const foliageColors = ['#64814a', '#769354', '#8da260', '#a0ad6e', '#6d8b4d', '#a8b676']
   function tree(x: number, z: number, size = 1) {
     const species = Math.floor(rnd() * foliageColors.length)
     const color = foliageColors[species]
     const height = (3.8 + rnd() * 2.2) * size
+    const detailedHighbury = Math.hypot(x - highbury.x, z - highbury.z) < 95
+    const silhouette = detailedHighbury ? species % 3 : 0
     const windSeed = Math.abs(Math.sin(x*12.9898+z*78.233)*43758.5453)%1
     const sway = Math.hypot(x-105,z+32)<105 && windSeed<.17 ? x*.021+z*.017 : undefined
     treeTrunks.push({ x, y: height * .4, z, sx: .19 * size, sy: height * .8, sz: .19 * size })
     // Irregular clusters give mature trees layered crowns and soft, broken silhouettes.
     for (let lobe=0;lobe<7;lobe++) {
-      const angle=lobe*2.399+height, ring=lobe===0?0:height*.25;
+      const angle=lobe*2.399+height, ring=lobe===0?0:height*(silhouette===1?.19:silhouette===2?.31:.25);
       const radius=height*(lobe===0?.37:.24+rnd()*.07);
       treeCrowns.push({x:x+Math.cos(angle)*ring,y:height*(lobe===0?.84:.63+rnd()*.16),z:z+Math.sin(angle)*ring,
-        sx:radius,sy:radius*(.85+rnd()*.3),sz:radius,ry:rnd()*6,
+        sx:radius,sy:radius*(silhouette===1?1.4:silhouette===2?.65:.85+rnd()*.3),sz:radius,ry:rnd()*6,
         color: lobe > 0 && (lobe + species) % 5 === 0 ? foliageColors[(species + 1) % foliageColors.length] : color,sway});
+    }
+    if (detailedHighbury) {
+      for (let branch = 0; branch < 4; branch++) {
+        const angle = branch * Math.PI / 2 + height
+        treeBranches.push({ x: x + Math.cos(angle) * height * .1, y: height * .55,
+          z: z + Math.sin(angle) * height * .1, sx: height * .36, sy: .09 * size,
+          sz: .1 * size, ry: -angle })
+      }
+      // Small outer clusters break up the crown rather than increasing every tree's cost.
+      for (let tip = 0; tip < 5; tip++) {
+        const angle = tip * 2.399 + height, radius = height * .14
+        treeCrowns.push({ x: x + Math.cos(angle) * height * .38, y: height * (.68 + tip * .025),
+          z: z + Math.sin(angle) * height * .38, sx: radius, sy: radius * .8,
+          sz: radius, color: foliageColors[(species + tip) % foliageColors.length], sway })
+      }
     }
   }
   for (let i = 0; i < 5800; i++) {
@@ -404,6 +445,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     tree(x,z,.85+rnd()*.4);
   }
   instances(cylinder, trunkMaterial, treeTrunks)
+  instances(box, trunkMaterial, treeBranches)
   instances(sphere, leafMaterial, treeCrowns)
 
   // A low, open mesh fence and individually marked courts make every venue tangible.
