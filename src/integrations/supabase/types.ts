@@ -14,7 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      court_slots: {
+        Row: {
+          court_name: string
+          end_at: string
+          id: string
+          maximum_uses: number
+          price: number | null
+          remaining_uses: number
+          start_at: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          court_name: string
+          end_at: string
+          id: string
+          maximum_uses?: number
+          price?: number | null
+          remaining_uses?: number
+          start_at: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          court_name?: string
+          end_at?: string
+          id?: string
+          maximum_uses?: number
+          price?: number | null
+          remaining_uses?: number
+          start_at?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: []
+      }
+      feed_state: {
+        Row: {
+          caught_up: boolean
+          id: string
+          last_error: string | null
+          last_success: string | null
+          next_url: string | null
+        }
+        Insert: {
+          caught_up?: boolean
+          id: string
+          last_error?: string | null
+          last_success?: string | null
+          next_url?: string | null
+        }
+        Update: {
+          caught_up?: boolean
+          id?: string
+          last_error?: string | null
+          last_success?: string | null
+          next_url?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          contact: string
+          created_at: string
+          display_name: string
+          id: string
+          level: string
+          preferred_courts: string[]
+          updated_at: string
+          utr_rating: number | null
+          visible: boolean
+        }
+        Insert: {
+          contact?: string
+          created_at?: string
+          display_name?: string
+          id: string
+          level?: string
+          preferred_courts?: string[]
+          updated_at?: string
+          utr_rating?: number | null
+          visible?: boolean
+        }
+        Update: {
+          contact?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          level?: string
+          preferred_courts?: string[]
+          updated_at?: string
+          utr_rating?: number | null
+          visible?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

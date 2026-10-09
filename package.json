@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.139",
+    "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@supabase/supabase-js": "^2.117.3",
     "ai": "^7.0.136",
     "react": "^19.1.1",

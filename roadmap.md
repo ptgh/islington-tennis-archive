@@ -5,6 +5,8 @@
 - [x] Court booking page showing hours, prices and booking link, styled like court panels
 - [x] Booking link on every court in the data, used by the Ask guide
 - [x] Phase 1: research UTR, SPIN, Play Tennis, clubs; draft partner enquiries
-- [ ] Phase 2: live free court times from Better's feed — waiting on your go-ahead
-- [ ] Phase 3: player accounts and partner finding — waiting on your decision about sign-in
+- [x] Phase 2: live free court times (Highbury Fields, Islington Tennis Centre) on booking page and in Ask guide
+- [x] Phase 3: optional sign-in and player cards (name, level, UTR, preferred courts)
+- [x] UTR application answers drafted
+- [ ] Submit UTR application — waiting on you (real user numbers, fee decision, privacy page)
 - [ ] Phase 4: in-app booking — waiting on a provider agreeing to give access

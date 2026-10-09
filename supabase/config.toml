@@ -1,1 +1,3 @@
 project_id = "zdrfbklydwfoomyjtkxz"
+[functions.better-slots-sync]
+verify_jwt = false

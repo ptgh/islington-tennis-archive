@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       req,
       { baseURL: "https://ai.gateway.lovable.dev/v1", apiKey, model: "openai/gpt-6-astra" },
       await convertToModelMessages(messages),
-      instructions,
+      instructions + await liveTimes(),
     );
     const response = await call.response();
     const headers = new Headers(response.headers);
@@ -66,3 +66,26 @@ Deno.serve(async (req) => {
     return json(500, "The assistant couldn't answer just now.");
   }
 });
+
+// Free court times from Better's open feed, summarised per venue and hour for the next 48 hours.
+async function liveTimes(): Promise<string> {
+  try {
+    const base = Deno.env.get("SUPABASE_URL")!, key = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const h = { apikey: key, Authorization: `Bearer ${key}` };
+    const now = new Date(), until = new Date(Date.now() + 48 * 3600_000);
+    const [slots, feed] = await Promise.all([
+      fetch(`${base}/rest/v1/court_slots?select=venue_id,start_at&remaining_uses=gt.0&start_at=gte.${now.toISOString()}&start_at=lt.${until.toISOString()}&order=start_at&limit=1000`, { headers: h }).then(r => r.json()),
+      fetch(`${base}/rest/v1/feed_state?select=last_success,caught_up&id=eq.better-slots`, { headers: h }).then(r => r.json()),
+    ]);
+    const checked = feed?.[0]?.last_success;
+    if (!feed?.[0]?.caught_up || !checked || Date.now() - Date.parse(checked) > 90 * 60_000) return "\n\nLIVE COURT TIMES: currently unavailable. Send visitors to the official booking page.";
+    const counts: Record<string, number> = {};
+    for (const s of slots as { venue_id: string; start_at: string }[]) {
+      const t = new Date(s.start_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+      counts[`${s.venue_id} ${t}`] = (counts[`${s.venue_id} ${t}`] ?? 0) + 1;
+    }
+    return `\n\nLIVE COURT TIMES (Better open data, updated ${new Date(checked).toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" })} London time; only Highbury Fields and Islington Tennis Centre are covered). Format "venue time: free courts". Say times are listed as available and must be confirmed when booking on Better; never promise a court. Current London time: ${now.toLocaleString("en-GB", { timeZone: "Europe/London" })}.\n${Object.entries(counts).map(([k, n]) => `${k}: ${n}`).join("\n") || "No free times listed."}`;
+  } catch {
+    return "\n\nLIVE COURT TIMES: currently unavailable.";
+  }
+}

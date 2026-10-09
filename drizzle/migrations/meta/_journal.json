@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791547231544,
+      "tag": "0000_court_slots_and_player_profiles",
+      "breakpoints": true
+    }
+  ]
 }
