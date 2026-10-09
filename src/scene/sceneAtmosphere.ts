@@ -64,7 +64,8 @@ export function lightCycle(date: Date, night: boolean, weather: WeatherSceneKind
   const direction = (night ? sky.moon : sky.sun).clone()
   // Bound near-horizon shadow lengths to the scene, without illuminating from
   // below the ground. Moon below horizon still contributes no directional light.
-  direction.y = Math.max(.10, direction.y)
+  // Evening sun is allowed lower so late light throws long, raking shadows.
+  direction.y = Math.max(.07, direction.y)
   direction.normalize()
   return {
     direction,
@@ -83,7 +84,9 @@ export function updateSceneLight(sun: THREE.DirectionalLight, ambient: THREE.Hem
   sun.target.position.copy(target)
   sun.intensity = cycle.direct
   sun.color.set(night ? '#b7cde4' : '#fff0dc')
-  if (!night) sun.color.lerp(new THREE.Color('#f6b879'), cycle.warmth * .8)
+  if (!night) sun.color.lerp(new THREE.Color('#f2a566'), cycle.warmth * .85)
+  // Long low-sun shadows soften at their edges, as real penumbrae do.
+  sun.shadow.radius = 1.5 + cycle.warmth * 3
   ambient.intensity = cycle.ambient
   ambient.color.set(night ? '#a9bfda' : '#f7f2e9')
   ambient.groundColor.set(night ? '#263d44' : '#59634f')
