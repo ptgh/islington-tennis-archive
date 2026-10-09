@@ -31,3 +31,5 @@
 - [ ] Confirm Wimbledon and Queen’s visual parity against the reference — actual isolated club views still stall sandbox screenshots, including a smaller paused Queen’s view; needs hardware WebGL preview confirmation.
 - [ ] Phase 4: in-app booking — waiting on a provider agreeing to give access
 - [x] Add photographic club court surfaces, subtle baseline/runoff wear, weathered concrete surrounds and chain-link fencing without changing mapped court locations or known surface types; nine hosted PBR maps verified in browser, upload errors corrected, 63 tests pass. Full-scene parity remains subject to the hardware WebGL check above.
+
+- [ ] Use the original pixelprismdesign ball-logo as a full-screen startup loader with subtle, reduced-motion-aware animation.
