@@ -1,0 +1,12 @@
+import { SelectField } from './SelectField';
+import {useState} from 'react';
+import {borough} from '../data/borough';
+const places=borough.places;
+import {mapStations,tubeConnections} from '../data/transit';
+export function MapPlaces({onLocate}:{onLocate:(lat:number,lng:number)=>void}){
+  const [open,setOpen]=useState(false);
+  const [building,setBuilding]=useState(''),[stationName,setStationName]=useState('');
+  const [stop,setStop]=useState<number|null>(null);
+  function visit(index:number){setStop(index);const point=borough.tour[index];onLocate(point.lat,point.lng);}
+  return <div className="places-widget"><button className="pill" aria-expanded={open} aria-controls="places-panel" onClick={()=>setOpen(!open)}>Places</button>{open&&<section id="places-panel" className="places-panel" aria-label="Find landmark buildings"><div className="weather-heading"><h2>Find your bearings</h2><button aria-label="Close places" onClick={()=>setOpen(false)}>×</button></div><SelectField label="Visit a building" value={building} placeholder="Choose a building" options={places.filter(p=>p.kind==='landmark').map(p=>({value:p.id,label:p.name}))} onChange={id=>{setBuilding(id);const place=places.find(p=>p.id===id);if(place)onLocate(place.lat,place.lng);}}/><div className="map-tour"><h3>A little tennis tour</h3>{stop===null?<button className="text-button" onClick={()=>visit(0)}>Start exploring →</button>:<><p role="status">{stop+1} / {borough.tour.length} · <strong>{borough.tour[stop].name}</strong><br/>{borough.tour[stop].description}</p><button className="text-button" onClick={()=>visit((stop+1)%borough.tour.length)}>{stop===borough.tour.length-1?'Start again':'Next stop'} →</button><button className="text-button" onClick={()=>setStop(null)}>End tour</button></>}</div><h3>Coming into Islington</h3>{tubeConnections.map(route=><div className="connection" key={route.name}><strong style={{borderLeftColor:route.color}}>{route.name}</strong><p>{route.stops.join(' → ')}</p></div>)}<SelectField label="Find a station" value={stationName} placeholder="Choose a station" options={mapStations.map(s=>({value:s.name,label:s.name}))} onChange={name=>{setStationName(name);const station=mapStations.find(s=>s.name===name);if(station)onLocate(station.lat,station.lng);}}/><p>Dashed lines show selected connections, not tunnel paths. <a href="https://tfl.gov.uk/plan-a-journey/" target="_blank" rel="noreferrer">Plan your journey with TfL ↗</a></p></section>}</div>;
+}

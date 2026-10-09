@@ -1,0 +1,31 @@
+.centre-programme{margin:20px 0;padding:16px;background:#eeeee1;border-radius:10px;font-size:11px}.centre-programme h2{font:26px var(--serif);margin:0 0 9px}.centre-programme p{font-size:11px;line-height:1.7;color:#72806c}.centre-programme details{border-top:1px solid var(--line);padding:13px 0}.centre-programme summary{cursor:pointer;font-weight:600}.centre-programme article{padding:10px 0;border-bottom:1px solid var(--line)}.centre-programme h3{font-size:12px;margin:0}.centre-programme small{font-size:9px;font-weight:400}.centre-programme article p{margin:6px 0}.centre-programme input{width:100%;padding:10px;border:1px solid #cbd0bd;border-radius:6px;background:var(--paper);color:var(--ink)}.centre-programme dl>div{padding:9px 0;border-bottom:1px solid var(--line)}.centre-programme dt{font-weight:600;margin-bottom:4px}.centre-programme dd{margin:0;line-height:1.8}
+.weather-widget{position:absolute;right:30px;top:88px;z-index:6}.weather-widget>.pill{float:right}.weather-panel{clear:both;position:relative;top:10px;width:290px;max-height:calc(100dvh - 210px);overflow:auto;padding:20px;background:var(--paper);border:1px solid #fff9;border-radius:16px;box-shadow:0 12px 40px #18342d30;font-size:11px}.weather-heading{display:flex;justify-content:space-between;align-items:center}.weather-heading h2{font:29px var(--serif);margin:0}.weather-heading button{font-size:24px;padding:5px}.weather-panel p{font-size:10px;line-height:1.65;color:#6c7b67}.weather-panel label{display:block;margin:12px 0}.weather-panel select{display:block;width:100%;margin-top:7px;padding:8px;background:var(--paper);color:var(--ink);border:1px solid #cbd0bd;border-radius:6px}.weather-panel strong{font-size:16px;display:block;margin:17px 0}.weather-panel dl>div{display:flex;justify-content:space-between;margin:10px 0}.weather-panel dd{margin:0}.weather-panel .text-button{display:block;padding:9px 0;font-size:11px}.weather-check{display:flex!important;align-items:center;gap:7px}@media(min-width:761px){.app .mobile-panel-toggle{position:absolute;display:flex;z-index:5;left:50%;bottom:65px;transform:translateX(-50%)}.panel-closed .directory-panel{visibility:hidden;pointer-events:none}.panel-closed .place-title{opacity:1}.panel-open .place-title{opacity:0}.court-visit .directory-panel{visibility:hidden}.court-visit .place-title{opacity:0}}
+@media(max-width:760px){.weather-widget{right:19px;top:123px}.weather-widget>.pill{font-size:10px;padding:7px 11px}.weather-panel{width:min(290px,calc(100vw - 38px));max-height:calc(100dvh - 210px)}}
+.coaching-search{padding:0 27px 14px;flex-shrink:0;font-size:10px;color:#6f7d69}.coaching-search label{display:block;margin-bottom:7px}.coaching-search input{width:100%;border:1px solid var(--line);border-radius:7px;padding:10px;background:var(--paper);color:var(--ink);font:inherit}.coach-phone{display:block;font-size:12px;line-height:1.8;margin:15px 0;padding:12px;border:1px solid var(--line);border-radius:8px}
+.weather-actions{display:flex;gap:6px;justify-content:flex-end}.weather-actions .pill{padding:10px 14px}.weather-actions [role=switch][aria-checked=false]{opacity:.8}.places-widget{position:absolute;right:30px;top:180px;z-index:5}.places-widget>.pill{float:right}.places-panel{clear:both;position:relative;top:8px;width:290px;max-height:calc(100dvh - 270px);overflow:auto;padding:20px;background:var(--paper);border:1px solid #fff9;border-radius:16px;box-shadow:0 12px 40px #18342d30;font-size:11px}.places-panel h2{font-size:25px}.places-panel h3{font-size:12px;margin-top:20px}.places-panel label{display:block;margin-top:18px}.places-panel select{width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink)}.places-panel p{line-height:1.7;font-size:10px}.connection strong{display:block;border-left:3px solid;padding-left:8px}.weather-panel{z-index:7}@media(max-width:760px){.places-widget{right:19px;top:193px}.places-panel{width:min(290px,calc(100vw - 38px));max-height:calc(100dvh - 290px)}.weather-actions .pill{padding:7px 10px;font-size:10px}.places-widget>.pill{padding:7px 11px;font-size:10px}}
+.saved-court-row{display:flex;align-items:center;border-bottom:1px solid var(--line)}.saved-court-row .court-row{flex:1;min-width:0;border-bottom:0;padding-right:5px}.save-court{flex-shrink:0;font-size:24px;padding:12px 4px;color:#8c764d}.saved-filter{display:flex;align-items:center;gap:7px;font-size:11px;margin-top:12px}.saved-note{display:block;font-size:9px;color:#6f7d69;margin-top:6px}.play-filters{flex-wrap:wrap}.play-filters button{flex:1 1 40%}.map-tour{border-block:1px solid var(--line);margin-top:18px;padding-bottom:12px}.map-tour .text-button{margin-right:14px;font-size:11px}
+
+.places-widget{top:140px}@media(max-width:760px){.places-widget{top:161px}}
+
+/* Shared map controls and a quiet facilities selector. */
+.app .pill{min-height:40px;min-width:88px;padding:0 15px;font-size:11px;gap:7px}
+.app .about-button>span{display:inline}
+.app .about-button>svg{display:none}
+.app .about-button{width:auto;height:40px}
+.places-widget{top:142px}
+.facility-options{border:0;padding:0;margin:20px 0 15px;min-width:0}
+.facility-options legend{font-size:10px;color:#71806c;margin-bottom:8px;padding:0}
+.facility-options>div{display:flex;gap:3px;background:#eceee3;border:1px solid #dfe2d4;border-radius:11px;padding:4px}
+.facility-options label{position:relative;flex:1;cursor:pointer;text-align:center}
+.facility-options input{position:absolute;opacity:0;width:100%;height:100%;inset:0;margin:0;cursor:pointer}
+.facility-options span{display:block;border-radius:7px;padding:9px 4px;font-size:11px}
+.facility-options input:checked+span{background:var(--paper);box-shadow:0 1px 4px #243f3215;color:var(--ink)}
+.facility-options input:focus-visible+span{outline:2px solid #c79556;outline-offset:2px}
+@media(max-width:760px){
+ .app .pill{min-height:36px;min-width:68px;padding:0 11px;font-size:10px;gap:6px}
+ .app .about-button{height:36px}
+ .brand{font-size:20px}.brand svg{width:24px}
+ .places-widget{top:167px}
+ .facility-options{margin-top:16px}
+}
+.map-attribution{position:absolute;right:12px;bottom:4px;z-index:6;font:12px/1.5 var(--sans,Arial,sans-serif);color:#335448;background:#f8f7eddf;padding:1px 5px;border-radius:3px;text-decoration:none;pointer-events:auto}

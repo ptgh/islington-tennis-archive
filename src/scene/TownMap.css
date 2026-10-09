@@ -1,0 +1,43 @@
+.town-map{position:absolute;inset:0;overflow:hidden;background:#aab894;isolation:isolate;touch-action:none}
+.town-map__canvas{display:block;width:100%;height:100%;cursor:grab;outline:none;touch-action:none}
+.town-map__canvas:focus-visible{outline:3px solid #f8f5df;outline-offset:-7px}
+.town-map--moving .town-map__canvas{cursor:grabbing}
+.town-map__labels{position:absolute;inset:0;pointer-events:none;z-index:2}
+.town-map__vignette{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 60% 46%,transparent 62%,rgba(35,43,35,.10));}
+.town-map--night .town-map__vignette{background:radial-gradient(ellipse at 65% 45%,transparent 30%,#12283170)}
+.town-pin{position:absolute;top:0;left:0;pointer-events:auto;display:flex;align-items:center;border:0;background:none;color:#fff;cursor:pointer;padding:0;width:0;height:0;z-index:3;font-family:inherit;filter:drop-shadow(0 3px 5px #14352235);outline:none}
+.town-pin__number{display:grid;place-items:center;flex:none;position:absolute;left:-17px;bottom:0;width:35px;height:35px;border:2px solid #fffdf0;border-radius:50% 50% 50% 4px;background:#1b6246;transform:rotate(-45deg);font-size:0;transition:background .18s,box-shadow .18s,scale .18s}
+.town-pin__number:after{content:attr(data-number)}
+.town-pin__number{border-radius:50%;transform:none;font:600 16px/1 Georgia,serif}
+.town-pin__number:before{content:'';position:absolute;left:12px;bottom:-6px;width:8px;height:8px;transform:rotate(45deg);background:inherit;border-right:2px solid #fffdf0;border-bottom:2px solid #fffdf0;z-index:-1}
+.town-pin:hover,.town-pin:focus-visible,.town-pin--selected{z-index:7}
+.town-pin:hover .town-pin__number,.town-pin:focus-visible .town-pin__number,.town-pin--selected .town-pin__number{background:#c1ce6c;color:#193d2b;box-shadow:0 0 0 5px #ffffe833;scale:1.12}
+.town-pin__label{position:absolute;bottom:5px;left:26px;min-width:max-content;max-width:245px;padding:11px 15px;background:#fbfaf1;border:1px solid #e7e7d4;border-radius:9px;box-shadow:0 6px 18px #1b332529;color:#234333;text-align:left;font:500 14px/1.2 Georgia,serif;opacity:0;visibility:hidden;transition:opacity .15s;pointer-events:none}
+.town-pin__label>span{display:block;margin-top:4px;color:#738173;font:400 10px/1.2 Arial,sans-serif}
+.town-pin:hover .town-pin__label,.town-pin:focus-visible .town-pin__label,.town-pin--selected .town-pin__label{opacity:1;visibility:visible}
+.town-station{position:absolute;left:0;top:0;display:flex;align-items:center;gap:7px;white-space:nowrap;color:#294237;z-index:2;font:500 10px/1.2 Georgia,serif;filter:drop-shadow(0 2px 3px #233e2320)}
+.town-station>span:last-child{position:absolute;left:13px;top:-9px;background:#fbfaf0e8;border:1px solid #e2e2d499;padding:6px 10px 6px 15px;border-radius:20px;z-index:-1}
+.town-station__roundel{display:block;position:absolute;left:-9px;top:-8px;width:20px;height:20px;border:4px solid #b44c3c;border-radius:50%;background:#f8f8ec}
+.town-station__roundel:after{content:'';position:absolute;top:4px;left:-7px;width:26px;height:4px;background:#3d5876;border-radius:1px}
+.town-station--major{font-size:12px}
+.town-station--major .town-station__roundel{width:25px;height:25px;left:-12px;top:-12px;border-width:5px}
+.town-station--major .town-station__roundel:after{width:31px;height:5px;top:5px;left:-8px}
+.town-station--major>span:last-child{left:14px;top:-12px;padding:8px 13px 8px 17px}
+.town-park-label{position:absolute;left:0;top:0;color:#3f5439;white-space:nowrap;text-align:center;font:500 12px/1.35 Georgia,serif;text-transform:uppercase;letter-spacing:2.8px;text-shadow:0 1px 4px #c9d9a5;opacity:.85}
+.town-map--night .town-park-label{color:#cfdbb7;text-shadow:0 1px 4px #1a3238}
+.town-map__loading,.town-map__fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:14px;z-index:3;color:#34563c;font:15px/1.5 Georgia,serif;background:#c2c9aa}
+.town-map__loading-ball{width:20px;height:20px;border:1px solid #527551;border-radius:50%;background:linear-gradient(110deg,transparent 45%,#ffffd9 46%,#ffffd9 53%,transparent 54%);animation:town-ball-turn 1.7s linear infinite}
+.town-map__fallback{flex-direction:column;gap:10px;padding:35px;text-align:center;inset:25% 10% 25% 40%;border:1px solid #d1dac1;border-radius:18px;background:#f4f5e9}
+.town-map__fallback strong{font-size:21px}
+.town-map__fallback span{max-width:320px;color:#657461}
+@keyframes town-ball-turn{to{transform:rotate(360deg)}}
+@media(max-width:720px){.town-pin__number{width:32px;height:32px;font-size:15px;left:-16px}.town-station{font-size:9px}.town-station--major{font-size:10px}.town-station>span:last-child{padding:5px 8px 5px 13px}.town-pin__label{font-size:12px;padding:9px 11px}.town-park-label{font-size:10px;letter-spacing:2px}.town-map__fallback{inset:20% 8% 40%}}
+@media(prefers-reduced-motion:reduce){.town-map__loading-ball{animation:none}.town-pin__number,.town-pin__label{transition:none}}
+/* Give map markers a real, keyboard- and touch-accessible hit area. */
+.town-pin{width:44px;height:44px;margin-left:-22px;margin-top:-44px}
+.town-pin__number{left:5px;bottom:5px}
+.town-pin__label{left:48px;bottom:8px}
+@media(max-width:720px){.town-pin__number{left:6px}}
+
+/* Screen projection must be immediate, never interpolated by global button styles. */
+.town-pin{transition:background .18s,color .18s}
