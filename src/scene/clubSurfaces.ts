@@ -25,10 +25,9 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
   const loader = typeof document === 'undefined' ? undefined : new THREE.TextureLoader()
   let disposed = false
   const map = (url: string, repeat: [number, number], color: boolean) => {
-    const texture = fallback.map?.clone() ?? new THREE.Texture()
-    if (!color) {
-      texture.image = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1).image
-    }
+    // Image-backed Texture is required here: DataTexture uploads expect raw
+    // byte buffers and cannot be repurposed by assigning an HTMLImageElement.
+    const texture = new THREE.Texture()
     texture.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
     texture.repeat.set(...repeat); texture.anisotropy = 8
@@ -49,7 +48,7 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
     materials.push(material)
     return material
   }
-  const grass = scanned([grassColor, grassNormal, grassRough], [5, 10], '#b0ba97', .28)
+  const grass = scanned([grassColor, grassNormal, grassRough], [5, 10], '#b0d3a0', .28)
   const concrete = scanned([concreteColor, concreteNormal, concreteRough], [3, 6], '#d0cec6', .35)
   const synthetic = scanned([syntheticColor, syntheticNormal, syntheticRough], [5, 10], '#62958a', .16)
   const clay = synthetic.clone(); clay.color.set('#b97f60'); materials.push(clay)
@@ -61,6 +60,7 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
       shader.fragmentShader = 'varying vec2 courtUv;\n' + shader.fragmentShader
       shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `
         #include <color_fragment>
+        ${kind === 'synthetic' ? 'diffuseColor.rgb = mix(vec3(.13,.29,.24), diffuseColor.rgb, .28);' : ''}
         float edge = 1.0 - smoothstep(0.0, 0.055, min(min(courtUv.x, 1.0-courtUv.x), min(courtUv.y, 1.0-courtUv.y)));
         float baseline = exp(-pow((abs(courtUv.y-.5)-.44)/.024, 2.0));
         float footfall = exp(-pow((courtUv.x-.5)/.27, 2.0));
