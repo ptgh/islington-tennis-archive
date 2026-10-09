@@ -18,6 +18,7 @@ import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import type { WeatherSceneKind } from '../scene/createWeather'
 import { createMappedVenue, mappedCourtPosition } from '../scene/mappedVenue'
 import { addSkyEnvironment, scenePixelRatio, createLensFinish } from '../scene/renderQuality'
+import { createClubSurfaces, type ClubCourtSurface } from '../scene/clubSurfaces'
 import './IconicCourtView.css'
 
 type CourtStop = { id: string; name: string; note: string; x: number; z: number }
@@ -45,12 +46,14 @@ const GROUNDS_MAPS: Record<IconicClubId, string> = {
 
 type SceneHandle = { focus: (courtId: string) => void; zoom: (factor: number) => void; reset: () => void }
 
-function buildScene(id: IconicClubId) {
+function buildScene(id: IconicClubId, invalidate: () => void) {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(id === 'wimbledon' ? '#dce7d5' : '#e4e8d7')
   const unitBox = new THREE.BoxGeometry(1, 1, 1)
   const unitCylinder = new THREE.CylinderGeometry(1, 1, 1, 9)
   const finishes = createMiniatureMaterials()
+  const surfaces = createClubSurfaces(finishes.parkGrass, invalidate)
+  const unitPlane = new THREE.PlaneGeometry(1, 1)
   const materials = new Map<string, THREE.MeshStandardMaterial>()
   const batches = new Map<string, { material: THREE.Material; geometry: THREE.BufferGeometry; castShadow: boolean; matrices: THREE.Matrix4[] }>()
   const transform = new THREE.Object3D()
@@ -66,7 +69,7 @@ function buildScene(id: IconicClubId) {
   const material = (colour: string) => {
     let value = materials.get(colour)
     if (!value) {
-      const base = grassColours.has(colour) ? finishes.parkGrass : [...pavingColours, '#ccc5b0', '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? finishes.paving : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#746b51' ? finishes.timber : null
+      const base = grassColours.has(colour) ? finishes.parkGrass : [...pavingColours, '#ccc5b0', '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? surfaces.concrete : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#746b51' ? finishes.timber : colour === '#3f5b49' ? surfaces.steel : null
       value = base ? base.clone() : new THREE.MeshStandardMaterial({ roughness: .9 })
       value.color.set(colour)
       if (colour === '#f5f2df') { value.emissive.set('#f5f2df'); value.emissiveIntensity = .12 }
@@ -78,7 +81,7 @@ function buildScene(id: IconicClubId) {
     transform.updateMatrix()
     const key = `${geometry.uuid}-${mat.uuid}-${castShadow}`
     if (!batches.has(key)) batches.set(key, { material: mat, geometry, castShadow, matrices: [] })
-    batches.get(key)!.matrices.push(placement.clone().multiply(transform.matrix))
+    batches.get(key)?.matrices.push(placement.clone().multiply(transform.matrix))
   }
   const box = (x: number, y: number, z: number, w: number, h: number, d: number, colour: string, shadow = true) => {
     transform.position.set(x, y, z)
@@ -147,10 +150,19 @@ function buildScene(id: IconicClubId) {
       if(lobe>0)beam(new THREE.Vector3(x,size*.8,z),new THREE.Vector3(x+Math.cos(angle)*radius,size*1.5,z+Math.sin(angle)*radius),size*.055,'#746b51')
     }
   }
-  const court = (cx: number, cz: number, width = 12, depth = 23, apron = 3) => {
+  const court = (cx: number, cz: number, width = 12, depth = 23, apron = 3, surface: ClubCourtSurface = 'grass') => {
     box(cx, .08, cz, width + apron * 2, .12, depth + apron * 2, '#2f6948', false)
-    box(cx, .155, cz, width, .03, depth, '#8eac70', false)
-    for (let i = 0; i < 10; i++) box(cx - width / 2 + (i + .5) * width / 10, .179, cz, width / 10, .005, depth, i % 2 ? '#8eac70' : '#95b579', false)
+    const floor = (x: number, z: number, w: number, d: number, mat: THREE.Material, y = .18) => {
+      transform.position.set(x, y, z); transform.rotation.set(-Math.PI / 2, 0, 0); transform.scale.set(w, d, 1)
+      instance(mat, false, unitPlane)
+    }
+    floor(cx, cz, width + apron * 2, depth + apron * 2, surfaces[surface])
+    // A narrow maintenance path keeps grass runoffs intact; larger walkways
+    // remain in their original mapped positions.
+    for (const side of [-1, 1]) {
+      floor(cx + side * (width / 2 + apron - .45), cz, .7, depth + apron * 2, surfaces.concrete, .185)
+      floor(cx, cz + side * (depth / 2 + apron - .45), width + apron * 2, .7, surfaces.concrete, .185)
+    }
     // Slightly exaggerated paint remains legible at miniature overview scale.
     const line = (x: number, z: number, w: number, d: number) => box(cx + x, .25, cz + z, w, .025, d, '#f5f2df', false)
     const doubles = width * .44, singles = width * .36, baseline = depth * .44, service = depth * .23
@@ -169,6 +181,10 @@ function buildScene(id: IconicClubId) {
     const fenceX = width / 2 + apron - .2, fenceZ = depth / 2 + apron - .2
     if (width < 15) {
       for (const side of [-1, 1]) {
+        transform.position.set(cx + side * fenceX, 1.4, cz); transform.rotation.set(0, Math.PI / 2, 0); transform.scale.set(fenceZ * 2, 2.4, 1)
+        instance(surfaces.fence, false, unitPlane)
+        transform.position.set(cx, 1.4, cz + side * fenceZ); transform.rotation.set(0, 0, 0); transform.scale.set(fenceX * 2, 2.4, 1)
+        instance(surfaces.fence, false, unitPlane)
         for (let i = 0; i <= 6; i++) box(cx + side * fenceX, 1.35, cz - fenceZ + i * fenceZ / 3, .07, 2.5, .07, '#3f5b49')
         for (let i = 0; i <= 4; i++) box(cx - fenceX + i * fenceX / 2, 1.35, cz + side * fenceZ, .07, 2.5, .07, '#3f5b49')
         for (const y of [.4, 1.4, 2.6]) {
@@ -362,7 +378,7 @@ function buildScene(id: IconicClubId) {
       })
       geometries.forEach(geometry => geometry.dispose())
       usedMaterials.forEach(mat => mat.dispose())
-      courtLighting.dispose(); finishes.dispose(); sun.shadow.map?.dispose()
+      courtLighting.dispose(); surfaces.dispose(); finishes.dispose(); sun.shadow.map?.dispose()
     },
   }
 }
@@ -384,7 +400,8 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
     let renderer: THREE.WebGLRenderer
     try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }) }
     catch { setFailed(true); return }
-    const world = buildScene(clubId)
+    let textureDirty = false
+    const world = buildScene(clubId, () => { textureDirty = true })
     const disposeEnvironment = addSkyEnvironment(renderer, world.scene)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -449,7 +466,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
       renderer.toneMappingExposure = state.night ? .86 : 1.18
       occlusion.blendIntensity = state.night ? .16 : .30
       renderer.shadowMap.needsUpdate = true
-      composer.render()
+      composer.render(); textureDirty = false
     }
     const resize = () => {
       const width = Math.max(1, element.clientWidth), height = Math.max(1, element.clientHeight)
@@ -507,7 +524,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
       const state = runtime.current
       // Update activity only when drawing it; camera gestures remain immediate.
       const stateKey = `${state.night}-${state.weather}-${state.motionRunning}-${state.lightingTime}`
-      if ((journey || state.motionRunning || stateKey !== atmosphere) && time - rendered >= 1000 / 30) {
+      if ((textureDirty || journey || state.motionRunning || stateKey !== atmosphere) && time - rendered >= 1000 / 30) {
         if (journey) {
           const progress = Math.min(1, (time - journey.start) / 850), ease = progress * progress * (3 - 2 * progress)
           controls.target.lerpVectors(journey.target, journey.destination, ease)

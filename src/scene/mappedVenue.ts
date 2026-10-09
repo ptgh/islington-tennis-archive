@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import geography from '../data/iconic-geography.json' with { type: 'json' }
 import type { createMiniatureMaterials } from './miniatureMaterials'
 import { createFootprintRoof } from './footprintRoof.ts'
+import { clubCourtSurface, type ClubCourtSurface } from './clubSurfaces.ts'
 
 type Point = number[]
 type Feature = { id: number; tags: Record<string, string>; points: Point[]; outlines?: Point[][] }
@@ -12,7 +13,7 @@ export type VenuePrimitives = {
   scene: THREE.Scene; finishes: ReturnType<typeof createMiniatureMaterials>; box: Box
   place: (x:number,z:number,angle:number,scale:number,draw:()=>void)=>void
   tree: (x:number,z:number,size:number,shade:string)=>void
-  court: (x:number,z:number,width?:number,depth?:number,apron?:number)=>void
+  court: (x:number,z:number,width?:number,depth?:number,apron?:number,surface?:ClubCourtSurface)=>void
   bowl: (x:number,z:number,tiers:number)=>void
   centreStand: (x:number,z:number,tiers:number)=>void
   smallerStand: (x:number,z:number,tiers:number)=>void
@@ -248,7 +249,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     const featured=id==='wimbledon'?[1370859959,1370859960,1370859961,1370859962].includes(f.id):f.id===225547287
     place(b.x,b.z,b.angle,1,()=>{
       if(featured)box(0,.065,0,id==='wimbledon'?(f.id===1370859960?38:34):28,.08,id==='wimbledon'?(f.id===1370859960?60:52):44,'#3b6e4b',false)
-      court(0,0,b.width/.88,b.depth/.88,featured?5:2.5)
+      court(0,0,b.width/.88,b.depth/.88,featured?5:2.5,clubCourtSurface(f.tags.surface))
     })
   }
   const show=(pitchId:number,scale:number,draw:()=>void)=>{
