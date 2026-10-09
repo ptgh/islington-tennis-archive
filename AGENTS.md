@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Architecture rules
+- The mobile guide uses a bounded glass sheet sized to the visual viewport, with a fixed composer and independently scrolling transcript, so browser chrome and the keyboard cannot hide the send control.
 - The account circle reuses the existing player-card forms and racquet-room destinations; verified auth state controls its signed-in indicator without introducing a second profile system.
 - Startup uses the original ball artwork through a project-owned CDN pointer in a dedicated LoadingScreen; it fades away on map readiness and respects reduced motion without changing scene rendering.
 - Mobile hub panels use a single shared sheet scroll surface in hub.css, including bottom safe-area spacing, so filters and actions remain reachable across every tab.
