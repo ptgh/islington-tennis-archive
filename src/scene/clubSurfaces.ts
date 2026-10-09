@@ -2,9 +2,9 @@ import * as THREE from 'three'
 import grassColor from '../assets/court-surfaces/grass-color.jpg.asset.json' with { type: 'json' }
 import grassNormal from '../assets/court-surfaces/grass-normal.jpg.asset.json' with { type: 'json' }
 import grassRough from '../assets/court-surfaces/grass-roughness.jpg.asset.json' with { type: 'json' }
-import concreteColor from '../assets/court-surfaces/concrete-color.jpg.asset.json' with { type: 'json' }
-import concreteNormal from '../assets/court-surfaces/concrete-normal.jpg.asset.json' with { type: 'json' }
-import concreteRough from '../assets/court-surfaces/concrete-roughness.jpg.asset.json' with { type: 'json' }
+import concreteColor from '../assets/court-surfaces/weathered-concrete-color.jpg.asset.json' with { type: 'json' }
+import concreteNormal from '../assets/court-surfaces/weathered-concrete-normal.jpg.asset.json' with { type: 'json' }
+import concreteRough from '../assets/court-surfaces/weathered-concrete-roughness.jpg.asset.json' with { type: 'json' }
 import syntheticColor from '../assets/court-surfaces/synthetic-color.jpg.asset.json' with { type: 'json' }
 import syntheticNormal from '../assets/court-surfaces/synthetic-normal.jpg.asset.json' with { type: 'json' }
 import syntheticRough from '../assets/court-surfaces/synthetic-roughness.jpg.asset.json' with { type: 'json' }
@@ -92,7 +92,9 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
   }
   const alpha = new THREE.DataTexture(meshBytes, 128, 128)
   alpha.wrapS = alpha.wrapT = THREE.RepeatWrapping; alpha.repeat.set(10, 2)
-  alpha.generateMipmaps = true; alpha.minFilter = THREE.LinearMipmapLinearFilter; alpha.needsUpdate = true
+  // Retain wire coverage at miniature viewing distances; averaging narrow
+  // wires into mipmaps would discard the entire fence under alpha testing.
+  alpha.generateMipmaps = false; alpha.minFilter = THREE.LinearFilter; alpha.needsUpdate = true
   textures.push(alpha)
   const fence = new THREE.MeshStandardMaterial({ color: '#52605a', alphaMap: alpha, alphaTest: .35, side: THREE.DoubleSide, roughness: .72, metalness: .3 })
   const steel = new THREE.MeshStandardMaterial({ color: '#5e685f', roughness: .68, metalness: .42 })
