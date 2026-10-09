@@ -22,3 +22,9 @@ test('miniature surfaces include repeatable relief and see-through netting',()=>
  assert.ok(data.includes(0)&&data.includes(255));
  finishes.dispose();finishes.dispose();
 });
+test('lens finish keeps a sharp centre band and soft tilt-shift edges',async()=>{
+ const {createLensFinish,LENS_FINISH}=await import('../scene/renderQuality.ts');
+ const lens=createLensFinish();
+ assert.ok(LENS_FINISH.band>0&&LENS_FINISH.band<.5);
+ assert.ok(lens.uniforms.blur.value>0&&lens.uniforms.vignette.value<.5);
+});

@@ -17,6 +17,7 @@ import { createVenueLighting } from '../scene/createVenueLighting'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import type { WeatherSceneKind } from '../scene/createWeather'
 import { createMappedVenue, mappedCourtPosition } from '../scene/mappedVenue'
+import { addSkyEnvironment, scenePixelRatio, createLensFinish } from '../scene/renderQuality'
 import './IconicCourtView.css'
 
 type CourtStop = { id: string; name: string; note: string; x: number; z: number }
@@ -377,9 +378,10 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
     const element = host.current
     if (!element) return
     let renderer: THREE.WebGLRenderer
-    try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'low-power' }) }
+    try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }) }
     catch { setFailed(true); return }
     const world = buildScene(clubId)
+    const disposeEnvironment = addSkyEnvironment(renderer, world.scene)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -401,15 +403,16 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
     const composer = new EffectComposer(renderer, renderTarget)
     const beauty = new RenderPass(world.scene, camera)
     const occlusion = new GTAOPass(world.scene, camera, 1, 1)
-    occlusion.updateGtaoMaterial({ radius: 1.2, distanceExponent: 1.5, thickness: 1, distanceFallOff: 1, scale: 1, samples: 8, screenSpaceRadius: false })
+    occlusion.updateGtaoMaterial({ radius: 1.2, distanceExponent: 1.5, thickness: 1, distanceFallOff: 1, scale: 1, samples: element.clientWidth > 760 ? 16 : 8, screenSpaceRadius: false })
     occlusion.updatePdMaterial({ lumaPhi: 5, depthPhi: 1, normalPhi: 3, radius: 4, samples: 8 })
     const sizeOcclusion = occlusion.setSize.bind(occlusion)
     occlusion.setSize = (w: number, h: number) => {
-      const ratio = Math.min(.5, Math.sqrt(800000 / (w * h)))
+      const ratio = Math.min(element.clientWidth > 760 ? .75 : .5, Math.sqrt(1600000 / (w * h)))
       sizeOcclusion(Math.max(1, Math.ceil(w * ratio)), Math.max(1, Math.ceil(h * ratio)))
     }
     const output = new OutputPass(), antialias = new ShaderPass(FXAAShader)
-    composer.addPass(beauty); composer.addPass(occlusion); composer.addPass(output); composer.addPass(antialias)
+    const lens = new ShaderPass(createLensFinish())
+    composer.addPass(beauty); composer.addPass(occlusion); composer.addPass(output); composer.addPass(antialias); composer.addPass(lens)
     let compact = element.clientWidth < 760
     let viewSpan = 270
     const updateProjection = () => {
@@ -460,10 +463,11 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
       camera.right = -camera.left
       updateProjection()
       // Bound post-processing buffers on Retina and large desktop displays.
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2500000 / (width * height))))
+      renderer.setPixelRatio(scenePixelRatio(width, height, window.devicePixelRatio || 1))
       renderer.setSize(width, height)
       composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(width, height)
       antialias.uniforms.resolution.value.set(1 / (width * renderer.getPixelRatio()), 1 / (height * renderer.getPixelRatio()))
+      lens.uniforms.resolution.value.set(width * renderer.getPixelRatio(), height * renderer.getPixelRatio())
       frame()
     }
     const reset = () => { cancelJourney(); camera.position.copy(offset).add(overview); controls.target.copy(overview); camera.zoom = 1; updateProjection(); controls.update(); frame() }
@@ -525,7 +529,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
       controls.removeEventListener('change', controlChange)
       controls.removeEventListener('start', cancelJourney)
       controls.dispose()
-      beauty.dispose(); occlusion.dispose(); output.dispose(); antialias.dispose(); composer.dispose()
+      beauty.dispose(); occlusion.dispose(); output.dispose(); antialias.dispose(); lens.dispose(); composer.dispose(); disposeEnvironment()
       occlusion.gtaoMaterial.dispose(); occlusion.blendMaterial.dispose()
       world.dispose()
       renderer.dispose()

@@ -16,7 +16,7 @@ import { courtAreas } from '../scene/courtGeometry'
 import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
-import { addSkyEnvironment, scenePixelRatio } from '../scene/renderQuality'
+import { addSkyEnvironment, scenePixelRatio, createLensFinish } from '../scene/renderQuality'
 import '../scene/TownMap.css'
 
 export interface TownMapHandle {
@@ -222,7 +222,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     }
     const output=new OutputPass()
     const antialias=new ShaderPass(FXAAShader)
-    composer.addPass(beauty);composer.addPass(occlusion);composer.addPass(output);composer.addPass(antialias)
+    const lens=new ShaderPass(createLensFinish())
+    composer.addPass(beauty);composer.addPass(occlusion);composer.addPass(output);composer.addPass(antialias);composer.addPass(lens)
     let width = host.clientWidth, height = host.clientHeight
     let animation = 0
     let destroyed = false
@@ -344,6 +345,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       // Retina already resolves fine edges; avoid softening brickwork twice.
       antialias.enabled=renderer.getPixelRatio()<1.75
       antialias.uniforms.resolution.value.set(1/(width*renderer.getPixelRatio()),1/(height*renderer.getPixelRatio()))
+      lens.uniforms.resolution.value.set(width*renderer.getPixelRatio(),height*renderer.getPixelRatio())
       if(changed&&runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
       else if(wasMobile!==(width<=760))reset()
       frame()
@@ -457,7 +459,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       renderer.domElement.removeEventListener('keydown', keydown)
       renderer.domElement.removeEventListener('dblclick', doubleClick)
       renderer.domElement.removeEventListener('webglcontextlost', contextLost)
-      beauty.dispose();occlusion.dispose();output.dispose();antialias.dispose();composer.dispose()
+      beauty.dispose();occlusion.dispose();output.dispose();antialias.dispose();lens.dispose();composer.dispose()
       // These two shader materials are not released by Three's GTAOPass.dispose().
       occlusion.gtaoMaterial.dispose();occlusion.blendMaterial.dispose()
       weatherWorld.dispose()

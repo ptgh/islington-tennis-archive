@@ -36,3 +36,57 @@ export function addSkyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Sc
   texture.dispose(); generator.dispose()
   return () => { scene.environment = null; target.dispose() }
 }
+/**
+ * Photographic finish for the miniatures: a tilt-shift focus band (the cue
+ * that makes aerial models read as real objects photographed close up),
+ * gentle split-tone grading, soft vignette and fine grain to break up
+ * flat computer-graphics fills. Runs once per frame on the final image.
+ */
+export const LENS_FINISH = { focus: .5, band: .22, blur: 2.4, vignette: .28, contrast: 1.06, saturation: 1.04, grain: .018 }
+
+export function createLensFinish() {
+  return {
+    uniforms: {
+      tDiffuse: { value: null },
+      resolution: { value: new THREE.Vector2(1, 1) },
+      focus: { value: LENS_FINISH.focus },
+      band: { value: LENS_FINISH.band },
+      blur: { value: LENS_FINISH.blur },
+      vignette: { value: LENS_FINISH.vignette },
+      contrast: { value: LENS_FINISH.contrast },
+      saturation: { value: LENS_FINISH.saturation },
+      grain: { value: LENS_FINISH.grain },
+      time: { value: 0 },
+    },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `
+      uniform sampler2D tDiffuse; uniform vec2 resolution;
+      uniform float focus, band, blur, vignette, contrast, saturation, grain, time;
+      varying vec2 vUv;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+      void main(){
+        float d = max(0.0, abs(vUv.y - focus) - band * .5);
+        float amount = smoothstep(0.0, .32, d) * blur;
+        vec3 colour = texture2D(tDiffuse, vUv).rgb;
+        if (amount > .01) {
+          vec3 sum = colour; float weight = 1.0;
+          for (int i = 0; i < 12; i++) {
+            float a = float(i) * 2.39996;
+            float r = sqrt(float(i) + .5) / 3.6;
+            vec2 o = vec2(cos(a), sin(a)) * r * amount / resolution;
+            sum += texture2D(tDiffuse, vUv + o).rgb; weight += 1.0;
+          }
+          colour = sum / weight;
+        }
+        float luma = dot(colour, vec3(.2126,.7152,.0722));
+        colour = mix(vec3(luma), colour, saturation);
+        colour = (colour - .5) * contrast + .5;
+        // Warm highlights, cool shadows: the light of a late-summer afternoon.
+        colour += mix(vec3(-.006,.0,.012), vec3(.014,.006,-.01), smoothstep(.2,.8,luma));
+        vec2 c = vUv - .5;
+        colour *= 1.0 - vignette * smoothstep(.35, .85, length(c * vec2(1.0, .85)));
+        colour += (hash(vUv * resolution + time) - .5) * grain;
+        gl_FragColor = vec4(clamp(colour, 0.0, 1.0), 1.0);
+      }`,
+  }
+}
