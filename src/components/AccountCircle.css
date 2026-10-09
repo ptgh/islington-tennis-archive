@@ -14,6 +14,9 @@
 @media(max-width:760px){
  .account-launch{right:19px;top:221px}
  .app .account-launch.pill{width:40px;height:40px;min-width:40px}
+ .app.panel-open .account-launch.pill{top:auto;right:auto;left:calc(50% - 108px);bottom:calc(49dvh + 14px)}
+ .app.panel-open:has(.hub-navigation) .account-launch.pill{bottom:calc(54dvh + 12px)}
+ .app.panel-open:has(.has-detail) .account-launch.pill{bottom:calc(62dvh + 12px)}
  .about-dialog.account-dialog{max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);padding:22px 20px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
  .account-dialog .partners h1{font-size:34px}
 }
