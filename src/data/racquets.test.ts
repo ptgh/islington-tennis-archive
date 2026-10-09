@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { emptyRacquetProfile, parseRacquetProfile, racquets, racquetPlayers, wilsonStrings, luxilonStrings } from './racquets.ts'
 
 test('racquet collection has distinct records with sourced photos', () => {
@@ -58,4 +59,25 @@ test('grip size survives a saved card and older cards remain readable', () => {
   assert.equal(parseRacquetProfile(JSON.stringify({gripSize:'5'})).gripSize, '5')
   assert.equal(parseRacquetProfile(JSON.stringify({gripSize:'9'})).gripSize, '')
   assert.equal(parseRacquetProfile(JSON.stringify({name:'Alex'})).gripSize, '')
+})
+
+test('every collection frame has its own hosted photograph', () => {
+  const registry = readFileSync(new URL('./racquetPhotos.ts', import.meta.url), 'utf8')
+  const entries = [...registry.matchAll(/^\s+(?:'([^']+)'|(t2000)):\s*(\w+)\.url,/gm)]
+  const mappings = new Map(entries.map(entry => [entry[1] || entry[2], entry[3]]))
+  assert.equal(racquets.length, 32)
+  assert.equal(mappings.size, 32)
+  const urls = new Set<string>()
+  for (const frame of racquets) {
+    const variable = mappings.get(frame.id)
+    assert.ok(variable, `Missing hosted photo: ${frame.id}`)
+    const path = registry.match(new RegExp(`import ${variable} from '([^']+)'`))?.[1]
+    assert.ok(path, `Missing photo import: ${frame.id}`)
+    const pointer = JSON.parse(readFileSync(new URL(path, new URL('./racquetPhotos.ts', import.meta.url)), 'utf8'))
+    assert.equal(pointer.version, 1)
+    assert.ok(pointer.size > 1000)
+    assert.ok(pointer.url.startsWith('/__l5e/assets-v1/'))
+    assert.ok(!urls.has(pointer.url), `Substituted duplicate photo: ${frame.id}`)
+    urls.add(pointer.url)
+  }
 })

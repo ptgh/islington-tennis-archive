@@ -1,5 +1,10 @@
 import t2000 from '../assets/racquets/t2000.jpg.asset.json'
 import sw102 from '../assets/racquets/blade-sw102.jpg.asset.json'
+import tiger from '../assets/racquets/blade-v10-tiger.png.asset.json'
+import proStaff85 from '../assets/racquets/pro-staff-85.jpg.asset.json'
+import classic61 from '../assets/racquets/pro-staff-classic-61.jpg.asset.json'
+import ncode from '../assets/racquets/ncode-six-one-tour.jpg.asset.json'
+import rf97 from '../assets/racquets/rf97-autograph.jpg.asset.json'
 
 import photo0 from '../assets/racquets/pro-staff-classic.png.asset.json'
 import photo1 from '../assets/racquets/pro-staff-classic-97l.png.asset.json'
@@ -32,6 +37,7 @@ export const racquetPhotos: Record<string, string> = {
   'pro-staff-classic': photo0.url,
   'pro-staff-classic-97l': photo1.url,
   'blade-v10': photo2.url,
+  'blade-v10-tiger': tiger.url,
   'blade-v10-18x20': photo3.url,
   'blade-v10-98s': photo4.url,
   'blade-v10-98-pro-16x19': photo5.url,
@@ -56,4 +62,8 @@ export const racquetPhotos: Record<string, string> = {
   'rf01-future': photo24.url,
   t2000: t2000.url,
   'blade-sw102': sw102.url,
+  'pro-staff-85': proStaff85.url,
+  'pro-staff-classic-61': classic61.url,
+  'ncode-six-one-tour': ncode.url,
+  'rf97-autograph': rf97.url,
 }
