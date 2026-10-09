@@ -12,7 +12,7 @@ type Figure = {
 }
 
 /** Decorative, deterministic miniatures. These never represent live court use or vehicles. */
-export function createTownLife(courts: {center:THREE.Vector3;rotation:number;scale:number}[], walks: THREE.Vector3[][], project: Project, exclusions:CourtArea[]) {
+export function createTownLife(courts: {center:THREE.Vector3;rotation:number;scale:number;halfLength?:number;groundY?:number;nightPlayable?:boolean}[], walks: THREE.Vector3[][], project: Project, exclusions:CourtArea[], transport = true) {
   const root = new THREE.Group()
   const activity = new THREE.Group()
   const buses = new THREE.Group()
@@ -71,11 +71,11 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     return result
   }
 
-  const matches = courts.map(({center,rotation,scale}, index) => {
+  const matches = courts.map(({center,rotation,scale,halfLength = 5.55,groundY = .39,nightPlayable = true}, index) => {
     const players = [figure(index % 2 ? '#cf7458' : '#638e82', index, true), figure('#eee2ad', index + 1, true)]
     const ball = part(activity, ballParts, '#e3ed78', center.x, 1.7, center.z, .14, .14, .14)
     players.forEach(p=>p.root.scale.setScalar(scale));ball.scale.multiplyScalar(scale);
-    return { center, rotation, scale, players, ball, phase: index * .83 }
+    return { center, rotation, scale, halfLength, groundY, nightPlayable, players, ball, phase: index * .83, flight: 1.6 + index % 4 * .12 }
   })
 
   // People follow visible park paths, not arbitrary lines through buildings or courts.
@@ -104,28 +104,35 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     return { mesh, parts: batch.parts }
   })
 
+  let activityTime = 0
   function updateActivity(time: number) {
-    const flight = 1.75
     for (const match of matches) {
+      const flight = match.flight
       const local = time + match.phase
       const shot = Math.floor(local / flight)
       const u = local / flight - shot
       const fromSide = shot % 2 === 0 ? -1 : 1
       const hitX = (n: number) => Math.sin(n * .93) * 1.15
-      const at=(x:number,y:number,z:number)=>new THREE.Vector3(x*match.scale,y*match.scale,z*match.scale).applyAxisAngle(new THREE.Vector3(0,1,0),match.rotation).add(match.center).setY(.39+(y-.39)*match.scale);
+      const at=(x:number,y:number,z:number)=>new THREE.Vector3(x*match.scale,y*match.scale,z*match.scale).applyAxisAngle(new THREE.Vector3(0,1,0),match.rotation).add(match.center).setY(match.groundY+(y-.39)*match.scale);
       match.players.forEach((player, i) => {
         const side = i === 0 ? -1 : 1
         const lastHit = Math.floor((shot - i) / 2) * 2 + i
         const progress = (local / flight - lastHit) / 2
-        const move = THREE.MathUtils.smoothstep(progress, .16, .85)
-        const x = THREE.MathUtils.lerp(hitX(lastHit), hitX(lastHit + 2), move)
-        player.root.position.copy(at(x+side*.26,.39,side*5.55))
-        player.root.rotation.y = match.rotation+(side === 1 ? Math.PI : 0)
+        // Recover towards the centre, split-step, then set up for the next ball.
+        const recovery = THREE.MathUtils.smoothstep(progress, .10, .42)
+        const approach = THREE.MathUtils.smoothstep(progress, .52, .90)
+        const x = THREE.MathUtils.lerp(THREE.MathUtils.lerp(hitX(lastHit), 0, recovery), hitX(lastHit + 2), approach)
+        const split = Math.max(0, 1 - Math.abs(progress - .5) / .07)
+        const nextHit = progress < .5 ? lastHit : lastHit + 2
+        const backhand = hitX(nextHit) * side > .2
+        player.root.position.copy(at(x+side*.26,.39+split*.09,side*(match.halfLength-.18*Math.sin(progress*Math.PI))))
         const nearHit = progress < .15 ? progress : progress - 1
         const swing = Math.exp(-Math.pow(nearHit / .10, 2))
-        player.arms[1].rotation.set(-.25 - swing * 1.55, 0, -.2 - swing * .65)
-        player.arms[0].rotation.set(-.35, 0, .22)
-        const footwork = Math.sin(local * 8 + player.phase) * Math.sin(move * Math.PI) * .3
+        player.root.rotation.y = match.rotation+(side === 1 ? Math.PI : 0)+(backhand ? -.35 : .3)*swing
+        player.arms[1].rotation.set(-.25 - swing * 1.55, (backhand ? -.7 : .25)*swing, -.2 + swing * (backhand ? .8 : -.65))
+        player.arms[0].rotation.set(-.35 - (backhand ? .9 : .25)*swing, 0, .22 + swing*.25)
+        const moving = Math.sin(recovery*Math.PI) + Math.sin(approach*Math.PI)
+        const footwork = Math.sin(local * 9 + player.phase) * moving * .38
         player.legs[0].rotation.x = footwork
         player.legs[1].rotation.x = -footwork
       })
@@ -134,13 +141,13 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
       const height = u < bounce
         ? .52 + .66 * (1 - u / bounce) + 1.45 * Math.sin(Math.PI * u / bounce)
         : .52 + .66 * Math.sin((u - bounce) / (1 - bounce) * Math.PI / 2)
-      match.ball.position.copy(at(THREE.MathUtils.lerp(hitX(shot), hitX(shot + 1), u),height,fromSide*(4.95-u*9.9)))
+      match.ball.position.copy(at(THREE.MathUtils.lerp(hitX(shot), hitX(shot + 1), u),height,fromSide*(match.halfLength-.6)*(1-u*2)))
     }
     for (const walker of walkers) {
       const t = (walker.offset + time * 1.1 / walker.length) % 1
       const position = walker.curve.getPointAt(t)
       const tangent = walker.curve.getTangentAt(t)
-      walker.figure.root.position.copy(position).setY(.24 + Math.abs(Math.sin(time * 4.2 + walker.figure.phase)) * .025)
+      walker.figure.root.position.copy(position).setY((transport ? .24 : .035) + Math.abs(Math.sin(time * 4.2 + walker.figure.phase)) * .025)
       walker.figure.root.rotation.y = Math.atan2(tangent.x, tangent.z)
       const stride = Math.sin(time * 4.2 + walker.figure.phase) * .43
       walker.figure.legs[0].rotation.x = stride
@@ -153,6 +160,28 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
       parts.forEach(({ node }, index) => mesh.setMatrixAt(index, node.matrixWorld))
       mesh.instanceMatrix.needsUpdate = true
     }
+  }
+
+  updateActivity(0)
+  let venueNight = false
+  if (!transport) return {
+    root,
+    setActivity(visible: boolean) { activity.visible = visible },
+    setBuses(visible: boolean) { buses.visible = visible },
+    setBusRoute(_id: string | null) {},
+    setNight(night: boolean) {
+      if (night === venueNight) return
+      venueNight = night
+      for (const match of matches) {
+        const scale = night && !match.nightPlayable ? 0 : match.scale
+        match.players.forEach(player => player.root.scale.setScalar(scale))
+        match.ball.scale.setScalar(.14 * scale)
+      }
+      updateActivity(activityTime)
+    },
+    animate(delta: number, runActivity: boolean, _runBuses: boolean) {
+      if (runActivity && activity.visible) { activityTime += delta; updateActivity(activityTime) }
+    },
   }
 
   const busRed = new THREE.MeshStandardMaterial({ color: '#c45442', roughness: .88 })
@@ -295,8 +324,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     for (const wheel of busWheels) wheel.rotation.x = time * 7.2 / .28
   }
 
-  let activityTime = 0, busTime = 0
-  updateActivity(0)
+  let busTime = 0
   updateBuses(0)
   updateTraffic(0)
   return {

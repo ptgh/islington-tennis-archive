@@ -51,7 +51,10 @@ export default function App() {
   const [playFocusId,setPlayFocusId]=useState<string|null>(null);
   const [visitId,setVisitId]=useState<string|null>(null);
   const [practiceOpen,setPracticeOpen]=useState(false);
-  const [night,setNight]=useState(false);
+  const [manualNight,setNight]=useState(false);
+  const [lightingTime,setLightingTime]=useState<number|null>(null);
+  const night=lightingTime===null?manualNight:skyPosition(new Date(lightingTime)).sun.y<=0;
+  const toggleNight=()=>{setLightingTime(null);setNight(!night);};
   const [stations,setStations]=useState(false);
   const [showBuses,setShowBuses]=useState(true);
   const [motionRunning,setMotionRunning]=useState(()=>!window.matchMedia('(prefers-reduced-motion: reduce)').matches);

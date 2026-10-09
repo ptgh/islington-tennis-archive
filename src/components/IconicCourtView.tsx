@@ -356,26 +356,32 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: I
 
   function chooseCourt(id: string) { setSelectedId(id); engine.current?.focus(id) }
 
-  return <section className="atlas-court-view" aria-label={`${club.name} illustrated court view`}>
+  return <section className={`atlas-court-view${night ? ' atlas-court-view--night' : ''}`} aria-label={`${club.name} illustrated court view`}>
     <div ref={host} className="atlas-court-stage">
       {failed && <div className="atlas-court-fallback"><AtlasMiniature place={clubId}/><p>The court miniature is unavailable on this device. The venue details are still here.</p></div>}
-      {!failed && courts.map((court, index) => <button key={court.id} ref={node => { if (node) pins.current.set(court.id, node); else pins.current.delete(court.id) }} className="atlas-court-pin" type="button" aria-label={`Explore ${court.name}`} aria-pressed={selectedId === court.id} onClick={() => chooseCourt(court.id)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{court.name}</strong></button>)}
     </div>
     <div className="atlas-court-panel">
       <button className="atlas-court-back" type="button" onClick={onBack}><Icon name="back" size={16}/> London icons</button>
       <span className="atlas-eyebrow">A COURT-SIDE VIEW / {club.area.toUpperCase()}</span>
       <h3>{club.name}</h3>
       <p className="atlas-court-intro">{club.description}</p>
-      <div className="atlas-court-choices" aria-label="Explore courts">{courts.map(court => <button key={court.id} aria-pressed={selectedId === court.id} onClick={() => chooseCourt(court.id)}>{court.name}</button>)}</div>
+      <div className="atlas-court-choices" aria-label="Explore courts">{courts.map(court => <button key={court.id} aria-pressed={selected.id === court.id} onClick={() => chooseCourt(court.id)}>{court.name}</button>)}</div>
       <article className="atlas-court-selected"><span>ON THE GRASS</span><h4>{selected.name}</h4><p>{selected.note}</p></article>
       <p className="atlas-court-access">{club.access}</p>
       {event && <div className="atlas-court-event"><span>Next on the calendar</span><strong>{event.name}</strong><small>{tournamentDates(event)}{event.status === 'provisional' ? ' · provisional' : ''}</small></div>}
       <a className="atlas-court-visit" href={club.url} target="_blank" rel="noreferrer">{club.linkLabel}<Icon name="external" size={15}/></a>
       <a className="atlas-court-source" href={club.source} target="_blank" rel="noreferrer">Visitor & location information <Icon name="external" size={13}/></a>
-      <p className="atlas-court-disclaimer">Illustrated courts, not a measured site plan or a live view. Check the venue for access.</p>
+      <a className="atlas-court-source" href={GROUNDS_MAPS[clubId]} target="_blank" rel="noreferrer">Official grounds map <Icon name="external" size={13}/></a>
+      <p className="atlas-court-disclaimer">Street, building and court footprints follow OpenStreetMap. Heights, façades and planting are illustrated; check the venue for access.</p>
+      {night && <p className="atlas-court-disclaimer">{clubId === 'wimbledon' ? 'Sports lighting is shown on Centre Court and No. 1 Court. Other courts rest after dark.' : 'The grass courts rest after dark; no tournament floodlighting is shown.'} An evening illustration, not live court use.</p>}
     </div>
     <div className="atlas-court-switch" aria-label="Switch London venue"><button aria-pressed={clubId === 'wimbledon'} onClick={() => onSwitch('wimbledon')}>Wimbledon</button><button aria-pressed={clubId === 'queens'} onClick={() => onSwitch('queens')}>Queen’s</button></div>
+    <div className="atlas-court-world" aria-label="Miniature atmosphere">
+      <LightingControl night={night} time={lightingTime} onTime={onLightingTime} onNight={onNight}/>
+      <button onClick={onMotion} aria-label={motionRunning ? 'Pause world' : 'Run world'}><Icon name={motionRunning ? 'pause' : 'play'} size={14}/>{motionRunning ? 'Pause' : 'Run'}</button>
+    </div>
     <div className="atlas-court-controls" aria-label="Court view controls"><button onClick={() => engine.current?.zoom(1.25)} aria-label="Zoom in">+</button><button onClick={() => engine.current?.zoom(.8)} aria-label="Zoom out">−</button><button onClick={() => engine.current?.reset()} aria-label="Reset court view"><Icon name="reset" size={18}/></button></div>
     <p className="atlas-court-hint">Drag to move · scroll to zoom · double-click to reset</p>
+    <a className="atlas-court-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Map © OpenStreetMap contributors</a>
   </section>
 }

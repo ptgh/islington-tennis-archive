@@ -1,0 +1,16 @@
+.lighting-control{display:flex;gap:5px;position:relative;align-items:center}
+.app-header:has(.lighting-popover){z-index:8}
+.lighting-control .lighting-trigger{min-width:0;padding:10px 11px;font-size:11px}
+.lighting-control .lighting-popover{position:absolute;top:calc(100% + 10px);right:0;width:min(285px,calc(100vw - 32px));padding:17px;border:1px solid #d9e1ce;border-radius:15px;background:#faf9f1;color:#315844;box-shadow:0 12px 40px #1c382b40;z-index:12;white-space:normal}
+.lighting-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.lighting-heading strong{font:23px/1.1 var(--serif);font-weight:400}
+.lighting-control .lighting-heading button{padding:5px;box-shadow:none;background:transparent}
+.lighting-popover label{display:flex;justify-content:space-between;font-size:12px}
+.lighting-popover output{font-variant-numeric:tabular-nums;font-weight:600}
+.lighting-popover input{width:100%;margin:12px 0 15px;accent-color:#315844;cursor:pointer}
+.lighting-presets{display:flex;gap:4px}
+.lighting-control .lighting-presets button{flex:1;justify-content:center;padding:8px 4px;border:1px solid #d9e1ce;border-radius:7px;background:#eef2e5;box-shadow:none;font-size:10px}
+.lighting-control .lighting-presets button[aria-pressed=true]{background:#244b3d;color:#faf9f1}
+.lighting-popover p{margin:12px 0;font-size:11px;line-height:1.5;color:#62765e}
+.lighting-control .lighting-reset{padding:4px 0;border-radius:0;box-shadow:none;background:transparent;text-decoration:underline;text-underline-offset:3px;font-size:11px}
+.lighting-reset:disabled{opacity:.45;cursor:default}

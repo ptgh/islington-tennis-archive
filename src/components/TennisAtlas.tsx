@@ -80,7 +80,7 @@ function EventDetails({event,today,onClub}:{event:Tournament;today:string;onClub
   </article>;
 }
 
-export function TennisAtlas({onClose,onHome,today}:{onClose:()=>void;onHome:()=>void;today:string}) {
+export function TennisAtlas({onClose,onHome,today,night,motionRunning,weather,onNight,onMotion,lightingTime,onLightingTime}:{onClose:()=>void;onHome:()=>void;today:string;lightingTime:number|null;onLightingTime:(time:number|null)=>void;night:boolean;motionRunning:boolean;weather:WeatherSceneKind;onNight:()=>void;onMotion:()=>void}) {
   const dialogRef=useRef<HTMLDialogElement>(null), contentRef=useRef<HTMLDivElement>(null);
   const [view,setView]=useState<AtlasView>('london'),[clubId,setClubId]=useState<IconicClubId>('wimbledon');
   const [filter,setFilter]=useState<TournamentFilter>('all');
