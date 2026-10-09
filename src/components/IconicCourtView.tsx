@@ -134,9 +134,12 @@ function buildScene(id: IconicClubId) {
   const tree = (x: number, z: number, size: number, shade: string) => {
     cylinder(x, size * .58, z, size * .12, size * 1.15, '#746b51')
     if (!foliageBatches.has(shade)) foliageBatches.set(shade, [])
+    // Three silhouettes (round, columnar, spreading) so no two neighbours repeat.
+    const kind = Math.floor(Math.abs(Math.sin(x * 12.9 + z * 78.2)) * 3)
+    const spread = kind === 1 ? .28 : kind === 2 ? .62 : .48, lift = kind === 1 ? 1.25 : 1
     for (let lobe = 0; lobe < 7; lobe++) {
-      const angle = lobe * 2.399 + x, radius = lobe === 0 ? 0 : size * .48
-      transform.position.set(x + Math.cos(angle) * radius, size * (lobe === 0 ? 1.7 : 1.35), z + Math.sin(angle) * radius)
+      const angle = lobe * 2.399 + x, radius = lobe === 0 ? 0 : size * spread
+      transform.position.set(x + Math.cos(angle) * radius, size * (lobe === 0 ? 1.7 : 1.35 + (kind === 1 ? lobe * .12 : 0)) * lift, z + Math.sin(angle) * radius)
       transform.rotation.set(0, angle, 0)
       transform.scale.setScalar(size * (lobe === 0 ? .65 : .46))
       transform.updateMatrix()

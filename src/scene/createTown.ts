@@ -409,8 +409,10 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const color = foliageColors[species]
     const height = (3.8 + rnd() * 2.2) * size
     const detailedLocal = detailedNeighbourhood(x, z, 95)
-    const silhouette = detailedLocal ? species % 3 : 0
+    // Mixed species everywhere: round limes, columnar poplars, wide spreading planes.
+    const silhouette = species % 3
     treeTrunks.push({ x, y: height * .4, z, sx: .19 * size, sy: height * .8, sz: .19 * size })
+    // Gaps between lobes let sunlight through, so crowns cast broken, dappled shade.
     // Irregular clusters give mature trees layered crowns and soft, broken silhouettes.
     for (let lobe=0;lobe<7;lobe++) {
       const angle=lobe*2.399+height, ring=lobe===0?0:height*(silhouette===1?.19:silhouette===2?.31:.25);
