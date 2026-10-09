@@ -92,11 +92,11 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
   }
   const alpha = new THREE.DataTexture(meshBytes, 128, 128)
   alpha.wrapS = alpha.wrapT = THREE.RepeatWrapping; alpha.repeat.set(10, 2)
-  // Retain wire coverage at miniature viewing distances; averaging narrow
-  // wires into mipmaps would discard the entire fence under alpha testing.
-  alpha.generateMipmaps = false; alpha.minFilter = THREE.LinearFilter; alpha.needsUpdate = true
+  // Filter coverage rather than hard-cutting averaged wires, avoiding both
+  // disappearing fences and sparkling moiré at overview distances.
+  alpha.generateMipmaps = true; alpha.minFilter = THREE.LinearMipmapLinearFilter; alpha.needsUpdate = true
   textures.push(alpha)
-  const fence = new THREE.MeshStandardMaterial({ color: '#52605a', alphaMap: alpha, alphaTest: .35, side: THREE.DoubleSide, roughness: .72, metalness: .3 })
+  const fence = new THREE.MeshStandardMaterial({ color: '#52605a', alphaMap: alpha, alphaTest: .02, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: .72, metalness: .3 })
   const steel = new THREE.MeshStandardMaterial({ color: '#5e685f', roughness: .68, metalness: .42 })
   materials.push(fence, steel)
   return { grass, synthetic, concrete, clay, fence, steel,
