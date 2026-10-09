@@ -395,8 +395,6 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const height = (3.8 + rnd() * 2.2) * size
     const detailedLocal = detailedNeighbourhood(x, z, 95)
     const silhouette = detailedLocal ? species % 3 : 0
-    const windSeed = Math.abs(Math.sin(x*12.9898+z*78.233)*43758.5453)%1
-    const sway = Math.hypot(x-105,z+32)<105 && windSeed<.17 ? x*.021+z*.017 : undefined
     treeTrunks.push({ x, y: height * .4, z, sx: .19 * size, sy: height * .8, sz: .19 * size })
     // Irregular clusters give mature trees layered crowns and soft, broken silhouettes.
     for (let lobe=0;lobe<7;lobe++) {
