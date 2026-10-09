@@ -1,3 +1,4 @@
+- [ ] Add dismissible mobile club details, fix bottom clipping, and reduce atlas/club-switch latency; verify phone controls and scene lifecycle.
 - [x] Polish mobile guide spacing, translucency and bottom visibility; empty and saved long conversations verified at four phone/short-screen sizes, composer remains visible, three conversation tests pass.
 - [x] Provide original ball artwork for the Lovable project thumbnail in Files; setting the dashboard thumbnail remains a user action through the project-card menu.
 - [x] Extend shared scanned court finishes, worn surrounds and fencing to every Islington map court, including Highbury; locations and floodlighting preserved, 67 tests pass, nine texture loads and isolated actual Highbury rendering verified without page errors. Full-map hardware visual confirmation remains under the existing verification task.
