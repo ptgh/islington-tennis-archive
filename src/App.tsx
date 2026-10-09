@@ -58,6 +58,9 @@ export default function App() {
   const [about,setAbout]=useState(false);
   const [atlas,setAtlas]=useState(false);
   const [racquetRoom,setRacquetRoom]=useState(false);
+  const [racquetView,setRacquetView]=useState<'collection'|'my-frame'>('collection');
+  const [partnersOpen,setPartnersOpen]=useState(false);
+  function openMyFrame(){setRacquetView('my-frame');setRacquetRoom(true);}
   const [askHash,setAskHash]=useState(()=>threadIdFromHash(window.location.hash));
   useEffect(()=>{const sync=()=>setAskHash(threadIdFromHash(window.location.hash));window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync);},[]);
   const closeAsk=useCallback(()=>{history.pushState(null,'',window.location.pathname+window.location.search);setAskHash(undefined);},[]);
@@ -71,15 +74,14 @@ export default function App() {
   const results=useMemo(()=>filterVenues(venues,query,filter,nearby).filter(v=>(facility==='all'||(facility==='indoor'?v.setting.toLowerCase().includes('indoors'):v.lighting.toLowerCase().includes('flood')))&&(!savedOnly||favourites.includes(v.id))),[query,filter,nearby,savedOnly,favourites,facility]);
   const playResults=useMemo(()=>filterPlayOpportunities(playOpportunities,playFilter,playVenueId,todayClock),[playFilter,playVenueId,todayClock]);
   const playCounts=useMemo(()=>playVenueCounts(filterPlayOpportunities(playOpportunities,playFilter,null,todayClock)),[playFilter,todayClock]);
-  const playCourts=useMemo(()=>venues.filter(v=>playOpportunities.some(item=>item.venueIds.includes(v.id))),[]);
   const opportunity=playOpportunities.find(item=>item.id===playId);
   const visibleIds=useMemo(()=>section==='play'?Object.keys(playCounts):section==='gear'?[]:section==='coaching'?[...new Set(hubServices.flatMap(s=>s.venueId?[s.venueId]:[]))]:results.map(v=>v.id),[results,section,playCounts]);
   const selected=venues.find(v=>v.id===selectedId);
   const service=hubServices.find(s=>s.id===serviceId);
   const route=busRoutes.find(r=>r.id===routeId);
   const visited=venues.find(v=>v.id===visitId);
-  const hasDetail=!!(selected||service||route||opportunity);
-  function changeSection(next:HubSection){setCoachVenue(null);if(visitId||next==='play')map.current?.reset();setPlayId(null);setPlayVenueId(null);setPlayFocusId(null);setPlayFilter('all');setSection(next);setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);if(next==='buses')setShowBuses(true);}
+  const hasDetail=!!(selected||service||route||opportunity||(section==='play'&&partnersOpen));
+  function changeSection(next:HubSection){setPartnersOpen(false);setCoachVenue(null);if(visitId||next==='play')map.current?.reset();setPlayId(null);setPlayVenueId(null);setPlayFocusId(null);setPlayFilter('all');setSection(next);setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);if(next==='buses')setShowBuses(true);}
   function select(id:string){setPlayId(null);setSelectedId(id);setServiceId(null);setRouteId(null);setVisitId(null);setSection('courts');setPanelOpen(true);}
   function selectService(id:string){const item=hubServices.find(s=>s.id===id);if(!item)return;setPlayId(null);setSection(item.kind);setServiceId(id);setSelectedId(null);setRouteId(null);setVisitId(null);setPanelOpen(true);}
   function selectRoute(id:string){setPlayId(null);setRouteId(id);setShowBuses(true);setVisitId(null);setPanelOpen(true);}
@@ -131,7 +133,7 @@ export default function App() {
     <aside id="court-browser" className={`directory-panel ${hasDetail?'has-detail':''}`} aria-label="Explore the tennis hub" inert={!panelOpen} aria-hidden={!panelOpen?true:undefined}>
       <button className="mobile-handle" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen} aria-label={panelOpen?'Minimise tennis hub':'Open tennis hub'}><span/></button>
       <HubNavigation section={section} onChange={changeSection}/>
-      {selected?<CourtDetail venue={selected} onBack={()=>setSelectedId(null)} onVisit={()=>visitCourt(selected.id)} coaching={servicesForVenue(selected.id)} onCoaching={selectService} onPlay={playOpportunities.some(item=>item.venueIds.includes(selected.id))?()=>browsePlayAtVenue(selected.id):undefined}/>:service?<ServiceDetail service={service} onBack={()=>setServiceId(null)} onCourt={select} onLocate={()=>{if(service.id==='sweet-spot-stringer')map.current?.visitVan();if(service.lat!==undefined&&service.lng!==undefined)map.current?.locate(service.lat,service.lng);}}/>:route?<BusRouteDetail route={route} onBack={()=>setRouteId(null)} onView={()=>map.current?.followRoute(route.id)}/>:opportunity?<PlayDetail opportunity={opportunity} onBack={()=>setPlayId(null)} onCourt={select} onLocate={locatePlayCourt} venues={venues}/>:section==='play'?<PlayDirectory results={playResults} filter={playFilter} onFilter={setPlayFilter} venueId={playVenueId} onVenue={browsePlayAtVenue} venues={playCourts} onSelect={selectPlay}/>:section==='courts'?<CourtDirectory facility={facility} onFacility={setFacility} favourites={favourites} onFavourite={toggleFavourite} savedOnly={savedOnly} onSavedOnly={setSavedOnly} saveError={saveError} results={results} allVenues={venues} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} onSelect={select} onAbout={()=>setAbout(true)}/>:<HubDirectory venueId={coachVenue} onClearVenue={()=>setCoachVenue(null)} section={section} onService={selectService} onRoute={selectRoute} onRacquets={()=>setRacquetRoom(true)}/>}
+      {selected?<CourtDetail venue={selected} onBack={()=>setSelectedId(null)} onVisit={()=>visitCourt(selected.id)} coaching={servicesForVenue(selected.id)} onCoaching={selectService} onPlay={playOpportunities.some(item=>item.venueIds.includes(selected.id))?()=>browsePlayAtVenue(selected.id):undefined}/>:service?<ServiceDetail service={service} onBack={()=>setServiceId(null)} onCourt={select} onLocate={()=>{if(service.id==='sweet-spot-stringer')map.current?.visitVan();if(service.lat!==undefined&&service.lng!==undefined)map.current?.locate(service.lat,service.lng);}}/>:route?<BusRouteDetail route={route} onBack={()=>setRouteId(null)} onView={()=>map.current?.followRoute(route.id)}/>:opportunity?<PlayDetail opportunity={opportunity} onBack={()=>setPlayId(null)} onCourt={select} onLocate={locatePlayCourt} venues={venues}/>:section==='play'?<PlayDirectory results={playResults} filter={playFilter} onFilter={setPlayFilter} venueId={playVenueId} onVenue={browsePlayAtVenue} venues={venues} onSelect={selectPlay} onRacquets={openMyFrame} partners={partnersOpen} onPartners={setPartnersOpen}/>:section==='courts'?<CourtDirectory facility={facility} onFacility={setFacility} favourites={favourites} onFavourite={toggleFavourite} savedOnly={savedOnly} onSavedOnly={setSavedOnly} saveError={saveError} results={results} allVenues={venues} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} onSelect={select} onAbout={()=>setAbout(true)}/>:<HubDirectory venueId={coachVenue} onClearVenue={()=>setCoachVenue(null)} section={section} onService={selectService} onRoute={selectRoute} onRacquets={()=>{setRacquetView('collection');setRacquetRoom(true);}}/>}
     </aside>
     {!visitId&&<button className="mobile-panel-toggle pill" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen}><Icon name={panelOpen?'layers':'court'} size={18}/>{panelOpen?'Explore map':'Tennis hub'}</button>}
     {visited&&<div className="visit-bar"><div><strong>{visited.name}</strong><span>Miniature animation · not live court use</span></div><button ref={practiceButton} className="practice-launch" aria-expanded={practiceOpen} onClick={()=>setPracticeOpen(!practiceOpen)}><Icon name="ball" size={15}/> Practice</button><button ref={leaveVisitButton} onClick={leaveVisit}><Icon name="back" size={16}/> Back to map</button></div>}
@@ -142,7 +144,7 @@ export default function App() {
     {!ready&&<div className="loading-label" role="status"><Icon name="ball" size={20}/> Building your little world…</div>}
     <button className="map-attribution" onClick={()=>setAbout(true)} aria-haspopup="dialog">Map credits</button>
     {atlas&&<TennisAtlas today={londonDate(todayClock)} onClose={()=>setAtlas(false)} onHome={()=>{setAtlas(false);home();}}/>}
-    {racquetRoom&&<RacquetStudio onClose={()=>setRacquetRoom(false)}/>}
+    {racquetRoom&&<RacquetStudio initialView={racquetView} onPartners={()=>{setRacquetRoom(false);changeSection('play');setPartnersOpen(true);}} onClose={()=>setRacquetRoom(false)}/>}
     {askHash!==undefined&&<AskIslington threadId={askHash} onNavigate={id=>{window.location.hash=`#/ask/${id}`;}} onClose={closeAsk}/>}
     {about&&<AboutDialog onClose={()=>setAbout(false)}/>}
   </main>;
