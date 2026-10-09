@@ -1,7 +1,8 @@
 - [x] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
 - [x] Explain photo URLs versus local files, locate the Mac source folder, and distinguish local DNS failure from public GitHub 404.
 - [x] Recover and host the exact T2000 and SW102 photographs; verify photo delivery and racquet navigation.
-- [ ] Restore the remaining 30 original racquet photographs — blocked by missing Wilson URLs and unavailable original repository; needs original photos or a repository ZIP.
+- [ ] Restore the remaining original racquet photographs — compare uploaded ZIP racquet data only and recover exact-model images from existing sources without overwriting newer work.
+- [ ] Assess the supplied aerial reference and explain the map-quality gap; implement and visually verify suitable rendering improvements.
 - [x] Improve desktop contact shading and texture clarity without changing map geometry; all 42 tests pass.
 - [ ] Visually verify improved 3D map detail — sandbox WebGL stalls; navigation and phone layouts verified with WebGL disabled.
 - [x] Make the mobile Play together sheet scroll as a whole, keeping filters, sessions and detail actions reachable.
