@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import geography from '../data/iconic-geography.json' with { type: 'json' }
 import type { createMiniatureMaterials } from './miniatureMaterials'
+import { createFootprintRoof } from './footprintRoof.ts'
 
 type Point = number[]
 type Feature = { id: number; tags: Record<string, string>; points: Point[]; outlines?: Point[][] }
@@ -140,7 +141,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     const clubhouse=id==='queens' && f.id===698577941
     // Clubhouse colours and balcony detail reference the club's own About photograph:
     // https://www.queensclub.co.uk/About_the_Club.aspx
-    const colour=clubhouse?'#ad7759':paint[Math.floor(random(f.id)*paint.length)], roofTone=clubhouse?'#796c59':roofs[f.id%roofs.length]
+    const colour=clubhouse?'#ad7759':paint[Math.floor(random(f.id)*paint.length)], roofTone=clubhouse?'#796c59':roofs[Math.abs(f.id)%roofs.length]
     const sh=new THREE.Shape(f.points.slice(0,-1).map(([x,z])=>new THREE.Vector2(x,-z)))
     const g=new THREE.ExtrudeGeometry(sh,{depth:height,bevelEnabled:false,steps:1})
     g.rotateX(-Math.PI/2)
@@ -156,6 +157,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
       const sign=polygonArea>0?1:-1, nx=dz/len*sign,nz=-dx/len*sign
       segment(a,c,.26,height-.15,'#ded6c4',.28)
       segment(a,c,.22,.23,'#c2baa6',.46)
+      for(let level=1;level<floors;level++)segment(a,c,.12,level*height/floors-.15,'#c2baa6',.12)
       // The long east-facing elevation overlooks the arena. Keep additions tied
       // to this mapped facade, rather than decorating neighbouring homes.
       if(clubhouse && len>20 && nx>.5) {
@@ -182,23 +184,28 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
             box(0,y,0,.045,1.31,.25,'#e4ddcd',false)
             box(0,y,0,.88,.055,.25,'#e4ddcd',false)
             box(0,y-.8,0,1.27,.12,.38,'#ded6c4',false)
+            box(-.58,y,0,.09,1.68,.30,'#ded6c4',false)
+            box(.58,y,0,.09,1.68,.30,'#ded6c4',false)
+            box(0,y+.84,0,1.3,.14,.32,'#ded6c4',false)
           }
           if(j%3===0){box(0,1.05,0,.86,2.1,.29,'#344c44');box(0,.12,0,1.4,.24,.9,'#ded6c4')}
         })
       }
     }
-    if(coverage>.68 && b.width<30 && b.depth<55 && f.tags['roof:shape']!=='flat') {
+    if(coverage>.60 && b.width<32 && f.tags['roof:shape']!=='flat' && (!inVenue || clubhouse)) {
+      const roofRise=Math.min(3.3,b.width*.30)
+      collect(createFootprintRoof(f.points,b,height+.04,roofRise),mat(roofTone,'roof'))
       // Roof ridge runs along the long axis of each real footprint.
       place(b.x,b.z,b.angle+Math.PI/2,1,()=>{
         const width=b.depth,depth=b.width,rise=Math.min(3.3,depth*.36)
         for(const side of [-1,1]) {
           // A triangular prism closes both gable ends; roof surfaces carry slate relief.
           const roofShape=new THREE.Shape([new THREE.Vector2(-depth/2,0),new THREE.Vector2(0,rise),new THREE.Vector2(depth/2,0)])
-          if(side===1){
-            const gable=new THREE.ExtrudeGeometry(roofShape,{depth:width,bevelEnabled:false})
+          if(side===1 && coverage>.94){
+            const gable=new THREE.ExtrudeGeometry(roofShape,{depth:.18,bevelEnabled:false})
             gable.rotateY(Math.PI/2);gable.translate(-width/2,height,0)
             const m=new THREE.Matrix4().makeRotationY(b.angle+Math.PI/2);m.setPosition(b.x,0,b.z);gable.applyMatrix4(m)
-            collect(gable,mat(roofTone,'roof'))
+            collect(gable,mat(colour,'brick'))
           }
           box(0,height-.02,side*(depth/2+.15),width+.3,.12,.18,'#4d5e56')
           for(let d=-width/2+3;d<width/2-2;d+=6) {
@@ -261,20 +268,20 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   const blocked=(p:Point,r:number)=>stadiums.some(f=>inside(p,f.points)) || buildings.some(b=>inside(p,b.points)||b.points.some((a,i)=>i>0&&distance(p,b.points[i-1],a)<r)) || pitches.some(f=>inside(p,f.points)||f.points.some((a,i)=>i>0&&distance(p,f.points[i-1],a)<r+3)) || roadSegments.some(s=>distance(p,s.a,s.b)<s.width/2+r)
   const trees:Point[]=[]
   const plant=(p:Point,size:number,seed:number)=>{
-    if(trees.some(t=>Math.hypot(p[0]-t[0],p[1]-t[1])<5))return
+    if(trees.some(t=>Math.hypot(p[0]-t[0],p[1]-t[1])<4.2))return
     trees.push(p);tree(p[0],p[1],size,foliage[seed%foliage.length])
   }
   for(const t of data.trees)plant(t.point,3.2+random(t.id)*1.7,t.id)
   // Supplementary garden/park planting is decorative; mapped buildings/roads/courts stay clear.
   const green=features.filter(f=>closed(f.points)&&(['park','garden'].includes(f.tags.leisure)||['wood','scrub'].includes(f.tags.natural)||['grass','forest','cemetery'].includes(f.tags.landuse)))
-  for(let i=0;i<4800;i++) {
+  for(let i=0;i<8000;i++) {
     const p=[(random(i+401)*2-1)*data.extent[0],(random(i+19001)*2-1)*data.extent[1]]
     const inGrounds=withinVenue(p),inGreen=green.some(g=>inside(p,g.points))
     if(inGrounds&&!inGreen)continue
-    if(!inGreen && random(i+57)>.12)continue
-    if(blocked(p,3))continue
+    if(!inGreen && random(i+57)>.20)continue
+    if(blocked(p,1.8))continue
     plant(p,2.6+random(i+94)*2.0,i)
-    if(trees.length>430)break
+    if(trees.length>=650)break
   }
   // Benches, street lamps and parked cars give the mapped streets a lived-in scale.
   for(const [index,s] of roadSegments.entries()) {

@@ -26,5 +26,7 @@
 - [x] Phase 2: live free court times (Highbury Fields, Islington Tennis Centre) on booking page and in Ask guide
 - [x] Phase 3: optional sign-in and player cards (name, level, UTR, preferred courts)
 - [x] UTR application answers drafted
-- [ ] Submit UTR application — waiting on you (real user numbers, fee decision, privacy page)
+- [x] Submit UTR application — sent by the user; integration awaits UTR approval.
+- [x] Upgrade Wimbledon and Queen’s with footprint-preserving pitched terrace roofs, facade bands/window relief, textured architectural surfaces, denser layered planting, woven nets and clearer daylight; all 61 tests pass and preview compilation succeeds.
+- [ ] Confirm Wimbledon and Queen’s visual parity against the reference — actual isolated club views still stall sandbox screenshots, including a smaller paused Queen’s view; needs hardware WebGL preview confirmation.
 - [ ] Phase 4: in-app booking — waiting on a provider agreeing to give access
