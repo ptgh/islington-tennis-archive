@@ -9,7 +9,7 @@ type AtlasView = 'london' | 'season' | 'court';
 const position=(x:number,y:number):CSSProperties=>({left:`${x}%`,top:`${y}%`});
 const project=(lng:number,lat:number)=>[(lng+180)*2,(90-lat)*2];
 
-function LondonMap({clubId,onClub,onHome}:{clubId:IconicClubId;onClub:(id:IconicClubId)=>void;onHome:()=>void}) {
+function LondonMap({clubId,onClub,onOpen,onHome}:{clubId:IconicClubId;onClub:(id:IconicClubId)=>void;onOpen:(id:IconicClubId)=>void;onHome:()=>void}) {
   return <div className="atlas-london" aria-label="London tennis destinations, separate from the local court directory">
     <svg className="atlas-london-ground" viewBox="0 0 660 440" preserveAspectRatio="none" aria-hidden="true">
       <defs><pattern id="atlas-streets" width="58" height="48" patternUnits="userSpaceOnUse" patternTransform="rotate(-15)"><path d="M0 14H58M13 0V48" fill="none" stroke="#fffcef" strokeWidth="2"/></pattern></defs>
@@ -23,7 +23,7 @@ function LondonMap({clubId,onClub,onHome}:{clubId:IconicClubId;onClub:(id:Iconic
     <button className="atlas-home-place" style={position(75,21)} onClick={onHome} aria-label="Return to Islington map">
       <AtlasMiniature place="islington"/><strong>Islington</strong><span>Our home court</span>
     </button>
-    {iconicClubs.map(club=><button key={club.id} className={`atlas-club-place ${club.id}`} style={position(club.id==='queens'?30:39,club.id==='queens'?44:76)} aria-pressed={club.id===clubId} onClick={()=>onClub(club.id)}>
+    {iconicClubs.map(club=><button key={club.id} className={`atlas-club-place ${club.id}`} style={position(club.id==='queens'?30:39,club.id==='queens'?44:76)} aria-pressed={club.id===clubId} onClick={()=>onClub(club.id)} onDoubleClick={()=>onOpen(club.id)} title="Double-click to explore the courts">
       <AtlasMiniature place={club.id}/><strong>{club.name}</strong><span>{club.id==='queens'?'West Kensington':'SW19'}</span>
     </button>)}
     <p className="atlas-map-caption">London, a little further afield.<span>Illustrated positions · not a travel route</span></p>
@@ -103,7 +103,7 @@ export function TennisAtlas({onClose,onHome,today}:{onClose:()=>void;onHome:()=>
     <div className="atlas-navigation"><div className="atlas-view-options" aria-label="Atlas view"><button aria-pressed={view==='london'} onClick={()=>switchView('london')}>London icons</button><button aria-pressed={view==='season'} onClick={()=>switchView('season')}>On tour <span>{upcomingTournaments(today).length}</span></button>{view==='court'&&<button aria-pressed={true} onClick={()=>switchView('court')}>Court view</button>}</div><button className="atlas-return" onClick={onHome}><Icon name="back" size={16}/> Back to Islington</button></div>
     <div className="atlas-content" ref={contentRef}>
       {view==='court'?<IconicCourtView key={clubId} clubId={clubId} event={clubEvent} onBack={()=>switchView('london')} onSwitch={setClubId}/>:view==='london'?<>
-        <div className="atlas-feature"><LondonMap clubId={clubId} onClub={setClubId} onHome={onHome}/><article className="atlas-club-detail" key={clubId}>
+        <div className="atlas-feature"><LondonMap clubId={clubId} onClub={setClubId} onOpen={id=>{setClubId(id);switchView('court');}} onHome={onHome}/><article className="atlas-club-detail" key={clubId}>
           <span className="atlas-eyebrow">LONDON ICON / {club.id==='wimbledon'?'01':'02'}</span><h3>{club.name}</h3><p className="atlas-event-venue">{club.area}</p><p>{club.description}</p>
           {clubEvent&&<button className="atlas-next-event" onClick={()=>showEvent(clubEvent.id)}><span>Next on the calendar</span><strong>{tournamentDates(clubEvent)}</strong><span>{clubEvent.status==='provisional'?'Provisional dates':'The Championships'} <Icon name="arrow" size={16}/></span></button>}
           <p className="atlas-access">{club.access}</p>
