@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { accessLabels, type Venue } from '../data/venues';
 import { Icon } from './Icon';
+import { LiveCourtTimes } from './LiveCourtTimes';
 
 /** Hours, prices and the official booking link for one court, in the court panel style. */
 export function CourtBooking({venue,onBack}:{venue:Venue;onBack:()=>void}) {
@@ -22,6 +23,7 @@ export function CourtBooking({venue,onBack}:{venue:Venue;onBack:()=>void}) {
         <p>{venue.fees??'Prices are not published. Check the official site.'}</p>
         {venue.pricesUrl&&<a className="court-approach__source" href={venue.pricesUrl} target="_blank" rel="noreferrer">Official prices{venue.pricesChecked?` · checked ${venue.pricesChecked}`:''} <Icon name="external" size={12}/></a>}
       </section>
+      <LiveCourtTimes venueId={venue.id}/>
       <p className="access-note">{venue.accessNote}</p>
     </div>
     <div className="detail-actions"><a className="primary-button" href={url} target="_blank" rel="noreferrer">{venue.bookingLabel??venue.actionLabel}<Icon name="external" size={17}/></a><span>Bookings and live availability are handled on the official site</span></div>
