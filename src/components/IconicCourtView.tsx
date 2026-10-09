@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { iconicClubs, tournamentDates, type IconicClubId, type Tournament } from '../data/tennisAtlas'
 import { AtlasMiniature } from './AtlasMiniature'
 import { Icon } from './Icon'
+import { createMiniatureMaterials } from '../scene/miniatureMaterials'
 import './IconicCourtView.css'
 
 type CourtStop = { id: string; name: string; note: string; x: number; z: number }
@@ -27,6 +28,13 @@ function buildScene(id: IconicClubId) {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(id === 'wimbledon' ? '#dce6d4' : '#e5e8d6')
   const unitBox = new THREE.BoxGeometry(1, 1, 1)
+  const finishes = createMiniatureMaterials()
+  const detailBatches = new Map<THREE.Material, { x: number; y: number; z: number; w: number; h: number; d: number; angle: number }[]>()
+  const detail = (x: number, y: number, z: number, w: number, h: number, d: number, surface: THREE.Material, angle = 0) => {
+    const batch = detailBatches.get(surface) ?? []
+    batch.push({ x, y, z, w, h, d, angle })
+    detailBatches.set(surface, batch)
+  }
   const materials = new Map<string, THREE.MeshStandardMaterial>()
   const material = (colour: string) => {
     let value = materials.get(colour)
@@ -49,15 +57,58 @@ function buildScene(id: IconicClubId) {
     mesh.receiveShadow = true
     scene.add(mesh)
   }
-  const canopy = new THREE.IcosahedronGeometry(1, 1)
+  const canopy = finishes.foliageGeometry
   const tree = (x: number, z: number, size: number, shade: string) => {
     cylinder(x, size * .58, z, size * .12, size * 1.15, '#716849')
-    const crown = new THREE.Mesh(canopy, material(shade))
-    crown.position.set(x, size * 1.55, z)
-    crown.scale.set(size * .8, size * .91, size * .8)
-    crown.castShadow = true
-    crown.receiveShadow = true
-    scene.add(crown)
+    const species = Math.floor(Math.abs(Math.sin(x * 1.7 + z * .9)) * 3)
+    const surface = finishes.foliage.clone()
+    surface.color.set(shade)
+    const crowns = new THREE.InstancedMesh(canopy, surface, 12)
+    const transform = new THREE.Object3D()
+    for (let lobe = 0; lobe < 12; lobe++) {
+      const angle = lobe * 2.399 + x, outer = lobe > 6
+      const ring = lobe === 0 ? 0 : size * (outer ? .78 : .46)
+      const radius = size * (lobe === 0 ? .72 : outer ? .27 : .48)
+      transform.position.set(x + Math.cos(angle) * ring, size * (outer ? 1.45 + lobe * .025 : 1.38 + (lobe % 3) * .16), z + Math.sin(angle) * ring)
+      transform.scale.set(radius, radius * (species === 1 ? 1.4 : species === 2 ? .72 : 1), radius)
+      transform.rotation.set(0, angle, 0)
+      transform.updateMatrix()
+      crowns.setMatrixAt(lobe, transform.matrix)
+    }
+    crowns.castShadow = true; crowns.receiveShadow = true
+    scene.add(crowns)
+    for (let branch = 0; branch < 4; branch++) {
+      const angle = branch * Math.PI / 2 + x
+      detail(x + Math.cos(angle) * size * .25, size * 1.1, z + Math.sin(angle) * size * .25, size * .85, size * .07, size * .08, material('#716849'), -angle)
+    }
+  }
+  // Local facade relief matches the town treatment without moving any court.
+  const facade = (cx: number, cz: number, width: number, height: number, depth: number) => {
+    const trim = material('#e6ded0'), glass = material('#465e65'), metal = material('#394e44')
+    const columns = Math.max(2, Math.floor(width / 3))
+    for (const side of [-1, 1]) {
+      const front = cz + side * (depth / 2 + .12)
+      for (const y of [.3, height - .2, height * .52]) detail(cx, y, front, width + .2, .16, .24, trim)
+      for (let col = 0; col < columns; col++) {
+        const x = cx + (col + .5) * width / columns - width / 2
+        for (let floor = 0; floor < Math.max(1, Math.floor(height / 2.2)); floor++) {
+          const y = 1.25 + floor * 2.1
+          detail(x, y, front, 1.25, 1.55, .18, trim)
+          detail(x, y, front + side * .12, .96, 1.25, .06, glass)
+          detail(x, y, front + side * .17, .045, 1.3, .04, trim)
+          detail(x, y, front + side * .17, 1.02, .055, .04, trim)
+          detail(x, y - .78, front, 1.4, .12, .42, trim)
+        }
+      }
+      detail(cx - width * .45, height / 2, front + side * .16, .09, height, .09, metal)
+      detail(cx, .65, front + side * 1.35, width, .06, .06, metal)
+      for (let post = 0; post <= columns * 3; post++) detail(cx - width / 2 + post * width / (columns * 3), .38, front + side * 1.35, .04, .65, .04, metal)
+    }
+    for (const side of [-1, 1]) {
+      detail(cx + side * width * .32, height + .5, cz, .85, 1.4, .85, finishes.brick)
+      detail(cx + side * width * .32, height + 1.23, cz, 1.05, .15, 1.05, trim)
+      detail(cx + side * width * .32, height + 1.5, cz, .22, .48, .22, finishes.brick)
+    }
   }
   const court = (cx: number, cz: number, compact = false) => {
     const width = compact ? 16 : 19, depth = compact ? 32 : 37
@@ -121,17 +172,45 @@ function buildScene(id: IconicClubId) {
     box(0, .05, -55, 113, .08, 3.5, '#d8d2b8', false)
     box(-71, 2.2, -52, 16, 4.3, 9, '#c9b797')
     box(-71, 4.55, -52, 17, .5, 10, '#415944')
+    facade(-71, -52, 16, 4.3, 9)
   } else {
     court(-30, 8); stand(-30, 8, 30, 48, 3)
     court(42, 28, true); court(42, -34, true)
     box(5, .05, 0, 4, .08, 117, '#d6cbb1', false)
     box(-29, 3.8, -55, 51, 7.3, 11, '#966c55')
     box(-29, 7.75, -55, 53, .65, 13, '#4c5844')
+    facade(-29, -55, 51, 7.3, 11)
     for (let i = -3; i <= 3; i++) {
       box(-29 + i * 6, 4.2, -49.37, 2.1, 2.6, .15, '#d4d6ba', false)
       box(-29 + i * 6, 4.2, -49.24, 1.6, 2.15, .12, '#315b53', false)
     }
     for (const [x, z] of [[-75, -17], [-75, 31], [78, -9], [78, 38], [7, -56]] as const) tree(x, z, 3.2, '#678852')
+  }
+
+  // The surroundings are illustrative; do not place a fictitious railway in the club grounds.
+  for (let i = 0; i < 11; i++) {
+    const x = -75 + i * 14
+    const height = 4.8 + (i % 3) * .55
+    box(x, height / 2, -72, 10.5, height, 5.5, i % 2 ? '#b9997f' : '#ad816a')
+    box(x, height + .25, -72, 11, .5, 6, '#415944')
+    facade(x, -72, 10.5, height, 5.5)
+  }
+  for (let i = 0; i < 12; i++) {
+    const z = -49 + i * 9.5
+    tree(-89, z, 2.7 + (i % 3) * .4, i % 2 ? '#769354' : '#64814a')
+    tree(90, z, 2.5 + (i % 4) * .3, i % 2 ? '#8da260' : '#6d8b4d')
+  }
+  for (const [surface, batch] of detailBatches) {
+    const group = new THREE.InstancedMesh(unitBox, surface, batch.length)
+    const transform = new THREE.Object3D()
+    batch.forEach((item, index) => {
+      transform.position.set(item.x, item.y, item.z)
+      transform.scale.set(item.w, item.h, item.d)
+      transform.rotation.set(0, item.angle, 0)
+      transform.updateMatrix(); group.setMatrixAt(index, transform.matrix)
+    })
+    group.castShadow = true; group.receiveShadow = true
+    scene.add(group)
   }
 
   scene.add(new THREE.HemisphereLight('#fff7e3', '#587460', 1.4))
@@ -144,8 +223,14 @@ function buildScene(id: IconicClubId) {
   sun.shadow.normalBias = .03
   scene.add(sun)
   return { scene, dispose: () => {
-    scene.traverse(object => { if (object instanceof THREE.Mesh && object.geometry !== unitBox && object.geometry !== canopy) object.geometry.dispose() })
-    unitBox.dispose(); canopy.dispose(); materials.forEach(value => value.dispose()); sun.shadow.map?.dispose()
+    const geometries = new Set<THREE.BufferGeometry>(), surfaces = new Set<THREE.Material>()
+    scene.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return
+      geometries.add(object.geometry)
+      for (const surface of Array.isArray(object.material) ? object.material : [object.material]) surfaces.add(surface)
+    })
+    geometries.forEach(value => value.dispose()); surfaces.forEach(value => value.dispose())
+    finishes.dispose(); sun.shadow.map?.dispose()
   } }
 }
 
