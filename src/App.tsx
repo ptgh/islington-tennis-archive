@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TownMap, type TownMapHandle } from './components/TownMap';
 import { CourtDirectory } from './components/CourtDirectory';
 import { CourtDetail } from './components/CourtDetail';
@@ -23,6 +23,8 @@ import { TennisAtlas } from './components/TennisAtlas';
 import { RacquetStudio } from './components/RacquetStudio';
 import { CourtPractice } from './components/CourtPractice';
 import { londonDate } from './data/tennisAtlas';
+import { AskIslington } from './components/AskIslington';
+import { threadIdFromHash } from './data/askThreads';
 
 export default function App() {
   const [weather,setWeather]=useState<WeatherSceneKind>('rain');
@@ -56,6 +58,9 @@ export default function App() {
   const [about,setAbout]=useState(false);
   const [atlas,setAtlas]=useState(false);
   const [racquetRoom,setRacquetRoom]=useState(false);
+  const [askHash,setAskHash]=useState(()=>threadIdFromHash(window.location.hash));
+  useEffect(()=>{const sync=()=>setAskHash(threadIdFromHash(window.location.hash));window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync);},[]);
+  const closeAsk=useCallback(()=>{history.pushState(null,'',window.location.pathname+window.location.search);setAskHash(undefined);},[]);
   const [panelOpen,setPanelOpen]=useState(true);
   const [isMobile,setIsMobile]=useState(()=>window.matchMedia('(max-width:760px)').matches);
   const [ready,setReady]=useState(false);
@@ -115,12 +120,13 @@ export default function App() {
   useEffect(()=>{if(service?.id==='sweet-spot-stringer')map.current?.visitVan();if(service?.lat!==undefined&&service.lng!==undefined)map.current?.locate(service.lat,service.lng);},[service]);
   useEffect(()=>{if(section==='play'&&playFocusId){const venue=venues.find(v=>v.id===playFocusId);if(venue)map.current?.locate(venue.lat,venue.lng);}},[playFocusId,playId,section]);
   useEffect(()=>{if(routeId)map.current?.followRoute(routeId);},[routeId]);
-  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen]);
+  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom&&askHash===undefined){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen,askHash]);
   return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
     <TownMap ref={map} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} weather={weather} showTransit={stations} trainRunning={motionRunning} activityRunning={motionRunning} showBuses={showBuses} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
     <div className="map-vignette"/><Weather onWeather={setWeather}/><MapPlaces onLocate={(lat,lng)=>{setPanelOpen(false);setStations(true);map.current?.locate(lat,lng);}}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
+    <button className="pill ask-launch" onClick={()=>{window.location.hash='#/ask';}} aria-haspopup="dialog">Ask</button>
     <header className="app-header"><button className="brand" onClick={home} aria-label="Islington Tennis home"><Icon name="ball" size={35}/><span>Islington Tennis</span></button><div className="header-actions"><button className="pill about-button" onClick={()=>setAbout(true)} aria-label="About"><span>About</span><Icon name="info" size={17}/></button><button className="pill day-button" onClick={()=>setNight(!night)} aria-label={night?'Switch to day':'Switch to night'}><Icon name={night?'moon':'sun'} size={18}/><span>{night?'Night':'Day'}</span></button></div></header>
     <aside id="court-browser" className={`directory-panel ${hasDetail?'has-detail':''}`} aria-label="Explore the tennis hub" inert={!panelOpen} aria-hidden={!panelOpen?true:undefined}>
       <button className="mobile-handle" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen} aria-label={panelOpen?'Minimise tennis hub':'Open tennis hub'}><span/></button>
@@ -137,6 +143,7 @@ export default function App() {
     <a className="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Highbury map © OpenStreetMap contributors</a>
     {atlas&&<TennisAtlas today={londonDate(todayClock)} onClose={()=>setAtlas(false)} onHome={()=>{setAtlas(false);home();}}/>}
     {racquetRoom&&<RacquetStudio onClose={()=>setRacquetRoom(false)}/>}
+    {askHash!==undefined&&<AskIslington threadId={askHash} onNavigate={id=>{window.location.hash=`#/ask/${id}`;}} onClose={closeAsk}/>}
     {about&&<AboutDialog onClose={()=>setAbout(false)}/>}
   </main>;
 }
