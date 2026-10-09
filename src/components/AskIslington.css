@@ -43,3 +43,4 @@
 @media (max-width:760px){.ask-backdrop{padding:0}.ask-dialog{border-radius:0;height:100%;flex-direction:column}.ask-threads{width:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px;flex-direction:row;align-items:center;gap:8px}.ask-threads ul{flex-direction:row;overflow-x:auto}.ask-thread-open{max-width:150px}.ask-threads-note{display:none}.ask-new{padding:8px 12px;white-space:nowrap}}
 .ask-launch{right:128px;top:196px;z-index:5;width:88px}
 @media (max-width:760px){.ask-launch{top:221px;right:97px;width:68px}}
+.ask-message a{color:#2f6b4c;text-decoration:underline;text-underline-offset:2px}.ask-message a:hover{color:#c79556}

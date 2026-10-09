@@ -13,17 +13,15 @@ function loadThreads(): AskThread[] { try { return parseThreads(localStorage.get
 function saveThreads(threads: AskThread[]) { try { localStorage.setItem(ASK_THREADS_KEY, JSON.stringify(threads)); } catch { /* storage full or blocked */ } }
 const newId = () => (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
-/** Small, safe markdown: paragraphs, bullet/number lists, **bold**. */
-function inline(text: string): ReactNode[] { return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => part.startsWith('**') && part.endsWith('**') ? <strong key={i}>{part.slice(2, -2)}</strong> : part); }
+/** Plain paragraphs with clickable links; strips list markers and bold. */
+function inline(text: string): ReactNode[] {
+  const out: ReactNode[] = []; const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)]+[^\s).,;:])/g; let last = 0, m: RegExpExecArray | null;
+  const clean = text.replace(/\*\*|__/g, '');
+  while ((m = re.exec(clean))) { if (m.index > last) out.push(clean.slice(last, m.index)); const url = m[2] ?? m[3]; out.push(<a key={m.index} href={url} target="_blank" rel="noreferrer">{m[1] ?? url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}</a>); last = m.index + m[0].length; }
+  if (last < clean.length) out.push(clean.slice(last)); return out;
+}
 function Markdown({ text }: { text: string }) {
-  const blocks: ReactNode[] = []; let list: { ordered: boolean; items: string[] } | null = null;
-  const flush = () => { if (list) { const items = list.items.map((t, i) => <li key={i}>{inline(t)}</li>); blocks.push(list.ordered ? <ol key={blocks.length}>{items}</ol> : <ul key={blocks.length}>{items}</ul>); list = null; } };
-  for (const line of text.split('\n')) {
-    const bullet = /^\s*[-*]\s+(.*)/.exec(line), num = /^\s*\d+[.)]\s+(.*)/.exec(line);
-    if (bullet || num) { const ordered = !!num; if (!list || list.ordered !== ordered) { flush(); list = { ordered, items: [] }; } list.items.push((bullet ?? num)![1]); continue; }
-    flush(); const t = line.replace(/^#+\s*/, '').trim(); if (t) blocks.push(<p key={blocks.length}>{inline(t)}</p>);
-  }
-  flush(); return <>{blocks}</>;
+  return <>{text.split(/\n+/).map(l => l.replace(/^\s*(?:[-*•]|\d+[.)]|#+)\s+/, '').trim()).filter(Boolean).map((l, i) => <p key={i}>{inline(l)}</p>)}</>;
 }
 
 function Conversation({ thread, onSave }: { thread: AskThread; onSave: (id: string, messages: UIMessage[]) => void }) {
@@ -49,7 +47,7 @@ function Conversation({ thread, onSave }: { thread: AskThread; onSave: (id: stri
     </div>
     <form className="ask-composer" onSubmit={e => { e.preventDefault(); send(input); }}>
       <textarea ref={box} value={input} rows={2} maxLength={600} placeholder="Ask about a court, park or landmark…" aria-label="Your question" onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }} />
-      <div className="ask-composer-foot"><span>Lovable AI · answers from map data</span>{busy ? <button type="button" className="ask-send" onClick={() => stop()} aria-label="Stop answer"><Icon name="pause" size={14} /></button> : <button type="submit" className="ask-send" disabled={!input.trim()} aria-label="Send question"><Icon name="plus" size={14} /></button>}</div>
+      <div className="ask-composer-foot"><span/>{busy ? <button type="button" className="ask-send" onClick={() => stop()} aria-label="Stop answer"><Icon name="pause" size={14} /></button> : <button type="submit" className="ask-send" disabled={!input.trim()} aria-label="Send question"><Icon name="plus" size={14} /></button>}</div>
     </form>
   </div>;
 }
