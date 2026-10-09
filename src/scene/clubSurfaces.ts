@@ -39,7 +39,11 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
     texture.needsUpdate = true
     textures.push(texture)
     loader?.load(url, loaded => {
-      if (!disposed) { texture.image = loaded.image; texture.needsUpdate = true; invalidate() }
+      if (!disposed) {
+        // Immutable GPU storage must be released before replacing the 2px
+        // fallback with a differently sized photographic image.
+        texture.dispose(); texture.image = loaded.image; texture.needsUpdate = true; invalidate()
+      }
       loaded.dispose()
     }, undefined, () => { /* Keep the visible fallback if a request fails. */ })
     return texture
