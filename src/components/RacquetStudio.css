@@ -37,7 +37,7 @@
 @media(max-width:480px){.racquet-story{grid-template-columns:1fr}.racquet-story-art{display:flex;align-items:center;gap:12px;text-align:left}.racquet-story-art .racquet-media{width:80px;height:100px;flex:none;margin:0}.racquet-story-copy{padding-right:0}}
 .racquet-studio-body{scrollbar-width:thin;flex:1;padding-bottom:calc(20px + env(safe-area-inset-bottom));scroll-padding-top:180px}
 .racquet-collection{padding-top:0}
-.racquet-collection-toolbar{position:sticky;top:0;z-index:2;background:var(--paper);padding-top:27px;padding-bottom:4px}
+.racquet-collection-toolbar{position:relative;background:var(--paper);padding-top:27px;padding-bottom:4px}
 .racquet-media img{transform:none;padding:7px;object-fit:contain}
 .racquet-studio-head>div{min-width:0}
 .racquet-studio-head h2{overflow-wrap:break-word;line-height:1.12}
