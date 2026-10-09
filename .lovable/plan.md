@@ -14,5 +14,5 @@
 3. Double-click a club on the London icons map to open its court view straight away. A single click still selects it.
 4. Add a test for the double-click path and the court stop names, and check both venues on desktop and mobile.
 
-## Question
-Can you push or upload your local Mac version? If so, step 1 replaces step 2.
+## Status
+You've pushed your local version, but the repository is still private, so GitHub won't let me open it. Once it's public, step 1 replaces step 2. I'll check the repository again first when work starts.
