@@ -1,6 +1,6 @@
 .ask-launch{position:absolute}
-.ask-backdrop{position:fixed;inset:0;z-index:40;background:#1d33264d;display:flex;align-items:center;justify-content:center;padding:24px}
-.ask-dialog{width:min(900px,100%);height:min(640px,100%);background:var(--paper);border-radius:21px;box-shadow:0 20px 80px #1d332640;display:flex;overflow:hidden;color:var(--ink)}
+.ask-backdrop{position:fixed;inset:0;z-index:40;background:#1d33264d}
+.ask-dialog{position:absolute;left:50%;transform:translateX(-50%);bottom:160px;width:min(900px,calc(100% - 48px));height:min(640px,calc(100dvh - 258px));background:var(--paper);border-radius:21px;box-shadow:0 20px 80px #1d332640;display:flex;overflow:hidden;color:var(--ink)}
 .ask-threads{width:230px;flex-shrink:0;border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:12px;background:#f3f1e6}
 .ask-new{display:flex;align-items:center;gap:8px;justify-content:center;border:1px solid var(--line);border-radius:30px;padding:10px;font-size:12px;font-weight:550;background:var(--paper)}
 .ask-new:hover{background:#e9eedd}
