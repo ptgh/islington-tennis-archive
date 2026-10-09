@@ -1,12 +1,18 @@
 import * as THREE from 'three';
 import {places} from '../data/places.ts';
+import type {createMiniatureMaterials} from './miniatureMaterials';
 // Small architectural miniatures, deliberately subordinate to the tennis courts.
 // All dimensions are illustrative; positions share the map's geographic projection.
-export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3){
+export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,finishes:ReturnType<typeof createMiniatureMaterials>){
  const root=new THREE.Group();root.name='Architectural landmarks';
  const box=new THREE.BoxGeometry(1,1,1);
  const materials=new Map<string,THREE.MeshStandardMaterial>();
- const mat=(color:string)=>{if(!materials.has(color))materials.set(color,new THREE.MeshStandardMaterial({color,roughness:.9}));return materials.get(color)!;};
+ const mat=(color:string)=>{
+  if(!materials.has(color)){
+   const surface=['#a77d59','#b49b7d'].includes(color)?finishes.brick.clone():color==='#46534a'?finishes.slate.clone():new THREE.MeshStandardMaterial({roughness:.9});
+   surface.color.set(color);materials.set(color,surface);
+  }return materials.get(color)!;
+ };
  function part(parent:THREE.Group,color:string,x:number,y:number,z:number,w:number,h:number,d:number,geometry:THREE.BufferGeometry=box){const m=new THREE.Mesh(geometry,mat(color));m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
  const brick='#a77d59',stone='#c9c4ac',roof='#46534a',glass='#617d77';
  for(const place of places.filter(p=>p.kind==='landmark')){

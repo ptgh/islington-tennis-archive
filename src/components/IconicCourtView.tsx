@@ -238,6 +238,7 @@ function buildScene(id: IconicClubId) {
       for (const surface of Array.isArray(object.material) ? object.material : [object.material]) surfaces.add(surface)
     })
     geometries.forEach(value => value.dispose()); surfaces.forEach(value => value.dispose())
+    materials.forEach(value => { if(!surfaces.has(value))value.dispose() })
     finishes.dispose(); sun.shadow.map?.dispose()
   } }
 }

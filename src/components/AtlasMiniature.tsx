@@ -8,7 +8,7 @@ export function AtlasMiniature({place}:{place:'wimbledon'|'queens'|'islington'})
     <defs>
       <linearGradient id={grass} x2=".6" y2="1"><stop stopColor="#bdce97"/><stop offset="1" stopColor="#77945b"/></linearGradient>
       <linearGradient id={roof} x2="0" y2="1"><stop stopColor="#fffdf0"/><stop offset="1" stopColor="#bbbda9"/></linearGradient>
-      <filter id={shadow} x="-30%" y="-50%" width="160%" height="220%"><feDropShadow dx="0" dy="7" stdDeviation="5" floodColor="#314932" floodOpacity=".22"/></filter>
+      <filter id={shadow} x="-30%" y="-50%" width="160%" height="220%"><feDropShadow dx="0" dy="7" stdDeviation="5" floodColor="#314932" floodOpacity=".22"/><feDropShadow dx="0" dy="1.5" stdDeviation="1" floodColor="#314932" floodOpacity=".18"/></filter>
     </defs>
     <g filter={`url(#${shadow})`}>
       <path d="M18 113 107 65 226 110 138 156Z" fill="#c5bb9a"/>

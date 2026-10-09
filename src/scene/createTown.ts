@@ -553,7 +553,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
   church(38, 134, .75)
   church(-227, -32, .72)
 
-  root.add(createLandmarks(geoPosition))
+  root.add(createLandmarks(geoPosition,finishes))
   const gear=createGear(geoPosition);root.add(gear.root)
 
   const stations: Station[] = mapStations.map(s=>({name:s.name,position:geoPosition(s.lat,s.lng).setY(6),lines:s.lines}))
