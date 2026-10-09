@@ -1,5 +1,6 @@
 import { CentreProgramme } from './CentreProgramme';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { CourtBooking } from './CourtBooking';
 import { accessLabels, VERIFIED_DATE, type Venue } from '../data/venues';
 import { courtApproaches, walkingDirections } from '../data/courtApproaches';
 import { Icon } from './Icon';
@@ -7,9 +8,11 @@ import './CourtApproach.css';
 
 export function CourtDetail({venue,onBack,onVisit,coaching,onCoaching,onPlay}:{venue:Venue;onBack:()=>void;onVisit:()=>void;coaching:{id:string;name:string;registeredCoach?:boolean}[];onCoaching:(id:string)=>void;onPlay?:()=>void}) {
   const heading=useRef<HTMLHeadingElement>(null);
-  useEffect(()=>{heading.current?.focus({preventScroll:true});},[venue.id]);
+  const [booking,setBooking]=useState(false);
+  useEffect(()=>{setBooking(false);heading.current?.focus({preventScroll:true});},[venue.id]);
   const directions=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(venue.name+' '+venue.address)}&travelmode=transit`;
   const approach=courtApproaches[venue.id];
+  if(booking) return <CourtBooking venue={venue} onBack={()=>setBooking(false)}/>;
   return <div className="court-detail">
     <button className="back-button" onClick={onBack}><Icon name="back" size={17}/> All courts</button>
     <div className="detail-scroll">
@@ -36,6 +39,6 @@ export function CourtDetail({venue,onBack,onVisit,coaching,onCoaching,onPlay}:{v
       {venue.id==='islington-tennis-centre'&&<details className="sources"><summary>When to play · off-peak guide</summary><p>Adult tennis off-peak: weekdays 09:00–12:00 and 14:00–16:00; Friday–Sunday 19:00–22:00.</p><p>Junior tennis off-peak: weekdays 07:00–18:00 and all weekend. Outside these hours, adult prices apply.</p><p>These are the operator’s pricing bands, not measured busy times or a guarantee of free courts. Live availability remains with Better.</p><a href="https://www.better.org.uk/leisure-centre/london/islington/islingtontc/prices" target="_blank" rel="noreferrer">Better’s published times · checked 25 September 2026 <Icon name="external" size={12}/></a></details>}
       <details className="sources"><summary>Sources & details</summary><p>Checked {VERIFIED_DATE}. Map positions are approximate. Confirm access and facilities with the venue before travelling.</p>{venue.sources.map(source=><a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.label}<Icon name="external" size={12}/></a>)}</details>
     </div>
-    <div className="detail-actions"><a className="primary-button" href={venue.actionUrl} target="_blank" rel="noreferrer">{venue.actionLabel}<Icon name="external" size={17}/></a><a className="directions-button" href={directions} target="_blank" rel="noreferrer"><Icon name="pin" size={16}/> Get directions <Icon name="external" size={13}/></a><span>{venue.action==='book'?'Opens the official operator · availability checked there':'Opens an external website'}</span></div>
+    <div className="detail-actions"><button className="primary-button" onClick={()=>setBooking(true)}><Icon name="ball" size={17}/> Hours, prices & booking</button><a className="directions-button" href={directions} target="_blank" rel="noreferrer"><Icon name="pin" size={16}/> Get directions <Icon name="external" size={13}/></a><span>Hours, prices and the official booking link</span></div>
   </div>;
 }

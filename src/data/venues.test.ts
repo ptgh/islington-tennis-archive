@@ -48,3 +48,9 @@ test('public court hire uses Better published prices',()=>{
   assert.equal(v('highbury-fields').hours,'Every day 8am–9pm.');
   assert.match(v('spa-fields').fees!,/^Free/);
 });
+
+test('every court has an official booking link and Barbican hours',()=>{
+  for(const v of venues) assert.match(v.bookingUrl??'',/^https:\/\//,v.id);
+  assert.match(venues.find(v=>v.id==='coolhurst')!.fees!,/full £650 or £58\.00/);
+  assert.match(venues.find(v=>v.id==='barbican')!.hours!,/from 6pm on weekdays/);
+});
