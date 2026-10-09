@@ -44,7 +44,7 @@ const GROUNDS_MAPS: Record<IconicClubId, string> = {
   queens: 'https://www.lta.org.uk/49afa0/siteassets/events/hsbc/map/hsbc-championships-site-map-2025.pdf',
 }
 
-type SceneHandle = { focus: (courtId: string) => void; zoom: (factor: number) => void; reset: () => void }
+type SceneHandle = { focus: (courtId: string) => void; zoom: (factor: number) => void; reset: () => void; activate: (id: IconicClubId) => void }
 
 function buildScene(id: IconicClubId, invalidate: () => void) {
   const scene = new THREE.Scene()
@@ -146,7 +146,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
       transform.rotation.set(0, angle, 0)
       transform.scale.setScalar(size * (lobe === 0 ? .65 : .46))
       transform.updateMatrix()
-      foliageBatches.get(shade)!.push(placement.clone().multiply(transform.matrix))
+      foliageBatches.get(shade)?.push(placement.clone().multiply(transform.matrix))
       if(lobe>0)beam(new THREE.Vector3(x,size*.8,z),new THREE.Vector3(x+Math.cos(angle)*radius,size*1.5,z+Math.sin(angle)*radius),size*.055,'#746b51')
     }
   }
@@ -383,25 +383,30 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   }
 }
 
-export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motionRunning, weather, onNight, onMotion, lightingTime, onLightingTime }: { clubId: IconicClubId; event?: Tournament; onBack: () => void; onSwitch: (id: IconicClubId) => void; night: boolean; lightingTime: number | null; onLightingTime: (time: number | null) => void; motionRunning: boolean; weather: WeatherSceneKind; onNight: () => void; onMotion: () => void }) {
-  const runtime = useRef({ night, motionRunning, weather, lightingTime })
-  runtime.current = { night, motionRunning, weather, lightingTime }
+export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch, night, motionRunning, weather, onNight, onMotion, lightingTime, onLightingTime }: { active?: boolean; clubId: IconicClubId; event?: Tournament; onBack: () => void; onSwitch: (id: IconicClubId) => void; night: boolean; lightingTime: number | null; onLightingTime: (time: number | null) => void; motionRunning: boolean; weather: WeatherSceneKind; onNight: () => void; onMotion: () => void }) {
+  const runtime = useRef({ active, night, motionRunning, weather, lightingTime })
+  runtime.current = { active, night, motionRunning, weather, lightingTime }
   const host = useRef<HTMLDivElement>(null)
   const engine = useRef<SceneHandle | null>(null)
   const [failed, setFailed] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(true)
+  const [preparing, setPreparing] = useState(true)
   const [selectedId, setSelectedId] = useState(COURTS[clubId][0].id)
-  const club = iconicClubs.find(item => item.id === clubId)!
+  const club = iconicClubs.find(item => item.id === clubId) ?? iconicClubs[0]
   const courts = COURTS[clubId]
   const selected = courts.find(item => item.id === selectedId) ?? courts[0]
 
   useEffect(() => {
     const element = host.current
     if (!element) return
+    const initialize = () => {
     let renderer: THREE.WebGLRenderer
     try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }) }
     catch { setFailed(true); return }
     let textureDirty = false
-    const world = buildScene(clubId, () => { textureDirty = true })
+    let activeId = clubId
+    let world = buildScene(activeId, () => { textureDirty = true })
+    const worlds = new Map<IconicClubId, ReturnType<typeof buildScene>>([[activeId, world]])
     const disposeEnvironment = addSkyEnvironment(renderer, world.scene)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -479,7 +484,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
         camera.zoom = 1
         controls.update()
       }
-      viewSpan = Math.max(clubId === 'wimbledon' ? 430 : 290, (compact ? (clubId === 'wimbledon' ? 560 : 410) : clubId === 'wimbledon' ? 620 : 510) * height / width)
+      viewSpan = Math.max(activeId === 'wimbledon' ? 430 : 290, (compact ? (activeId === 'wimbledon' ? 560 : 410) : activeId === 'wimbledon' ? 620 : 510) * height / width)
       camera.left = -viewSpan * width / height / 2
       camera.right = -camera.left
       updateProjection()
@@ -493,9 +498,9 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
     }
     const reset = () => { cancelJourney(); camera.position.copy(offset).add(overview); controls.target.copy(overview); camera.zoom = 1; updateProjection(); controls.update(); frame() }
     const focus = (courtId: string) => {
-      const stop = courts.find(item => item.id === courtId)
+      const stop = COURTS[activeId].find(item => item.id === courtId)
       if (!stop) return
-      const position = mappedCourtPosition(clubId, courtId)
+      const position = mappedCourtPosition(activeId, courtId)
       const target = new THREE.Vector3(position.x, 0, position.z)
       const destinationZoom = stop.id === 'court-one' ? 3.1 : stop.id === 'outer' || stop.id === 'practice' ? 2.4 : 2.3
       if (!compact) {
@@ -509,8 +514,29 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
       } else journey = { start: performance.now(), position: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom, destination: target, destinationZoom }
     }
     const zoom = (factor: number) => { cancelJourney(); camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, controls.minZoom, controls.maxZoom); updateProjection(); frame() }
-    engine.current = { focus, zoom, reset }
-    const controlChange = () => { if (!journey) { updateProjection(); frame() } }
+    const activate = (id: IconicClubId) => {
+      if (id !== activeId) {
+        cancelJourney()
+        let next = worlds.get(id)
+        if (!next) {
+          next = buildScene(id, () => { textureDirty = true })
+          next.scene.environment = world.scene.environment
+          next.scene.environmentIntensity = world.scene.environmentIntensity
+          worlds.set(id, next)
+        }
+        activeId = id; world = next
+        beauty.scene = world.scene; occlusion.scene = world.scene
+        renderer.domElement.setAttribute('aria-label', `Illustrated interactive courts at ${iconicClubs.find(item => item.id === id)?.name}.`)
+        overview.set(compact ? 0 : -85, 0, compact ? 0 : 35)
+        camera.position.copy(offset).add(overview); controls.target.copy(overview); camera.zoom = 1
+        resize()
+      }
+      textureDirty = true
+      setPreparing(false)
+    }
+    engine.current = { focus, zoom, reset, activate }
+    // Camera updates request one frame instead of rendering twice per journey step.
+    const controlChange = () => { textureDirty = true }
     controls.addEventListener('change', controlChange)
     controls.addEventListener('start', cancelJourney)
     renderer.domElement.addEventListener('dblclick', reset)
@@ -520,7 +546,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
     visibility.observe(element)
     const tick = (time: number) => {
       animation = requestAnimationFrame(tick)
-      if (document.hidden || !onScreen) { previous = time; return }
+      if (document.hidden || !onScreen || !runtime.current.active) { previous = time; return }
       const state = runtime.current
       // Update activity only when drawing it; camera gestures remain immediate.
       const stateKey = `${state.night}-${state.weather}-${state.motionRunning}-${state.lightingTime}`
@@ -541,6 +567,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
     }
     animation = requestAnimationFrame(tick)
     resize()
+    setPreparing(false)
     return () => {
       engine.current = null
       observer.disconnect()
@@ -552,19 +579,32 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
       controls.dispose()
       beauty.dispose(); occlusion.dispose(); output.dispose(); antialias.dispose(); lens.dispose(); composer.dispose(); disposeEnvironment()
       occlusion.gtaoMaterial.dispose(); occlusion.blendMaterial.dispose()
-      world.dispose()
+      worlds.forEach(cached => cached.dispose())
       renderer.dispose()
       renderer.domElement.remove()
     }
-  }, [clubId, club.name, courts])
+    }
+    let dispose: (() => void) | undefined
+    // Paint the sheet and tabs before the first synchronous geometry build.
+    const timer = window.setTimeout(() => { dispose = initialize() }, 60)
+    return () => { window.clearTimeout(timer); dispose?.() }
+  }, [])
+
+  useEffect(() => {
+    setSelectedId(COURTS[clubId][0].id)
+    setPreparing(true)
+    const timer = window.setTimeout(() => engine.current?.activate(clubId), 80)
+    return () => window.clearTimeout(timer)
+  }, [clubId])
 
   function chooseCourt(id: string) { setSelectedId(id); engine.current?.focus(id) }
 
-  return <section className={`atlas-court-view${night ? ' atlas-court-view--night' : ''}`} aria-label={`${club.name} illustrated court view`}>
+  return <section className={`atlas-court-view${night ? ' atlas-court-view--night' : ''}${panelOpen ? '' : ' atlas-court-view--panel-closed'}`} aria-label={`${club.name} illustrated court view`}>
     <div ref={host} className="atlas-court-stage">
       {failed && <div className="atlas-court-fallback"><AtlasMiniature place={clubId}/><p>The court miniature is unavailable on this device. The venue details are still here.</p></div>}
     </div>
-    <div className="atlas-court-panel">
+    {preparing && !failed && <p className="atlas-court-preparing" role="status">Opening {club.name}…</p>}
+    <div id="atlas-club-details" className="atlas-court-panel" inert={!panelOpen} aria-hidden={!panelOpen}>
       <button className="atlas-court-back" type="button" onClick={onBack}><Icon name="back" size={16}/> London icons</button>
       <span className="atlas-eyebrow">A COURT-SIDE VIEW / {club.area.toUpperCase()}</span>
       <h3>{club.name}</h3>
@@ -579,6 +619,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motion
       <p className="atlas-court-disclaimer">Street, building and court footprints follow OpenStreetMap. Heights, façades and planting are illustrated; check the venue for access.</p>
       {night && <p className="atlas-court-disclaimer">{clubId === 'wimbledon' ? 'Sports lighting is shown on Centre Court and No. 1 Court. Other courts rest after dark.' : 'The grass courts rest after dark; no tournament floodlighting is shown.'} An evening illustration, not live court use.</p>}
     </div>
+    <button className="pill atlas-court-panel-toggle" aria-controls="atlas-club-details" aria-expanded={panelOpen} onClick={() => setPanelOpen(open => !open)}><Icon name={panelOpen ? 'layers' : 'court'} size={16}/>{panelOpen ? 'Explore map' : 'Club details'}</button>
     <div className="atlas-court-switch" aria-label="Switch London venue"><button aria-pressed={clubId === 'wimbledon'} onClick={() => onSwitch('wimbledon')}>Wimbledon</button><button aria-pressed={clubId === 'queens'} onClick={() => onSwitch('queens')}>Queen’s</button></div>
     <div className="atlas-court-world" aria-label="Miniature atmosphere">
       <LightingControl night={night} time={lightingTime} onTime={onLightingTime} onNight={onNight}/>
