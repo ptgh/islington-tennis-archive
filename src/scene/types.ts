@@ -7,6 +7,7 @@ export interface MapVenue {
   lng: number
   courts: number | null
   lighting: string
+  surface?: string
   access: string
 }
 

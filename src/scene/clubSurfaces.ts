@@ -10,6 +10,30 @@ import syntheticNormal from '../assets/court-surfaces/synthetic-normal.jpg.asset
 import syntheticRough from '../assets/court-surfaces/synthetic-roughness.jpg.asset.json' with { type: 'json' }
 
 export type ClubCourtSurface = 'grass' | 'synthetic' | 'concrete' | 'clay'
+/** Town listings use prose; do not turn unpublished or mixed surfaces into grass. */
+export function townCourtSurface(recorded?: string): ClubCourtSurface {
+  const surface = recorded?.toLowerCase().trim() ?? ''
+  if (surface === 'grass') return 'grass'
+  if (surface === 'concrete') return 'concrete'
+  if (surface === 'clay' || surface === 'artificial clay') return 'clay'
+  return 'synthetic'
+}
+
+/** THREE clones do not copy custom shader hooks; preserve the wear treatment. */
+export function cloneCourtFinish(material: THREE.MeshStandardMaterial) {
+  const copy = material.clone()
+  copy.onBeforeCompile = material.onBeforeCompile
+  copy.customProgramCacheKey = material.customProgramCacheKey
+  return copy
+}
+
+/** Consistent diamond size on both short and long fence runs. */
+export function courtFenceGeometry(width: number, height: number) {
+  const geometry = new THREE.PlaneGeometry(width, height)
+  const uv = geometry.getAttribute('uv')
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * width / 8, uv.getY(i) * height / 1.6)
+  return geometry
+}
 export function clubCourtSurface(recorded?: string): ClubCourtSurface {
   if (recorded === 'clay') return 'clay'
   if (recorded === 'concrete') return 'concrete'
