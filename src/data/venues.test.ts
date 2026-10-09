@@ -40,3 +40,11 @@ test('every listing has an external source and appropriate handoff',()=>{
   assert.equal(shared.courts,null);
   assert.equal(shared.action,'visit');
 });
+
+test('public court hire uses Better published prices',()=>{
+  const v=(id:string)=>venues.find(x=>x.id===id)!;
+  assert.match(v('highbury-fields').fees!,/£12\.35 non-member/);
+  assert.match(v('islington-tennis-centre').fees!,/£40\.00 non-member/);
+  assert.equal(v('highbury-fields').hours,'Every day 8am–9pm.');
+  assert.match(v('spa-fields').fees!,/^Free/);
+});
