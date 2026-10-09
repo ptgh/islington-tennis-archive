@@ -7,19 +7,17 @@ import { HittingPartners } from './HittingPartners';
 type CourtChoice = {id:string;name:string};
 const filterLabels: Record<PlayFilter,string> = {all:'All',social:'Social sessions',partners:'Find a partner',today:'Play today'};
 
-export function PlayDirectory({results,filter,onFilter,venueId,onVenue,venues,onSelect}:{results:PlayOpportunity[];filter:PlayFilter;onFilter:(filter:PlayFilter)=>void;venueId:string|null;onVenue:(id:string|null)=>void;venues:CourtChoice[];onSelect:(id:string)=>void}) {
+export function PlayDirectory({results,filter,onFilter,venueId,onVenue,venues,onSelect,onRacquets,partners,onPartners}:{results:PlayOpportunity[];filter:PlayFilter;onFilter:(filter:PlayFilter)=>void;venueId:string|null;onVenue:(id:string|null)=>void;venues:CourtChoice[];onSelect:(id:string)=>void;onRacquets:()=>void;partners:boolean;onPartners:(open:boolean)=>void}) {
   const [week,setWeek]=useState(false);
-  const [partners,setPartners]=useState(false);
-  if(partners) return <HittingPartners venues={venues} onBack={()=>setPartners(false)}/>;
+  if(partners) return <HittingPartners venues={venues} onBack={()=>onPartners(false)} onRacquets={onRacquets}/>;
   return <>
     <div className="directory-heading play-heading"><h1 tabIndex={-1}>Play<br/> together.</h1><p>A familiar court.<br/>A few new faces.</p></div>
-    <p className="play-intro">Choose a people pin to discover local groups and ways to find an opponent.</p>
+    <button className="primary-button partner-entry" onClick={()=>onPartners(true)}><Icon name="people" size={20}/><span>Find a hitting partner<small>Player cards · Your courts · Your level</small></span><Icon name="arrow" size={17}/></button>
     <div className="play-tools">
       <div className="filters play-filters" role="group" aria-label="Ways to play">{(['all','social','partners','today'] as const).map(kind=><button key={kind} aria-pressed={kind===filter} onClick={()=>onFilter(kind)}>{filterLabels[kind]}</button>)}</div>
       <div className="play-court-filter"><SelectField label="Court" value={venueId??''} onChange={value=>onVenue(value||null)} options={[{value:'',label:'All courts'},...venues.map(venue=>({value:venue.id,label:venue.name}))]}/></div>
     </div>
     {filter==='today'&&<p className="play-intro">Published weekly sessions for today in London, including earlier sessions. Confirm times, weather and spaces with the organiser.</p>}
-    <button className="text-button play-intro" onClick={()=>setPartners(true)}>Find a hitting partner in the app →</button>
     <button className="text-button play-intro" aria-expanded={week} onClick={()=>setWeek(!week)}>{week?'Hide weekly sessions':'Weekly social calendar →'}</button>
     {week&&<div className="weekly-calendar" aria-label="Published weekly social calendar"><p className="play-context">Usual weekly programme for your current filters · confirm with organisers.</p>{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><details key={day}><summary>{day} · {results.filter(item=>item.weekdays?.includes(day)).length} {results.filter(item=>item.weekdays?.includes(day)).length===1?'session':'sessions'}</summary>{results.filter(item=>item.weekdays?.includes(day)).map(item=><button className="court-row" key={item.id} onClick={()=>onSelect(item.id)}><span className="court-row-copy"><span className="court-name">{item.name}</span><span className="court-summary">{item.when}</span><span className="outside-label">{item.area}</span></span><Icon name="arrow" size={15}/></button>)}</details>)}</div>}
     <div className="results-heading play-results"><span role="status">{results.length} {results.length===1?'way':'ways'} to play</span><span>Explore <Icon name="arrow" size={12}/></span></div>
