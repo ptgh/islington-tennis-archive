@@ -5,6 +5,7 @@
 - [ ] Recover exact Tiger Blade V10, Pro Staff 85, Pro Staff Classic 6.1, nCode Six.One Tour and RF97 archive photographs; legacy links return HTML or empty responses, not usable photos.
 - [x] Assess aerial reference: matching its realism requires richer building, foliage and railway geometry beyond renderer settings.
 - [x] Focus the first detailed scene upgrade on Highbury Fields: local facade relief, bay windows, railings, branches and varied tree silhouettes in existing instance batches.
+- [x] Add railway masonry, parapets, coping stones, ballast and trackside vegetation; extend detailed buildings and trees around other courts without changing venue locations (42 tests pass).
 - [ ] Validate Highbury's visual result on working WebGL hardware; sandbox map rendering stalls, so reference-level realism remains unverified.
 - [x] Improve desktop contact shading and texture clarity without changing map geometry; all 42 tests pass.
 - [ ] Visually verify improved 3D map detail — sandbox WebGL stalls; navigation and phone layouts verified with WebGL disabled.
