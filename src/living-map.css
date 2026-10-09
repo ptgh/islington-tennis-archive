@@ -29,3 +29,5 @@
  .facility-options{margin-top:16px}
 }
 .map-attribution{position:absolute;right:12px;bottom:4px;z-index:6;font:12px/1.5 var(--sans,Arial,sans-serif);color:#335448;background:#f8f7eddf;padding:1px 5px;border-radius:3px;text-decoration:none;pointer-events:auto}
+.weather-source{display:inline-flex;align-items:center;gap:4px;color:var(--ink)}
+.weather-source svg{flex-shrink:0}

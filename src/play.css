@@ -9,3 +9,11 @@
 .weekly-calendar .court-row{padding:12px 0}
 .weekly-calendar .court-name{font-size:19px}
 .weekly-calendar .play-context{margin:0 0 10px;font-size:11px}
+
+/* Scroll the complete mobile play sheet, including filters and expanded sessions. */
+@media(max-width:760px){
+  .app.hub-section-play .directory-panel{display:block;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom)}
+  .app.hub-section-play .play-list{overflow:visible;min-height:0}
+  .app.hub-section-play .play-detail,.app.hub-section-play .play-detail .detail-scroll{overflow:visible}
+  .app.hub-section-play .play-detail .detail-actions{position:relative}
+}
