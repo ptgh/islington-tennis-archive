@@ -69,7 +69,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   const material = (colour: string) => {
     let value = materials.get(colour)
     if (!value) {
-      const base = grassColours.has(colour) ? finishes.parkGrass : [...pavingColours, '#ccc5b0', '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? finishes.paving : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#746b51' ? finishes.timber : null
+      const base = grassColours.has(colour) ? finishes.parkGrass : [...pavingColours, '#ccc5b0', '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? surfaces.concrete : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#746b51' ? finishes.timber : colour === '#3f5b49' ? surfaces.steel : null
       value = base ? base.clone() : new THREE.MeshStandardMaterial({ roughness: .9 })
       value.color.set(colour)
       if (colour === '#f5f2df') { value.emissive.set('#f5f2df'); value.emissiveIntensity = .12 }
