@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '../integrations/supabase/client';
+import { lovable } from '../integrations/lovable/index';
 import { Icon } from './Icon';
 import { LEVELS, validateProfile, type PlayerProfile } from '../data/players';
 
@@ -13,7 +13,7 @@ export function HittingPartners({ venues, onBack }: { venues: CourtChoice[]; onB
   const [ready, setReady] = useState(false);
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); });
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => { setSession(data.session); setReady(true); });
     return () => data.subscription.unsubscribe();
   }, []);
   return <div className="court-detail partners">
@@ -60,10 +60,10 @@ function Signed({ session, venues }: { session: Session; venues: CourtChoice[] }
   const uid = session.user.id;
   const load = async () => {
     const { data } = await supabase.from('profiles').select('id,display_name,level,utr_rating,preferred_courts,contact,visible').order('updated_at', { ascending: false }).limit(200);
-    const mine = data?.find(p => p.id === uid);
+    const mine = data?.find((p: PlayerProfile & { id: string }) => p.id === uid);
     if (mine) setMe(mine); else setEditing(true);
     if (mine && !mine.visible) setEditing(true);
-    setOthers((data ?? []).filter(p => p.id !== uid && p.visible));
+    setOthers((data ?? []).filter((p: PlayerProfile & { id: string }) => p.id !== uid && p.visible));
   };
   useEffect(() => { load(); }, [uid]);
   const save = async (e: React.FormEvent) => {

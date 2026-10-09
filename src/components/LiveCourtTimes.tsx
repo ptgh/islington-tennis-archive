@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client';
 
 /** Venues whose individual courts appear in Better's open slot feed. */
 export const LIVE_TIME_VENUES = ['highbury-fields', 'islington-tennis-centre'];
