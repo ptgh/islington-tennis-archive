@@ -1,3 +1,4 @@
+- [ ] Raise surface fidelity, court/net detail and render clarity across the existing scenes without moving locations; verify quality and review public-feed security findings.
 - [x] Extend matching building/tree detail radii to Tufnell Park, Rosemary Gardens, Islington Tennis Centre and Spa Fields, and railway detail along the existing town track; enrich Wimbledon and Queen’s buildings/trees (independent WebGL renders verified; 42 tests pass).
 - [ ] Add railway surroundings to Wimbledon and Queen’s — requires sourced railway geometry; neither club scene has an existing track, so none was invented.
 - [x] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
