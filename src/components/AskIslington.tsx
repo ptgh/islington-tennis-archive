@@ -53,6 +53,19 @@ function Conversation({ thread, onSave }: { thread: AskThread; onSave: (id: stri
 }
 
 export function AskIslington({ threadId, onNavigate, onClose }: { threadId: string | null; onNavigate: (id: string) => void; onClose: () => void }) {
+  const backdrop = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const resize = () => {
+      backdrop.current?.style.setProperty('--guide-viewport-height', `${viewport.height}px`);
+      backdrop.current?.style.setProperty('--guide-viewport-top', `${viewport.offsetTop}px`);
+    };
+    resize();
+    viewport.addEventListener('resize', resize);
+    viewport.addEventListener('scroll', resize);
+    return () => { viewport.removeEventListener('resize', resize); viewport.removeEventListener('scroll', resize); };
+  }, []);
   const [threads, setThreads] = useState<AskThread[]>(loadThreads);
   const update = (fn: (t: AskThread[]) => AskThread[]) => setThreads(prev => { const next = fn(prev); saveThreads(next); return next; });
   // Opening without a thread: reuse the newest empty one or create one, then go to its link.
@@ -69,10 +82,10 @@ export function AskIslington({ threadId, onNavigate, onClose }: { threadId: stri
   function remove(id: string) { update(prev => prev.filter(t => t.id !== id)); if (id === threadId) { const other = threads.find(t => t.id !== id); onNavigate(other?.id ?? newId()); } }
   const active = threads.find(t => t.id === threadId);
   useEffect(() => { const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key); }, [onClose]);
-  return <div className="ask-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+  return <div ref={backdrop} className="ask-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
     <section className="ask-dialog" role="dialog" aria-modal="true" aria-label="Ask the Islington guide">
       <aside className="ask-threads" aria-label="Your conversations">
-        <button className="ask-new" onClick={() => onNavigate(threads.find(t => t.messages.length === 0)?.id ?? newId())}><Icon name="plus" size={14} /> New conversation</button>
+        <button className="ask-new" aria-label="New conversation" title="New conversation" onClick={() => onNavigate(threads.find(t => t.messages.length === 0)?.id ?? newId())}><Icon name="plus" size={14} /> New conversation</button>
         <ul>{threads.filter(t => t.messages.length || t.id === threadId).map(t => <li key={t.id} className={t.id === threadId ? 'active' : ''}>
           <button className="ask-thread-open" aria-current={t.id === threadId ? 'page' : undefined} onClick={() => onNavigate(t.id)}>{t.title}</button>
           {t.messages.length > 0 && <button className="ask-thread-delete" aria-label={`Delete “${t.title}”`} onClick={() => remove(t.id)}>×</button>}
