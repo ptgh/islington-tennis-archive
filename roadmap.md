@@ -1,3 +1,4 @@
+- [ ] Extend Highbury-level neighbourhood detail to Tufnell Park, Rosemary Gardens, Islington Tennis Centre, Spa Fields, Wimbledon and Queen’s; preserve court layouts and existing railway paths.
 - [x] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
 - [x] Explain photo URLs versus local files, locate the Mac source folder, and distinguish local DNS failure from public GitHub 404.
 - [x] Recover and host the exact T2000 and SW102 photographs; verify photo delivery and racquet navigation.
