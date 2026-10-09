@@ -1,3 +1,3 @@
 - [x] Make the mobile Play together sheet scroll as a whole, keeping filters, sessions and detail actions reachable.
 - [x] Replace the weather attribution's emoji arrow with the app's external-link icon.
-- [ ] Verify mobile scrolling and taps, and check the preview for errors.
+- [x] Verify mobile scrolling and taps, and check the preview for errors.
