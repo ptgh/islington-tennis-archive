@@ -11,7 +11,9 @@
     "test": "node --experimental-strip-types --test src/data/*.test.ts"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.139",
     "@supabase/supabase-js": "^2.117.3",
+    "ai": "^7.0.136",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "three": "^0.180.0"
