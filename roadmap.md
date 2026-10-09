@@ -1,5 +1,5 @@
-- [ ] Revisit the complete racquet collection: restore every exact photograph, fix clipped headings/photos, and verify all filters, archive, stories and My frame.
-- [ ] Review public live-time security findings without removing visitor access.
+- [x] Revisit the complete racquet collection: all 32 distinct hosted photos restored; headings and full-frame photos verified on desktop/mobile, with a non-sticky collection toolbar preventing scroll overlap; all families, archive, Federer story and My frame save verified; 45 tests pass.
+- [x] Review public live-time security findings without removing visitor access: upcoming supported-venue slots and freshness stay public; internal cursors/errors are service-only; grants verified and findings resolved.
 - [x] Raise shared surface fidelity, court/net detail and render clarity without moving locations: textured courts, timber, ballast and landmarks, local sky illumination, bounded retina buffers and stronger contact shading; 44 tests and automated build pass; actual Wimbledon/Queen’s components render without runtime errors.
 - [ ] Verify the upgraded full Islington map against the reference on hardware WebGL; sandbox software rendering still stalls, so reference-level fidelity is not confirmed.
 - [x] Extend matching building/tree detail radii to Tufnell Park, Rosemary Gardens, Islington Tennis Centre and Spa Fields, and railway detail along the existing town track; enrich Wimbledon and Queen’s buildings/trees (independent WebGL renders verified; 42 tests pass).
@@ -8,7 +8,7 @@
 - [x] Explain photo URLs versus local files, locate the Mac source folder, and distinguish local DNS failure from public GitHub 404.
 - [x] Recover and host the exact T2000 and SW102 photographs; verify photo delivery and racquet navigation.
 - [x] Compare uploaded ZIP racquet data without overwriting newer work; recover and register 25 exact current Wilson photos from updated official CDN links (27 hosted photos total).
-- [ ] Recover exact Tiger Blade V10, Pro Staff 85, Pro Staff Classic 6.1, nCode Six.One Tour and RF97 archive photographs; legacy links return HTML or empty responses, not usable photos.
+- [x] Recover exact Tiger Blade V10, Pro Staff 85, Pro Staff Classic 6.1, nCode Six.One Tour and RF97 archive photographs from Wilson's current product and archived history sources; provenance recorded in docs/racquet-photo-sources.md.
 - [x] Assess aerial reference: matching its realism requires richer building, foliage and railway geometry beyond renderer settings.
 - [x] Focus the first detailed scene upgrade on Highbury Fields: local facade relief, bay windows, railings, branches and varied tree silhouettes in existing instance batches.
 - [x] Add railway masonry, parapets, coping stones, ballast and trackside vegetation; extend detailed buildings and trees around other courts without changing venue locations (42 tests pass).
