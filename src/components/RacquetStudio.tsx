@@ -53,6 +53,7 @@ export function RacquetStudio({ onClose, initialView = 'collection', onPartners 
   const dialog = useRef<HTMLDialogElement>(null)
   const rail = useRef<HTMLDivElement>(null)
   const storyPanel = useRef<HTMLElement>(null)
+  const body = useRef<HTMLDivElement>(null)
   const [era, setEra] = useState<'current' | 'archive'>('current')
   const [family, setFamily] = useState('All')
   const [selectedId, setSelectedId] = useState(racquets[0].id)
@@ -76,6 +77,10 @@ export function RacquetStudio({ onClose, initialView = 'collection', onPartners 
       if (returnFocus instanceof HTMLElement && returnFocus.isConnected) returnFocus.focus({ preventScroll:true })
     }
   }, [])
+
+  useEffect(() => {
+    body.current?.scrollTo({ top:0, behavior:'instant' })
+  }, [view, era, family])
 
   function switchEra(next: 'current' | 'archive') {
     const first = racquets.find(r => r.era === next)
@@ -115,11 +120,11 @@ export function RacquetStudio({ onClose, initialView = 'collection', onPartners 
       <button className="icon-button" aria-label="Close racquet room" onClick={onClose}><Icon name="close"/></button>
     </header>
     <nav className="racquet-studio-tabs" aria-label="Racquet room"><button aria-current={view==='collection'?'page':undefined} onClick={()=>setView('collection')}>The collection</button><button aria-current={view==='my-frame'?'page':undefined} onClick={()=>setView('my-frame')}>My frame {profile.name&&<span>· {profile.name}</span>}</button></nav>
-    <div className="racquet-studio-body">
+    <div className="racquet-studio-body" ref={body}>
       {view==='collection' ? <>
         <section className="racquet-collection" aria-label="Wilson racquet selection">
-          <div className="racquet-section-top"><div><span className="racquet-eyebrow">01 / WILSON EDIT</span><h3>Find your feel.</h3><p>Browse current variations and selected frames from the archive.</p></div><div className="racquet-era-switch" aria-label="Racquet era"><button aria-pressed={era==='current'} onClick={()=>switchEra('current')}>Current</button><button aria-pressed={era==='archive'} onClick={()=>switchEra('archive')}>Archive</button></div></div>
-          <div className="racquet-family-filter" aria-label="Racquet family">{families.map(name=><button key={name} aria-pressed={family===name} onClick={()=>switchFamily(name)}>{name}</button>)}<span>{options.length} frames</span></div>
+          <div className="racquet-collection-toolbar"><div className="racquet-section-top"><div><span className="racquet-eyebrow">01 / WILSON EDIT</span><h3>Find your feel.</h3><p>Browse current variations and selected frames from the archive.</p></div><div className="racquet-era-switch" aria-label="Racquet era"><button aria-pressed={era==='current'} onClick={()=>switchEra('current')}>Current</button><button aria-pressed={era==='archive'} onClick={()=>switchEra('archive')}>Archive</button></div></div>
+          <div className="racquet-family-filter" aria-label="Racquet family">{families.map(name=><button key={name} aria-pressed={family===name} onClick={()=>switchFamily(name)}>{name}</button>)}<span>{options.length} frames</span></div></div>
           <div className="racquet-rail-wrap"><button className="racquet-rail-arrow" aria-label="Scroll racquets left" onClick={()=>rail.current?.scrollBy({left:-(rail.current?.clientWidth ?? 0),behavior:'smooth'})}>‹</button><div className="racquet-rail" ref={rail} aria-label="Racquet models, scroll horizontally">{options.map((racquet,index)=><button className="racquet-tile" key={racquet.id} aria-pressed={selected.id===racquet.id} onClick={()=>setSelectedId(racquet.id)} style={{'--frame':racquet.frame,'--accent':racquet.accent} as React.CSSProperties}><span className="racquet-tile-index">{String(index+1).padStart(2,'0')} / {racquet.period}</span><RacquetMedia racquet={racquet}/><span className="racquet-tile-family">{racquet.family}</span><strong>{racquet.name}</strong><span className="racquet-tile-character">{racquet.character}</span></button>)}</div><button className="racquet-rail-arrow" aria-label="Scroll racquets right" onClick={()=>rail.current?.scrollBy({left:rail.current?.clientWidth ?? 0,behavior:'smooth'})}>›</button></div>
           <article className="racquet-selected" key={selected.id}><RacquetMedia racquet={selected} featured/><div className="racquet-selected-copy"><span className="racquet-eyebrow">SELECTED FRAME · {selected.era==='archive'?'FROM THE ARCHIVE':'CURRENT RANGE'}</span><h4>{selected.name}</h4><p>{selected.note}</p></div><div className="racquet-selected-actions"><button onClick={addSelected}>Add to my frame <Icon name="arrow" size={15}/></button><a href={selected.source} target="_blank" rel="noreferrer">{selected.id==='t2000'?'Hall of Fame source':'Wilson source'} <Icon name="external" size={13}/></a></div></article>
           <p className="racquet-collection-note">Racquet photography: Wilson Sporting Goods, the International Tennis Hall of Fame (T2000) and tennisnuts (SW102). Illustrations appear if a photo cannot load. This is a selected collection, not Wilson’s full catalogue or a guide to pro custom setups. <a href="https://www.wilson.com/en-gb/tennis/tennis-rackets" target="_blank" rel="noreferrer">Browse the complete current catalogue ↗</a></p>
