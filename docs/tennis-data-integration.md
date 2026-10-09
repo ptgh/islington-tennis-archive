@@ -50,3 +50,15 @@ Product priority: tennis discovery, community and trustworthy planning informati
 The [OpenActive specifications](https://developer.openactive.io/publishing-data/data-feeds) distinguish listing feeds from bookable feeds: publishing open opportunity data does not by itself enable reservations. Tennis Australia's [official ClubSpark guidance](https://www.tennis.com.au/clubs-coaches-officials/apps/using-clubspark) demonstrates an OpenActive court-availability integration in another deployment; this does not establish access to the UK LTA dataset.
 
 Recommended next step: start with a read-only, provider-attributed session/availability assessment, keeping official booking links. Before any ClubSpark integration, ask [ClubSpark](https://clubspark.com/en-us/contact) and LTA whether they support an independent Islington discovery app, which UK feeds cover the target venues, and what partner access, usage limits, attribution and caching rules apply. Request booking documentation and a sandbox only if direct booking becomes a deliberate product decision. No enquiry has been sent.
+
+## Partner apps review — 9 October 2026 (UTR, SPIN, Play Tennis, clubs)
+
+| Service | What exists | Route for this site |
+| --- | --- | --- |
+| UTR Sports | [Engage API](https://www.utrsports.net/pages/engage-api) (OAuth 2.0, base `engage.utrsports.net/api/v1`, [docs](https://www.utrsports.net/pages/engage-api-documentation) updated 1 Sept 2026): connected players' ratings and profile, submit results. Approved partners only — [developer application](https://www.utrsports.net/pages/api-developer-application). | Apply. Enables "Connect UTR" for verified ratings and level matching. No court booking. |
+| SPIN | London-based free app for leagues, finding players and Spin Rating ([support](https://support.spintennisapp.com/)). No public developer API found. | Partnership enquiry only; link out until then. |
+| LTA Play Tennis / ClubSpark | Public courses feed; court finder is a website; partner booking by arrangement (see above). | Enquiry to ClubSpark/LTA. |
+| Better | Open slot feed (read, CC-BY); Open Booking needs broker approval. | Build read-only free times now; enquire for booking. |
+| Coolhurst (ClubSolution), Barbican (ClubSpark) | Members-only booking. | Links only. |
+
+Partnership enquiry drafts: `docs/partner-enquiries.md`. None sent.
