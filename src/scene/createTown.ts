@@ -144,6 +144,10 @@ export function createTown(venues: MapVenue[]): TownWorld {
 
   // Geography supplies the locations; the miniature town around them is illustrative.
   const highbury = geoPosition(51.5525, -.099)
+  const courtNeighbourhoods = venues.map(venue => geoPosition(venue.lat, venue.lng))
+  const detailedNeighbourhood = (x: number, z: number, highburyRadius: number) =>
+    Math.hypot(x - highbury.x, z - highbury.z) < highburyRadius ||
+    courtNeighbourhoods.some(p => Math.hypot(x - p.x, z - p.z) < 48)
   const parks: Patch[] = [
     { x: highbury.x, z: highbury.z, rx: 46, rz: 68 },
     { x: -32, z: -365, rx: 130, rz: 91 },
@@ -270,7 +274,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     return false
   }
   function house(x: number, z: number, angle: number, width: number, depth: number, height: number, color: string) {
-    const detailedHighbury = Math.hypot(x - highbury.x, z - highbury.z) < 115
+    const detailedHighbury = detailedNeighbourhood(x, z, 115)
     const coord = (localx: number, localz: number) => ({
       x: x + localx * Math.cos(angle) + localz * Math.sin(angle),
       z: z - localx * Math.sin(angle) + localz * Math.cos(angle),
@@ -391,7 +395,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const species = Math.floor(rnd() * foliageColors.length)
     const color = foliageColors[species]
     const height = (3.8 + rnd() * 2.2) * size
-    const detailedHighbury = Math.hypot(x - highbury.x, z - highbury.z) < 95
+    const detailedHighbury = detailedNeighbourhood(x, z, 95)
     const silhouette = detailedHighbury ? species % 3 : 0
     const windSeed = Math.abs(Math.sin(x*12.9898+z*78.233)*43758.5453)%1
     const sway = Math.hypot(x-105,z+32)<105 && windSeed<.17 ? x*.021+z*.017 : undefined
@@ -580,15 +584,35 @@ export function createTown(venues: MapVenue[]): TownWorld {
   const archGeometry=new THREE.ExtrudeGeometry(archProfile,{depth:3.6,bevelEnabled:false,curveSegments:12});archGeometry.translate(0,0,-1.8);
   const archRing=new THREE.RingGeometry(4.84,5.15,28,1,0,Math.PI);archRing.translate(0,2,0);
   const arches:Instance[]=[],archFaces:Instance[]=[];
+  const parapets: Instance[] = [], copings: Instance[] = [], piers: Instance[] = []
+  const tracksideShrubs: Instance[] = [], ballastStones: Instance[] = []
   const archCount=Math.ceil(track.getLength()/12);
   for(let i=0;i<archCount;i++){
     const t=(i+.5)/archCount,p=track.getPointAt(t),tangent=track.getTangentAt(t),ry=-Math.atan2(tangent.z,tangent.x);
     if(inCourtArea(p.x,p.z,exclusions,5))continue;
     arches.push({x:p.x,y:0,z:p.z,sx:track.getLength()/archCount/12+.015,sy:1,sz:1,ry});
     for(const side of [-1,1])archFaces.push({x:p.x-tangent.z*side*1.82,y:0,z:p.z+tangent.x*side*1.82,sx:1,sy:1,sz:1,ry:ry+(side===-1?Math.PI:0)});
+    for (const side of [-1, 1]) {
+      const x = p.x - tangent.z * side * 2.1, z = p.z + tangent.x * side * 2.1
+      parapets.push({ x, y: 8.35, z, sx: track.getLength() / archCount + .12, sy: 1.05, sz: .32, ry })
+      copings.push({ x, y: 8.91, z, sx: track.getLength() / archCount + .16, sy: .16, sz: .46, ry })
+      piers.push({ x, y: 4, z, sx: .5, sy: 8, sz: .5, ry })
+      // Trackside growth belongs to the illustrative railway, not a new surveyed route.
+      const bx = p.x - tangent.z * side * 4.4, bz = p.z + tangent.x * side * 4.4
+      if (Math.hypot(bx - highbury.x, bz - highbury.z) < 250 &&
+          !inCourtArea(bx, bz, exclusions, 4) && !nearLandmark(bx, bz) &&
+          !roadSegments.some(road => distanceToSegment(bx, bz, road.a, road.b) < road.width / 2 + 2)) {
+        tracksideShrubs.push({ x: bx, y: .65, z: bz, sx: 1.8, sy: .75, sz: 1.3, ry,
+          color: foliageColors[i % foliageColors.length] })
+      }
+    }
   }
   instances(archGeometry,stationBrick,arches,true,railway);
   instances(archRing,trimMaterial,archFaces,false,railway);
+  instances(box,bodyMaterial,parapets,true,railway)
+  instances(box,trimMaterial,copings,true,railway)
+  instances(box,bodyMaterial,piers,true,railway)
+  instances(sphere,leafMaterial,tracksideShrubs,true,railway)
   const sleepers: Instance[] = []
   const ballast: Instance[] = []
   const railPositions: number[] = []
@@ -601,6 +625,13 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const ry = -Math.atan2(tangent.z, tangent.x)
     ballast.push({ x: p.x, y: p.y - .38, z: p.z, sx: p.distanceTo(q) + .1, sy: .65, sz: 3.7, ry })
     if (i % 3 === 0) sleepers.push({ x: p.x, y: p.y + .02, z: p.z, sx: .26, sy: .15, sz: 2.9, ry })
+    if (i % 2 === 0 && Math.hypot(p.x - highbury.x, p.z - highbury.z) < 250) {
+      for (const side of [-1, 1]) {
+        ballastStones.push({ x: p.x - tangent.z * side * 1.48, y: p.y + .03,
+          z: p.z + tangent.x * side * 1.48, sx: .28, sy: .1, sz: .2, ry: i * .71,
+          color: i % 4 === 0 ? '#b4b1a5' : '#8a8c83' })
+      }
+    }
     for (const side of [-1, 1]) {
       const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).multiplyScalar(side * .87)
       const qt = track.getTangentAt(next)
@@ -610,6 +641,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
   }
   instances(box, standard('#a4a191'), ballast, true, railway)
   instances(box, standard('#857b67'), sleepers, false, railway)
+  instances(box,stoneMaterial,ballastStones,false,railway)
   const railsGeo = new THREE.BufferGeometry(); railsGeo.setAttribute('position', new THREE.Float32BufferAttribute(railPositions, 3))
   railway.add(new THREE.LineSegments(railsGeo, railsMat))
   const carriages: THREE.Group[] = []
