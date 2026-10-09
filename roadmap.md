@@ -1,3 +1,8 @@
+- [x] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
+- [x] Recover and host the exact T2000 and SW102 photographs; verify photo delivery and racquet navigation.
+- [ ] Restore the remaining 30 original racquet photographs — blocked by missing Wilson URLs and unavailable original repository; needs original photos or a repository ZIP.
+- [x] Improve desktop contact shading and texture clarity without changing map geometry; all 42 tests pass.
+- [ ] Visually verify improved 3D map detail — sandbox WebGL stalls; navigation and phone layouts verified with WebGL disabled.
 - [x] Make the mobile Play together sheet scroll as a whole, keeping filters, sessions and detail actions reachable.
 - [x] Share mobile scrolling across Courts and Coaching, add bottom spacing, and replace the map overlay attribution with access to required credits.
 - [x] Replace the weather attribution's emoji arrow with the app's external-link icon.

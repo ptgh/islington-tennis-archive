@@ -36,7 +36,7 @@ function surface(size: number, pixel: (x: number, y: number) => Pixel, color = t
   texture.magFilter = THREE.LinearFilter
   texture.minFilter = THREE.LinearMipmapLinearFilter
   texture.generateMipmaps = true
-  texture.anisotropy = 8
+  texture.anisotropy = 16
   texture.needsUpdate = true
   return texture
 }

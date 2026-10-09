@@ -3,6 +3,7 @@ import { Icon } from './Icon'
 import { FieldPicker, type FieldPickerOption } from './FieldPicker'
 import { emptyRacquetProfile, parseRacquetProfile, RACQUET_PROFILE_KEY, racquetPlayers, racquets, UTR_SOURCE, GRIP_SIZE_SOURCE, wilsonStrings, luxilonStrings, WILSON_STRINGS_SOURCE, LUXILON_STRINGS_SOURCE, type Racquet, type RacquetProfile } from '../data/racquets'
 import './RacquetStudio.css'
+import { racquetPhotos } from '../data/racquetPhotos'
 
 const frameOptions: FieldPickerOption[] = [
   { value:'', label:'Another frame / not sure' },
@@ -42,20 +43,20 @@ function RacquetDrawing({ racquet }: { racquet: Racquet }) {
 function RacquetMedia({ racquet, featured = false }: { racquet: Racquet; featured?: boolean }) {
   const [failed, setFailed] = useState(false)
   return <span className={`racquet-media${featured ? ' racquet-media-featured' : ''}${racquet.id === 'blade-sw102' ? ' racquet-media-sw102' : ''}`}>
-    {racquet.image && !failed
-      ? <img src={racquet.image} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+    {(racquetPhotos[racquet.id] || racquet.image) && !failed
+      ? <img src={racquetPhotos[racquet.id] || racquet.image} alt={racquet.name} loading="lazy" decoding="async" onError={() => setFailed(true)} />
       : <RacquetDrawing racquet={racquet} />}
   </span>
 }
 
-export function RacquetStudio({ onClose }: { onClose: () => void }) {
+export function RacquetStudio({ onClose, initialView = 'collection', onPartners }: { onClose: () => void; initialView?: 'collection' | 'my-frame'; onPartners: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const rail = useRef<HTMLDivElement>(null)
   const storyPanel = useRef<HTMLElement>(null)
   const [era, setEra] = useState<'current' | 'archive'>('current')
   const [family, setFamily] = useState('All')
   const [selectedId, setSelectedId] = useState(racquets[0].id)
-  const [view, setView] = useState<'collection' | 'my-frame'>('collection')
+  const [view, setView] = useState<'collection' | 'my-frame'>(initialView)
   const [storyName, setStoryName] = useState<string | null>(null)
   const [profile, setProfile] = useState<RacquetProfile>(() => { try { return parseRacquetProfile(localStorage.getItem(RACQUET_PROFILE_KEY)) } catch { return { ...emptyRacquetProfile } } })
   const [saved, setSaved] = useState(false)
@@ -77,12 +78,16 @@ export function RacquetStudio({ onClose }: { onClose: () => void }) {
   }, [])
 
   function switchEra(next: 'current' | 'archive') {
-    setEra(next); setFamily('All'); setSelectedId(racquets.find(r => r.era === next)!.id)
+    const first = racquets.find(r => r.era === next)
+    if (!first) return
+    setEra(next); setFamily('All'); setSelectedId(first.id)
     rail.current?.scrollTo({ left:0, behavior:'smooth' })
   }
   function switchFamily(next: string) {
+    const first = racquets.find(r => r.era === era && (next === 'All' || r.family === next))
+    if (!first) return
     setFamily(next)
-    setSelectedId(racquets.find(r => r.era === era && (next === 'All' || r.family === next))!.id)
+    setSelectedId(first.id)
     rail.current?.scrollTo({ left:0, behavior:'smooth' })
   }
   function update(key: keyof RacquetProfile, value: string) { setProfile(p => ({ ...p, [key]:value })); setSaved(false); setSaveError(false) }
@@ -91,11 +96,11 @@ export function RacquetStudio({ onClose }: { onClose: () => void }) {
     setSaved(false); setSaveError(false)
   }
   function save() {
-    try { localStorage.setItem(RACQUET_PROFILE_KEY, JSON.stringify(profile)); setSaved(true); setSaveError(false) }
+    try { localStorage.setItem(RACQUET_PROFILE_KEY, JSON.stringify(profile)); window.dispatchEvent(new Event('racquet-profile-updated')); setSaved(true); setSaveError(false) }
     catch { setSaved(false); setSaveError(true) }
   }
   function clear() {
-    try { localStorage.removeItem(RACQUET_PROFILE_KEY); setProfile({ ...emptyRacquetProfile }); setSaved(false); setSaveError(false) }
+    try { localStorage.removeItem(RACQUET_PROFILE_KEY); window.dispatchEvent(new Event('racquet-profile-updated')); setProfile({ ...emptyRacquetProfile }); setSaved(false); setSaveError(false) }
     catch { setSaveError(true) }
   }
   function addSelected() { update('racquetId', selected.id); setView('my-frame') }
@@ -126,6 +131,7 @@ export function RacquetStudio({ onClose }: { onClose: () => void }) {
         <div className="racquet-profile-intro">
           <span className="racquet-eyebrow">YOUR COURT BAG</span><h3>A frame with your name on it.</h3>
           <p>Keep your racquet and string setup close. This card stays in this browser and can be changed any time.</p>
+          <button className="text-button" onClick={onPartners}><Icon name="people" size={17}/> Find a hitting partner <Icon name="arrow" size={15}/></button>
           <div className={`racquet-profile-preview${profileRacquet ? ' has-racquet' : ''}`}>
             <div className="racquet-profile-copy">
               <span>{profile.name || 'Your name'}{profile.utr ? ` · UTR ${profile.utr}` : ''}</span>
