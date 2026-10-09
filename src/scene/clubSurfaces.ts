@@ -28,6 +28,11 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
     // Image-backed Texture is required here: DataTexture uploads expect raw
     // byte buffers and cannot be repurposed by assigning an HTMLImageElement.
     const texture = new THREE.Texture()
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 2
+      const context = canvas.getContext('2d')
+      if (context) { context.fillStyle = color ? '#c1c1c1' : '#8080ff'; context.fillRect(0, 0, 2, 2); texture.image = canvas }
+    }
     texture.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
     texture.repeat.set(...repeat); texture.anisotropy = 8
@@ -42,7 +47,7 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
   const scanned = (assets: { url: string }[], repeat: [number, number], color: string, relief: number) => {
     const material = new THREE.MeshStandardMaterial({
       color, map: map(assets[0].url, repeat, true), normalMap: map(assets[1].url, repeat, false),
-      roughnessMap: map(assets[2].url, repeat, false), roughness: .95,
+      roughnessMap: map(assets[2].url, repeat, false), roughness: Math.max(.95, fallback.roughness),
       normalScale: new THREE.Vector2(relief, relief),
     })
     materials.push(material)
