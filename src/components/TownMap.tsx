@@ -31,6 +31,7 @@ export interface TownMapHandle {
 }
 
 interface TownMapProps {
+  suspended?: boolean
   venues: MapVenue[]
   selectedId: string | null
   coachingPins?: boolean
@@ -74,15 +75,15 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ venues, selectedId, playCounts, coachingPins, onSelect, visibleIds, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ suspended = false, venues, selectedId, playCounts, coachingPins, onSelect, visibleIds, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
   const stationRefs = useRef(new Map<string, HTMLDivElement>())
   const vanRef=useRef<HTMLButtonElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
-  runtimeRef.current = { selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady }
+  const runtimeRef = useRef({ suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  runtimeRef.current = { suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady }
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
   const [moving, setMoving] = useState(false)
@@ -364,7 +365,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const frame = () => {
       if(runtimeRef.current.selectedServiceId==='sweet-spot-stringer'&&!journey){const delta=world.vanPosition.clone().sub(previousVan);camera.position.add(delta);controls.target.add(delta);}
       previousVan.copy(world.vanPosition)
-      if (destroyed || !onScreen) return
+      if (destroyed || !onScreen || runtimeRef.current.suspended) return
       weatherWorld.setKind(runtimeRef.current.weather)
       weatherWorld.setView(camera,camera.zoom,weatherClearance)
       // Concentrate shadow texels around the visible neighbourhood when zoomed in.
@@ -388,7 +389,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const tick = (time: number) => {
       if (destroyed) return
       animation = requestAnimationFrame(tick)
-      if (document.hidden || !onScreen) { world.animate(time / 1000, false, false, false); return }
+      if (document.hidden || !onScreen || runtimeRef.current.suspended) return
       if(journey){
         const progress=Math.min(1,(time-journey.start)/1100)
         const eased=progress*progress*(3-2*progress)
