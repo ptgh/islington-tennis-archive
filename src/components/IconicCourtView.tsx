@@ -467,6 +467,7 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
     const cancelJourney = () => { journey = null }
     const frame = () => {
       const state = runtime.current
+      if (!state.active) return
       world.animate(0, false, state.night, state.weather, state.lightingTime)
       renderer.toneMappingExposure = state.night ? .86 : 1.18
       occlusion.blendIntensity = state.night ? .16 : .30
@@ -591,11 +592,12 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
   }, [])
 
   useEffect(() => {
+    if (!active) return
     setSelectedId(COURTS[clubId][0].id)
     setPreparing(true)
     const timer = window.setTimeout(() => engine.current?.activate(clubId), 80)
     return () => window.clearTimeout(timer)
-  }, [clubId])
+  }, [clubId, active])
 
   function chooseCourt(id: string) { setSelectedId(id); engine.current?.focus(id) }
 

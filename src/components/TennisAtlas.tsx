@@ -77,7 +77,7 @@ function EventDetails({event,today,onClub}:{event:Tournament;today:string;onClub
     <span className={`atlas-status ${event.status}`}>{tournamentStatus(event,today)}</span>
     <p>{event.dateNote}</p>
     <a className="primary-button" href={event.url} target="_blank" rel="noreferrer">Official tournament <Icon name="external" size={16}/></a>
-    {event.clubId&&<button className="text-button" onClick={()=>onClub(event.clubId!)}>Explore the club miniature <Icon name="arrow" size={16}/></button>}
+    {event.clubId&&<button className="text-button" onClick={()=>{if(event.clubId)onClub(event.clubId);}}>Explore the club miniature <Icon name="arrow" size={16}/></button>}
     <a className="atlas-source" href={event.source} target="_blank" rel="noreferrer">Date source <Icon name="external" size={13}/></a>
   </article>;
 }
@@ -90,7 +90,7 @@ export function TennisAtlas({onClose,onHome,today,night,motionRunning,weather,on
   const [eventId,setEventId]=useState(()=>upcomingTournaments(today)[0]?.id??'');
   const events=upcomingTournaments(today,filter);
   const selected=events.find(t=>t.id===eventId)??events[0];
-  const club=iconicClubs.find(c=>c.id===clubId)!;
+  const club=iconicClubs.find(c=>c.id===clubId)??iconicClubs[0];
   const clubEvent=upcomingTournaments(today).find(t=>t.id===club.eventId);
   useEffect(()=>{
     const dialog=dialogRef.current,returnFocus=document.activeElement;
