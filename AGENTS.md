@@ -19,4 +19,4 @@
 - The partner finder and Gear share the existing browser-local racquet card through explicit My frame links; racquet setup stays local and is not published with player contact details.
 - Recovered racquet photographs use CDN asset pointers in the racquet photo registry, preserving the original source records and never substituting a different model.
 - Court-neighbourhood close-up detail uses equivalent bounded radii at every town venue and instanced facade relief and layered foliage in the London club scenes; railway embellishments follow only the existing illustrative track, so court coordinates and transport paths remain unchanged.
-- Scene quality uses shared pixel budgets and a locally generated sky environment with separately capped contact-occlusion buffers, keeping retina detail bounded and avoiding external illumination downloads.
+- Scene quality uses shared pixel budgets, a locally generated sky environment, capped contact-occlusion buffers and one shared lens-finish pass (tilt-shift, grade, vignette, grain) in renderQuality, so every 3D view gets the same photographic look without external downloads.
