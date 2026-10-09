@@ -1,0 +1,8 @@
+.select-field{width:100%;min-width:0;margin:8px 0 4px;color:#254f42;font:12px/1.4 var(--sans,Arial,sans-serif)}
+.select-field__label{display:block;margin:0 0 8px;color:#75806e;font-size:10px}
+.select-field__trigger{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;min-height:42px;padding:11px 13px;border:1px solid #dce1d2;border-radius:12px;background:#f6f6ed;color:inherit;text-align:left;font:inherit;cursor:pointer;transition:border-color .15s,background .15s}
+.select-field__trigger:hover,.select-field__trigger[aria-expanded=true]{background:#eff2e7;border-color:#94aa91}.select-field__trigger svg{flex-shrink:0;transition:transform .15s}.select-field__trigger[aria-expanded=true] svg{transform:rotate(180deg)}
+.select-field__trigger:focus-visible{outline:2px solid #8aab95;outline-offset:3px}
+.select-field__menu{position:fixed;z-index:1000;box-sizing:border-box;padding:6px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#b5c2ac transparent;border:1px solid #e1e5d8;border-radius:14px;background:#fafaf2;box-shadow:0 12px 36px #153b2b26,0 2px 7px #153b2b0d;color:#254f42;font:12px/1.4 var(--sans,Arial,sans-serif);outline:none}
+.select-field__option{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:40px;padding:10px;border-radius:9px;cursor:pointer}.select-field__option[aria-selected=true]{color:#1c543b;background:#e6eddf}.select-field__option[data-active=true]{background:#dce7d5}.select-field__option>span:last-child:not(:first-child){font-weight:600}
+.coaching-search .select-field{margin:4px 0 2px}.play-court-filter .select-field{flex:1}.places-panel .select-field{margin-top:18px}.weather-panel .select-field{margin:18px 0}

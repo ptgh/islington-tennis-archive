@@ -1,0 +1,132 @@
+.atlas-launch{position:absolute;right:128px;top:142px;z-index:5;width:88px}
+.tennis-atlas{width:1080px;max-width:calc(100vw - 40px);height:min(820px,calc(100dvh - 48px));max-height:calc(100dvh - 48px);padding:0;border:1px solid #fff9;border-radius:23px;background:var(--paper);color:var(--ink);box-shadow:0 24px 100px #152e3566;overflow:hidden}
+.tennis-atlas[open]{display:flex;flex-direction:column}
+.tennis-atlas::backdrop{background:#183c365c;backdrop-filter:blur(5px)}
+.atlas-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:27px 30px 20px;flex-shrink:0}
+.atlas-header h2{font:40px/1.08 var(--serif);letter-spacing:-.7px;margin:6px 0 0}
+.atlas-header .icon-button{flex-shrink:0;background:#eceee3;box-shadow:none}
+.atlas-eyebrow{font-size:10px;line-height:1.5;letter-spacing:1.6px;font-weight:550;color:#637860}
+.atlas-navigation{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:0 30px 18px;border-bottom:1px solid var(--line);flex-shrink:0}
+.atlas-view-options{display:flex;background:#e8ecdf;padding:4px;border-radius:12px;gap:3px}
+.atlas-view-options button{min-height:38px;padding:8px 17px;border-radius:9px;font-size:13px}
+.atlas-view-options button[aria-pressed=true]{background:var(--ink);color:var(--paper);box-shadow:0 2px 6px #173b2912}
+.atlas-view-options button>span{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;margin-left:6px;background:#ffffff29;font-size:10px}
+.atlas-return{display:flex;align-items:center;gap:8px;font-size:13px;min-height:42px;padding:5px}
+.atlas-return:hover{color:#85703d}
+.atlas-content{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#b5c4ae transparent;min-height:0}
+.tennis-atlas.is-court-view{width:min(1480px,calc(100vw - 18px));max-width:calc(100vw - 18px);height:calc(100dvh - 18px);max-height:calc(100dvh - 18px)}
+.tennis-atlas.is-court-view .atlas-header{padding:16px 23px 10px}
+.tennis-atlas.is-court-view .atlas-header h2{font-size:32px}
+.tennis-atlas.is-court-view .atlas-navigation{padding:0 23px 10px}
+.tennis-atlas.is-court-view .atlas-content{flex:1;overflow:hidden}
+.atlas-explore-courts{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;width:100%;padding:12px 14px;margin:15px 0 10px;border:1px solid #c7d6bf;border-radius:10px;background:#edf1e5;color:#244b3d;text-align:left;font-size:13px}
+.atlas-explore-courts:hover{background:#e0ebd9}
+.atlas-explore-courts small{grid-column:1/-1;color:#71836f;font-size:11px}
+.atlas-feature{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr)}
+.atlas-london,.atlas-tour-map{position:relative;min-width:0;background:#e4e9d9;overflow:hidden}
+.atlas-london{min-height:450px;background:radial-gradient(ellipse at 68% 12%,#f1f3e6,#e0e7d0 80%)}
+.atlas-london-ground{position:absolute;inset:0;width:100%;height:100%;opacity:.9}
+.atlas-river-label{font:italic 14px Georgia,serif;fill:#648079;letter-spacing:2px}
+.atlas-journey{fill:none;stroke:#a08d5f;stroke-width:1.5;stroke-dasharray:4 7;animation:atlas-travel 24s linear infinite}
+.atlas-compass{position:absolute;top:25px;left:27px;font:12px/1.5 Georgia,serif;text-align:center;color:#7b8e71}
+.atlas-compass span{display:block;font-size:26px}
+.atlas-club-place,.atlas-home-place{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;padding:0 6px 6px;isolation:isolate;border-radius:18px}
+.atlas-club-place:hover,.atlas-home-place:hover{background:#fff9}
+.atlas-club-place:active,.atlas-home-place:active{transform:translate(-50%,-50%)}
+.atlas-miniature{width:100%;overflow:visible;display:block;transition:transform .3s}
+.atlas-club-place:hover .atlas-miniature,.atlas-home-place:hover .atlas-miniature{transform:translateY(-5px)}
+.atlas-club-place{width:215px}.atlas-home-place{width:172px}
+.atlas-club-place .atlas-miniature{margin-bottom:-13px}.atlas-home-place .atlas-miniature{margin-bottom:-5px}
+.atlas-club-place strong,.atlas-home-place strong{font:24px/1.1 var(--serif);background:#f9f8eeed;padding:5px 12px;border-radius:7px;white-space:nowrap;box-shadow:0 2px 10px #3854330b}
+.atlas-club-place[aria-pressed=true] strong{background:var(--ink);color:var(--paper)}
+.atlas-home-place strong{font-size:22px}
+.atlas-club-place>span,.atlas-home-place>span{font-size:11px;margin-top:4px;color:#52694f}
+.atlas-map-caption{position:absolute;bottom:16px;left:25px;right:20px;font:italic 17px/1.4 var(--serif);margin:0;color:#455f48;pointer-events:none}
+.atlas-map-caption span{display:block;margin-top:4px;font:11px/1.5 var(--sans,Arial,sans-serif);color:#667b65}
+.atlas-london .atlas-map-caption{left:auto;text-align:right;max-width:190px;bottom:25px}
+.atlas-club-detail,.atlas-event-detail,.atlas-empty{padding:29px 27px 26px;border-left:1px solid var(--line);font-size:14px;line-height:1.65}
+.atlas-club-detail h3,.atlas-event-detail h3,.atlas-empty h3{font:34px/1.05 var(--serif);letter-spacing:-.6px;margin:11px 0}
+.atlas-club-detail p,.atlas-event-detail p{margin:15px 0;color:#5d735e}
+.atlas-club-detail .atlas-event-venue,.atlas-event-detail .atlas-event-venue{font-size:13px;color:#6c7e69;margin-top:0}
+.atlas-next-event{width:100%;text-align:left;background:#e9eddf;border:1px solid #dbe2cd;border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:4px;margin:21px 0;color:var(--ink)}
+.atlas-next-event:hover{background:#dde6d0}
+.atlas-next-event>span{font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:5px}
+.atlas-next-event strong{font-size:14px;font-weight:550}
+.atlas-club-detail .atlas-access{font-size:13px;padding-left:12px;border-left:2px solid #bcc9a7}
+.tennis-atlas .primary-button{font-size:13px;line-height:1.5;gap:12px;min-height:47px}
+.tennis-atlas .primary-button svg{flex-shrink:0}
+.atlas-source{display:flex;gap:5px;align-items:center;color:#657860;font-size:12px;margin-top:15px;text-underline-offset:3px;min-height:30px}
+.atlas-season-invite{padding:25px 30px;display:flex;gap:20px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);background:#f0f0e4}
+.atlas-season-invite h3,.atlas-calendar-heading h3{font:29px/1.1 var(--serif);margin:5px 0 9px}
+.atlas-season-invite p{font-size:13px;line-height:1.6;color:#66795f;margin:0}
+.atlas-round-link{height:48px;width:48px;border:1px solid #afbea2;display:flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0}
+.atlas-round-link:hover{background:#dee6d1}
+.atlas-lta{display:grid;grid-template-columns:1fr 1fr;gap:25px;padding:26px 30px;background:#244b3d;color:#f7f7e9}
+.atlas-lta .atlas-eyebrow{color:#d9dfb9}
+.atlas-lta p{font-size:14px;line-height:1.6;margin:8px 0 0;max-width:380px}
+.atlas-lta a{display:flex;align-items:center;gap:7px;font-size:14px;padding:5px 0;text-underline-offset:4px;min-height:32px}
+.atlas-lta>div>span:last-child:not(.atlas-eyebrow){display:block;font-size:12px;line-height:1.5;color:#d5dfd0;margin-top:10px}
+.atlas-tour-map{min-height:420px;display:flex;align-items:center;background:radial-gradient(ellipse at center,#f5f5e8,#e3ebdf)}
+.atlas-world-canvas{position:relative;width:100%;aspect-ratio:2;margin:35px 0 65px}
+.atlas-land{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+.atlas-world-canvas>svg{position:relative;width:100%;height:100%;overflow:visible}
+.atlas-world-journey{stroke:#9f8454;stroke-width:1.7;stroke-dasharray:4 6;animation:atlas-travel 24s linear infinite}
+.atlas-map-tools{position:absolute;z-index:2;top:16px;left:17px;right:17px;display:flex;justify-content:space-between;gap:8px}
+.atlas-map-tools button{font-size:12px;display:flex;align-items:center;gap:6px;padding:9px 10px;border:1px solid #cdd8c4;border-radius:25px;background:#f8f8edd9;min-height:38px}
+.atlas-home-dot{height:7px;width:7px;background:#a3ae68;border-radius:50%}
+.atlas-city{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);min-width:44px;min-height:44px;gap:3px;padding:4px}
+.atlas-city:active{transform:translate(-50%,-50%)}
+.atlas-city-dot{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#faf8ea;border:1.5px solid #536e51;color:#30563f;box-shadow:0 3px 10px #2a45312b;font-size:12px}
+.atlas-city[aria-pressed=true] .atlas-city-dot,.atlas-city:hover .atlas-city-dot{background:var(--ink);color:#fffdeb;outline:5px solid #c4d1b788}
+.atlas-city strong{font-size:11px;font-weight:500;white-space:nowrap;background:#faf9e9e6;padding:3px 6px;border-radius:5px}
+.atlas-tour-map.europe .atlas-world-canvas{aspect-ratio:5/3}
+.atlas-tour-map.europe .atlas-land{width:720%;height:600%;left:-320%;top:-80%}
+.atlas-city-anchor{position:absolute;width:4px;height:4px;margin:-2px;border-radius:50%;background:#688065;pointer-events:none}
+.atlas-city-anchor i{position:absolute;left:2px;top:2px;height:1px;background:#92a285;transform-origin:left center}
+.atlas-geography-credit{position:absolute;right:14px;bottom:10px;font-size:11px;color:#5b725f;text-underline-offset:3px}
+.atlas-surface{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#587253}
+.atlas-surface>span{display:block;width:8px;height:8px;border-radius:50%;background:#648c9b}.atlas-surface.clay>span{background:#b37f63}.atlas-surface.grass>span{background:#79905c}
+.atlas-event-detail .atlas-event-dates{font-size:16px;font-weight:550;color:var(--ink);margin:19px 0 8px}
+.atlas-status{display:inline-block;border:1px solid #d3ddc6;background:#edf1e2;border-radius:20px;font-size:12px;padding:3px 10px}
+.atlas-status.provisional,.atlas-status.unconfirmed{background:#f3edde;border-color:#e5d8bb;color:#816936}
+.atlas-event-detail .text-button{margin-top:12px;min-height:36px}
+.atlas-calendar{padding:29px 30px 20px;border-top:1px solid var(--line)}
+.atlas-calendar-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-bottom:18px}
+.atlas-filters{display:flex;gap:5px;flex-wrap:wrap}
+.atlas-filters button{min-height:36px;border:1px solid #d5ddcb;border-radius:22px;font-size:12px;padding:7px 12px}
+.atlas-filters button[aria-pressed=true]{background:#244b3d;border-color:#244b3d;color:#fffdeb}
+.atlas-event-list>button{display:flex;width:100%;align-items:center;gap:15px;text-align:left;padding:16px 10px;border-top:1px solid var(--line)}
+.atlas-event-list>button:last-child{border-bottom:1px solid var(--line)}
+.atlas-event-list>button:hover,.atlas-event-list>button[aria-pressed=true]{background:#e9eddf}
+.atlas-event-index{flex:0 0 34px;font:22px var(--serif);color:#698e94}.atlas-event-index.grass{color:#758b56}.atlas-event-index.clay{color:#ad755b}
+.atlas-event-copy{display:flex;flex-direction:column;gap:5px;flex:1}
+.atlas-event-copy strong{font:22px/1.1 var(--serif)}
+.atlas-event-copy>span{font-size:12px;color:#677d63}
+.atlas-event-when{font-size:13px;line-height:1.5;text-align:right}
+.atlas-event-when>span{font-size:12px;color:#778367;display:block;margin-top:4px}
+.atlas-calendar-note{font-size:12px;line-height:1.7;color:#65795f;margin:17px 0 0}
+@keyframes atlas-travel{to{stroke-dashoffset:-110}}
+@media(max-width:760px){
+ .tennis-atlas.is-court-view .atlas-header{padding:12px 15px 9px}.tennis-atlas.is-court-view .atlas-header h2{font-size:25px}.tennis-atlas.is-court-view .atlas-navigation{padding:0 12px 10px}
+ .atlas-launch{top:167px;right:97px;width:68px}
+ .tennis-atlas{width:calc(100vw - 18px);max-width:calc(100vw - 18px);height:calc(100dvh - 18px);max-height:calc(100dvh - 18px);border-radius:18px}
+ .atlas-header{padding:20px 18px 14px;gap:8px}.atlas-header h2{font-size:29px}.atlas-eyebrow{font-size:9px;letter-spacing:1.1px}
+ .atlas-header .icon-button{height:36px;width:36px}
+ .atlas-navigation{padding:0 14px 13px;gap:8px}.atlas-view-options button{font-size:12px;padding:8px 10px;min-height:35px}.atlas-return{font-size:11px;gap:4px;max-width:95px;text-align:left}
+ .atlas-feature{grid-template-columns:1fr}
+ .atlas-london{min-height:370px}.atlas-club-place{width:164px}.atlas-home-place{width:132px}
+ .atlas-club-place strong,.atlas-home-place strong{font-size:20px}.atlas-club-place>span,.atlas-home-place>span{font-size:10px}
+ .atlas-london .atlas-map-caption{font-size:15px;max-width:126px;right:15px;bottom:20px}.atlas-map-caption span{font-size:10px}
+ .atlas-club-detail,.atlas-event-detail,.atlas-empty{border-left:0;border-top:1px solid var(--line);padding:22px}
+ .atlas-club-detail h3,.atlas-event-detail h3{font-size:32px}
+ .atlas-season-invite{padding:22px}.atlas-season-invite h3{font-size:26px}
+ .atlas-lta{grid-template-columns:1fr;gap:12px;padding:24px 22px}
+ .atlas-tour-map{min-height:310px}.atlas-map-tools{top:13px;left:12px;right:12px}.atlas-map-tools button{font-size:11px;padding:8px}
+ .atlas-tour-map.europe .atlas-world-canvas{margin-bottom:100px}
+ .atlas-city strong{font-size:10px}.atlas-city-dot{width:26px;height:26px}.atlas-map-caption{font-size:16px;left:18px;bottom:32px}
+ .atlas-calendar{padding:24px 18px}.atlas-calendar-heading h3{font-size:28px}.atlas-calendar-heading{gap:10px}
+ .atlas-event-list>button{display:grid;grid-template-columns:26px 1fr 18px;gap:6px 9px;padding:16px 6px}
+ .atlas-event-index{grid-row:1/3;align-self:start;font-size:20px}.atlas-event-copy strong{font-size:21px}.atlas-event-list>button>svg{grid-column:3;grid-row:1/3}
+ .atlas-event-when{grid-column:2;text-align:left;font-size:12px}.atlas-event-when>span{display:inline;margin-left:7px}
+}
+@media(prefers-reduced-motion:reduce){.atlas-journey,.atlas-world-journey{animation:none}.atlas-miniature{transition:none}}
