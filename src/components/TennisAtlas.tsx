@@ -1,15 +1,17 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from './Icon';
 import { AtlasMiniature } from './AtlasMiniature';
-import { IconicCourtView } from './IconicCourtView';
+const IconicCourtView = lazy(() => import('./IconicCourtView').then(module => ({ default: module.IconicCourtView })));
 import { ATLAS_CHECKED, LTA_CALENDAR, iconicClubs, upcomingTournaments, tournamentDates, tournamentStatus, type IconicClubId, type Tournament, type TournamentFilter } from '../data/tennisAtlas';
+import type { WeatherSceneKind } from '../scene/createWeather';
 import './TennisAtlas.css';
 
 type AtlasView = 'london' | 'season' | 'court';
 const position=(x:number,y:number):CSSProperties=>({left:`${x}%`,top:`${y}%`});
 const project=(lng:number,lat:number)=>[(lng+180)*2,(90-lat)*2];
 
-function LondonMap({clubId,onClub,onOpen,onHome}:{clubId:IconicClubId;onClub:(id:IconicClubId)=>void;onOpen:(id:IconicClubId)=>void;onHome:()=>void}) {
+function LondonMap({clubId,onClub,onExplore,onHome}:{clubId:IconicClubId;onClub:(id:IconicClubId)=>void;onExplore:(id:IconicClubId)=>void;onHome:()=>void}) {
+  const lastTap=useRef<{id:IconicClubId;time:number}|null>(null);
   return <div className="atlas-london" aria-label="London tennis destinations, separate from the local court directory">
     <svg className="atlas-london-ground" viewBox="0 0 660 440" preserveAspectRatio="none" aria-hidden="true">
       <defs><pattern id="atlas-streets" width="58" height="48" patternUnits="userSpaceOnUse" patternTransform="rotate(-15)"><path d="M0 14H58M13 0V48" fill="none" stroke="#fffcef" strokeWidth="2"/></pattern></defs>
@@ -23,7 +25,7 @@ function LondonMap({clubId,onClub,onOpen,onHome}:{clubId:IconicClubId;onClub:(id
     <button className="atlas-home-place" style={position(75,21)} onClick={onHome} aria-label="Return to Islington map">
       <AtlasMiniature place="islington"/><strong>Islington</strong><span>Our home court</span>
     </button>
-    {iconicClubs.map(club=><button key={club.id} className={`atlas-club-place ${club.id}`} style={position(club.id==='queens'?30:39,club.id==='queens'?44:76)} aria-pressed={club.id===clubId} onClick={()=>onClub(club.id)} onDoubleClick={()=>onOpen(club.id)} title="Double-click to explore the courts">
+    {iconicClubs.map(club=><button key={club.id} className={`atlas-club-place ${club.id}`} style={position(club.id==='queens'?30:39,club.id==='queens'?44:76)} aria-pressed={club.id===clubId} onClick={()=>onClub(club.id)} onDoubleClick={()=>onExplore(club.id)} onPointerUp={e=>{if(e.pointerType!=='touch')return;const time=performance.now();if(lastTap.current?.id===club.id&&time-lastTap.current.time<400){lastTap.current=null;onExplore(club.id);}else lastTap.current={id:club.id,time};}}>
       <AtlasMiniature place={club.id}/><strong>{club.name}</strong><span>{club.id==='queens'?'West Kensington':'SW19'}</span>
     </button>)}
     <p className="atlas-map-caption">London, a little further afield.<span>Illustrated positions · not a travel route</span></p>
@@ -80,7 +82,7 @@ function EventDetails({event,today,onClub}:{event:Tournament;today:string;onClub
   </article>;
 }
 
-export function TennisAtlas({onClose,onHome,today}:{onClose:()=>void;onHome:()=>void;today:string}) {
+export function TennisAtlas({onClose,onHome,today,night,motionRunning,weather,onNight,onMotion,lightingTime,onLightingTime}:{onClose:()=>void;onHome:()=>void;today:string;lightingTime:number|null;onLightingTime:(time:number|null)=>void;night:boolean;motionRunning:boolean;weather:WeatherSceneKind;onNight:()=>void;onMotion:()=>void}) {
   const dialogRef=useRef<HTMLDialogElement>(null), contentRef=useRef<HTMLDivElement>(null);
   const [view,setView]=useState<AtlasView>('london'),[clubId,setClubId]=useState<IconicClubId>('wimbledon');
   const [filter,setFilter]=useState<TournamentFilter>('all');
@@ -102,8 +104,8 @@ export function TennisAtlas({onClose,onHome,today}:{onClose:()=>void;onHome:()=>
     <div className="atlas-header"><div><span className="atlas-eyebrow">ISLINGTON TENNIS / FURTHER AFIELD</span><h2 id="atlas-heading">A wider world of tennis.</h2></div><button className="icon-button" aria-label="Close tennis atlas" onClick={onClose}><Icon name="close"/></button></div>
     <div className="atlas-navigation"><div className="atlas-view-options" aria-label="Atlas view"><button aria-pressed={view==='london'} onClick={()=>switchView('london')}>London icons</button><button aria-pressed={view==='season'} onClick={()=>switchView('season')}>On tour <span>{upcomingTournaments(today).length}</span></button>{view==='court'&&<button aria-pressed={true} onClick={()=>switchView('court')}>Court view</button>}</div><button className="atlas-return" onClick={onHome}><Icon name="back" size={16}/> Back to Islington</button></div>
     <div className="atlas-content" ref={contentRef}>
-      {view==='court'?<IconicCourtView key={clubId} clubId={clubId} event={clubEvent} onBack={()=>switchView('london')} onSwitch={setClubId}/>:view==='london'?<>
-        <div className="atlas-feature"><LondonMap clubId={clubId} onClub={setClubId} onOpen={id=>{setClubId(id);switchView('court');}} onHome={onHome}/><article className="atlas-club-detail" key={clubId}>
+      {view==='court'?<Suspense fallback={<p role="status" className="atlas-court-loading">Opening the courts…</p>}><IconicCourtView key={clubId} clubId={clubId} lightingTime={lightingTime} onLightingTime={onLightingTime} event={clubEvent} night={night} motionRunning={motionRunning} weather={weather} onNight={onNight} onMotion={onMotion} onBack={()=>switchView('london')} onSwitch={setClubId}/></Suspense>:view==='london'?<>
+        <div className="atlas-feature"><LondonMap clubId={clubId} onClub={setClubId} onExplore={id=>{setClubId(id);switchView('court');}} onHome={onHome}/><article className="atlas-club-detail" key={clubId}>
           <span className="atlas-eyebrow">LONDON ICON / {club.id==='wimbledon'?'01':'02'}</span><h3>{club.name}</h3><p className="atlas-event-venue">{club.area}</p><p>{club.description}</p>
           {clubEvent&&<button className="atlas-next-event" onClick={()=>showEvent(clubEvent.id)}><span>Next on the calendar</span><strong>{tournamentDates(clubEvent)}</strong><span>{clubEvent.status==='provisional'?'Provisional dates':'The Championships'} <Icon name="arrow" size={16}/></span></button>}
           <p className="atlas-access">{club.access}</p>

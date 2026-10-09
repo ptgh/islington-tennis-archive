@@ -1,251 +1,371 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { iconicClubs, tournamentDates, type IconicClubId, type Tournament } from '../data/tennisAtlas'
-import { AtlasMiniature } from './AtlasMiniature'
-import { Icon } from './Icon'
-import { createMiniatureMaterials } from '../scene/miniatureMaterials'
-import { addSkyEnvironment, scenePixelRatio } from '../scene/renderQuality'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js'
+import { iconicClubs, tournamentDates, type IconicClubId, type Tournament } from '../data/tennisAtlas'
+import { AtlasMiniature } from './AtlasMiniature'
+import { Icon } from './Icon'
+import { LightingControl } from './LightingControl'
+import { createMiniatureMaterials } from '../scene/miniatureMaterials'
+import { createTownLife } from '../scene/createTownLife'
+import { createVenueLighting } from '../scene/createVenueLighting'
+import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
+import type { WeatherSceneKind } from '../scene/createWeather'
+import { createMappedVenue, mappedCourtPosition } from '../scene/mappedVenue'
 import './IconicCourtView.css'
 
 type CourtStop = { id: string; name: string; note: string; x: number; z: number }
 
 const COURTS: Record<IconicClubId, CourtStop[]> = {
   wimbledon: [
-    { id: 'centre', name: 'Centre Court', note: 'The Championships’ principal show court, set inside its familiar green stands.', x: -36, z: 9 },
-    { id: 'number-one', name: 'No. 1 Court', note: 'Another major show court in the Wimbledon grounds, with its own surrounding stands.', x: 43, z: -24 },
-    { id: 'outer', name: 'Outer courts', note: 'A small illustrated group represents the grass courts beyond the two main show courts.', x: 48, z: 43 },
+    { id: 'centre', name: 'Centre Court', note: 'The principal show court sits south of No. 1 Court, with the Tea Lawn on its Church Road side.', x: 0, z: 34 },
+    { id: 'number-one', name: 'No. 1 Court', note: 'The rounder northern show court sits beside The Hill and the Aorangi entrance.', x: 0, z: -73 },
+    { id: 'number-two', name: 'No. 2 Court', note: 'A smaller show court anchors the south-east corner of the main grounds.', x: 76, z: 117 },
+    { id: 'number-three', name: 'No. 3 Court', note: 'No. 3 Court sits to the west of the southern outer-court rows.', x: -76, z: 113 },
+    { id: 'outer', name: 'Outer courts', note: 'Courts 14–17 sit between the two great show courts; Courts 4–11 make two rows to the south.', x: 30, z: -11 },
   ],
   queens: [
-    { id: 'centre', name: 'Centre Court', note: 'The grass show court at the heart of the HSBC Championships.', x: -30, z: 8 },
-    { id: 'outer', name: 'Outer courts', note: 'A court-side glimpse of the grass courts around the club.', x: 42, z: 28 },
-    { id: 'practice', name: 'Practice courts', note: 'The club’s practice-court atmosphere, shown as an illustrative court pair.', x: 43, z: -34 },
+    { id: 'arena', name: 'Andy Murray Arena', note: 'The former Centre Court is framed by the South, East and North stands beside the clubhouse.', x: -60, z: 0 },
+    { id: 'court-one', name: 'Court 1', note: 'Court 1 sits closest to the arena in the middle bank of numbered grass courts.', x: 13, z: 0 },
+    { id: 'outer', name: 'Courts 2–10', note: 'The numbered courts form three compact rows: 5–6 to the north, 1–4 centrally, and 7–10 to the south.', x: 64, z: 1 },
+    { id: 'practice', name: 'Practice viewing', note: 'The tournament plan marks practice-court viewing along the eastern side of the numbered courts.', x: 102, z: -8 },
   ],
+}
+
+const GROUNDS_MAPS: Record<IconicClubId, string> = {
+  wimbledon: 'https://www.wimbledon.com/en_GB/maps',
+  queens: 'https://www.lta.org.uk/49afa0/siteassets/events/hsbc/map/hsbc-championships-site-map-2025.pdf',
 }
 
 type SceneHandle = { focus: (courtId: string) => void; zoom: (factor: number) => void; reset: () => void }
 
 function buildScene(id: IconicClubId) {
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(id === 'wimbledon' ? '#dce6d4' : '#e5e8d6')
+  scene.background = new THREE.Color(id === 'wimbledon' ? '#dce7d5' : '#e4e8d7')
   const unitBox = new THREE.BoxGeometry(1, 1, 1)
+  const unitCylinder = new THREE.CylinderGeometry(1, 1, 1, 9)
   const finishes = createMiniatureMaterials()
-  const detailBatches = new Map<THREE.Material, { x: number; y: number; z: number; w: number; h: number; d: number; angle: number }[]>()
-  const detail = (x: number, y: number, z: number, w: number, h: number, d: number, surface: THREE.Material, angle = 0) => {
-    const batch = detailBatches.get(surface) ?? []
-    batch.push({ x, y, z, w, h, d, angle })
-    detailBatches.set(surface, batch)
-  }
   const materials = new Map<string, THREE.MeshStandardMaterial>()
+  const batches = new Map<string, { material: THREE.Material; geometry: THREE.BufferGeometry; castShadow: boolean; matrices: THREE.Matrix4[] }>()
+  const transform = new THREE.Object3D()
+  let placement = new THREE.Matrix4()
+  const place = (x: number, z: number, angle: number, scale: number, draw: () => void) => {
+    const previous = placement
+    placement = previous.clone().multiply(new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle), new THREE.Vector3(scale, scale, scale)))
+    try { draw() } finally { placement = previous }
+  }
+  const matches: { center: THREE.Vector3; rotation: number; scale: number; halfLength: number; groundY: number }[] = []
+  const grassColours = new Set(['#a4bd8b', '#a9bd90', '#8eac70', '#95b579', '#668e4d', '#6d9653', '#739b57', '#2f6948', '#3b6e4b'])
+  const pavingColours = new Set(['#d6d5bf', '#dcdac4', '#d8d4be', '#ddd7c4', '#ded9c6'])
   const material = (colour: string) => {
     let value = materials.get(colour)
-    if (!value) { value = new THREE.MeshStandardMaterial({ color: colour, roughness: .94 }); materials.set(colour, value) }
+    if (!value) {
+      const base = grassColours.has(colour) ? finishes.parkGrass : pavingColours.has(colour) ? finishes.paving : ['#a9775a', '#986b55', '#ad866b'].includes(colour) ? finishes.brick : colour === '#3d5143' ? finishes.slate : null
+      value = base ? base.clone() : new THREE.MeshStandardMaterial({ roughness: .9 })
+      value.color.set(colour)
+      if (colour === '#f5f2df') { value.emissive.set('#f5f2df'); value.emissiveIntensity = .12 }
+      materials.set(colour, value)
+    }
     return value
   }
+  const instance = (mat: THREE.Material, castShadow = true, geometry: THREE.BufferGeometry = unitBox) => {
+    transform.updateMatrix()
+    const key = `${geometry.uuid}-${mat.uuid}-${castShadow}`
+    if (!batches.has(key)) batches.set(key, { material: mat, geometry, castShadow, matrices: [] })
+    batches.get(key)!.matrices.push(placement.clone().multiply(transform.matrix))
+  }
   const box = (x: number, y: number, z: number, w: number, h: number, d: number, colour: string, shadow = true) => {
-    const mesh = new THREE.Mesh(unitBox, material(colour))
-    mesh.position.set(x, y, z)
-    mesh.scale.set(w, h, d)
-    mesh.castShadow = shadow
-    mesh.receiveShadow = true
-    scene.add(mesh)
-    return mesh
+    transform.position.set(x, y, z)
+    transform.rotation.set(0, 0, 0)
+    transform.scale.set(w, h, d)
+    instance(material(colour), shadow)
+  }
+  const beam = (a: THREE.Vector3, b: THREE.Vector3, thickness: number, colour: string) => {
+    transform.position.copy(a).add(b).multiplyScalar(.5)
+    transform.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize())
+    transform.scale.set(thickness, a.distanceTo(b), thickness)
+    instance(material(colour))
   }
   const cylinder = (x: number, y: number, z: number, radius: number, height: number, colour: string) => {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 9), material(colour))
+    transform.position.set(x, y, z)
+    transform.rotation.set(0, 0, 0)
+    transform.scale.set(radius, height, radius)
+    instance(material(colour), true, unitCylinder)
+  }
+  const ring = (x: number, y: number, z: number, innerX: number, innerZ: number, outerX: number, outerZ: number, colour: string, sides: number, depth = .15) => {
+    const shape = new THREE.Shape()
+    const hole = new THREE.Path()
+    const trace = (path: THREE.Path, rx: number, rz: number, reverse: boolean) => {
+      for (let i = 0; i <= sides; i++) {
+        const angle = i * Math.PI * 2 / sides * (reverse ? -1 : 1)
+        const px = Math.cos(angle) * rx, py = Math.sin(angle) * rz
+        if (i === 0) path.moveTo(px, py)
+        else path.lineTo(px, py)
+      }
+    }
+    trace(shape, outerX, outerZ, false)
+    trace(hole, innerX, innerZ, true)
+    shape.holes.push(hole)
+    const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, steps: 1 }), material(colour))
+    mesh.rotation.x = -Math.PI / 2
     mesh.position.set(x, y, z)
     mesh.castShadow = true
     mesh.receiveShadow = true
+    mesh.applyMatrix4(placement)
     scene.add(mesh)
   }
+  const seat = (x: number, y: number, z: number, angle: number, colour: string) => {
+    transform.rotation.set(0, angle, 0)
+    transform.position.set(x, y, z)
+    transform.scale.set(.65, .18, .62)
+    instance(material(colour))
+    transform.position.set(x + Math.sin(angle) * .27, y + .3, z + Math.cos(angle) * .27)
+    transform.scale.set(.65, .55, .12)
+    instance(material(colour))
+  }
   const canopy = finishes.foliageGeometry
+  const foliageBatches = new Map<string, THREE.Matrix4[]>()
   const tree = (x: number, z: number, size: number, shade: string) => {
-    cylinder(x, size * .58, z, size * .12, size * 1.15, '#716849')
-    const species = Math.floor(Math.abs(Math.sin(x * 1.7 + z * .9)) * 3)
-    const surface = finishes.foliage.clone()
-    surface.color.set(shade)
-    const crowns = new THREE.InstancedMesh(canopy, surface, 12)
-    const transform = new THREE.Object3D()
-    for (let lobe = 0; lobe < 12; lobe++) {
-      const angle = lobe * 2.399 + x, outer = lobe > 6
-      const ring = lobe === 0 ? 0 : size * (outer ? .78 : .46)
-      const radius = size * (lobe === 0 ? .72 : outer ? .27 : .48)
-      transform.position.set(x + Math.cos(angle) * ring, size * (outer ? 1.45 + lobe * .025 : 1.38 + (lobe % 3) * .16), z + Math.sin(angle) * ring)
-      transform.scale.set(radius, radius * (species === 1 ? 1.4 : species === 2 ? .72 : 1), radius)
+    cylinder(x, size * .58, z, size * .12, size * 1.15, '#746b51')
+    if (!foliageBatches.has(shade)) foliageBatches.set(shade, [])
+    for (let lobe = 0; lobe < 7; lobe++) {
+      const angle = lobe * 2.399 + x, radius = lobe === 0 ? 0 : size * .48
+      transform.position.set(x + Math.cos(angle) * radius, size * (lobe === 0 ? 1.7 : 1.35), z + Math.sin(angle) * radius)
       transform.rotation.set(0, angle, 0)
+      transform.scale.setScalar(size * (lobe === 0 ? .65 : .46))
       transform.updateMatrix()
-      crowns.setMatrixAt(lobe, transform.matrix)
-    }
-    crowns.castShadow = true; crowns.receiveShadow = true
-    scene.add(crowns)
-    for (let branch = 0; branch < 4; branch++) {
-      const angle = branch * Math.PI / 2 + x
-      detail(x + Math.cos(angle) * size * .25, size * 1.1, z + Math.sin(angle) * size * .25, size * .85, size * .07, size * .08, material('#716849'), -angle)
+      foliageBatches.get(shade)!.push(placement.clone().multiply(transform.matrix))
     }
   }
-  // Local facade relief matches the town treatment without moving any court.
-  const facade = (cx: number, cz: number, width: number, height: number, depth: number) => {
-    const trim = material('#e6ded0'), glass = material('#465e65'), metal = material('#394e44')
-    const columns = Math.max(2, Math.floor(width / 3))
+  const court = (cx: number, cz: number, width = 12, depth = 23, apron = 3) => {
+    box(cx, .08, cz, width + apron * 2, .12, depth + apron * 2, '#2f6948', false)
+    box(cx, .155, cz, width, .03, depth, '#668e4d', false)
+    for (let i = 0; i < 10; i++) box(cx - width / 2 + (i + .5) * width / 10, .179, cz, width / 10, .005, depth, i % 2 ? '#6d9653' : '#739b57', false)
+    // Slightly exaggerated paint remains legible at miniature overview scale.
+    const line = (x: number, z: number, w: number, d: number) => box(cx + x, .25, cz + z, w, .025, d, '#f5f2df', false)
+    const doubles = width * .44, singles = width * .36, baseline = depth * .44, service = depth * .23
     for (const side of [-1, 1]) {
-      const front = cz + side * (depth / 2 + .12)
-      for (const y of [.3, height - .2, height * .52]) detail(cx, y, front, width + .2, .16, .24, trim)
-      for (let col = 0; col < columns; col++) {
-        const x = cx + (col + .5) * width / columns - width / 2
-        for (let floor = 0; floor < Math.max(1, Math.floor(height / 2.2)); floor++) {
-          const y = 1.25 + floor * 2.1
-          detail(x, y, front, 1.25, 1.55, .18, trim)
-          detail(x, y, front + side * .12, .96, 1.25, .06, glass)
-          detail(x, y, front + side * .17, .045, 1.3, .04, trim)
-          detail(x, y, front + side * .17, 1.02, .055, .04, trim)
-          detail(x, y - .78, front, 1.4, .12, .42, trim)
+      line(side * doubles, 0, .18, baseline * 2)
+      line(side * singles, 0, .16, baseline * 2)
+      line(0, side * baseline, doubles * 2, .2)
+      line(0, side * service, singles * 2, .18)
+      line(0, side * service / 2, .16, service)
+    }
+    for (let strand = 0; strand <= 36; strand++) box(cx - doubles + strand * doubles / 18, .61, cz, .023, .65, .023, '#3f5b49', false)
+    for (const y of [.35, .5, .65, .8]) box(cx, y, cz, doubles * 2, .018, .018, '#3f5b49', false)
+    box(cx, .96, cz, doubles * 2 + .5, .045, .07, '#fcf8e9', false)
+    for (const side of [-1, 1]) cylinder(cx + side * (doubles + .25), .54, cz, .055, 1.08, '#3f5b49')
+    // Court-side furniture and fine perimeter fencing use the main map's miniature scale.
+    const fenceX = width / 2 + apron - .2, fenceZ = depth / 2 + apron - .2
+    if (width < 15) {
+      for (const side of [-1, 1]) {
+        for (let i = 0; i <= 6; i++) box(cx + side * fenceX, 1.35, cz - fenceZ + i * fenceZ / 3, .07, 2.5, .07, '#3f5b49')
+        for (let i = 0; i <= 4; i++) box(cx - fenceX + i * fenceX / 2, 1.35, cz + side * fenceZ, .07, 2.5, .07, '#3f5b49')
+        for (const y of [.4, 1.4, 2.6]) {
+          box(cx + side * fenceX, y, cz, .025, .025, fenceZ * 2, '#3f5b49')
+          box(cx, y, cz + side * fenceZ, fenceX * 2, .025, .025, '#3f5b49')
         }
       }
-      detail(cx - width * .45, height / 2, front + side * .16, .09, height, .09, metal)
-      detail(cx, .65, front + side * 1.35, width, .06, .06, metal)
-      for (let post = 0; post <= columns * 3; post++) detail(cx - width / 2 + post * width / (columns * 3), .38, front + side * 1.35, .04, .65, .04, metal)
+    }
+    box(cx - fenceX + .8, .55, cz - 3, .65, .15, 2.4, '#e8e5d2')
+    for (const dz of [-.8, .8]) box(cx - fenceX + .8, .3, cz - 3 + dz, .5, .5, .1, '#3f5b49')
+    box(cx + fenceX - .8, 1.3, cz, .8, .18, .8, '#e8e5d2')
+    for (const dz of [-.3, .3]) beam(new THREE.Vector3(cx + fenceX - 1.2, .2, cz + dz), new THREE.Vector3(cx + fenceX - .8, 1.3, cz + dz), .075, '#3f5b49')
+    const scale = new THREE.Vector3().setFromMatrixScale(placement).x
+    const rotation = Math.atan2(placement.elements[8], placement.elements[10])
+    matches.push({ center: new THREE.Vector3(cx, 0, cz).applyMatrix4(placement), rotation, scale: 1.25 * scale, halfLength: depth * .34 / 1.25, groundY: .23 })
+  }
+  const bowl = (cx: number, cz: number, tiers: number) => {
+    for (let row = 0; row < tiers * 3; row++) {
+      const innerX = 12 + row * 1.48, innerZ = 20 + row * 1.48
+      ring(cx, .48 + row * .6, cz, innerX, innerZ, innerX + 1.6, innerZ + 1.6, row % 2 ? '#416e59' : '#315b4c', 48)
+      for (let sub = 0; sub < 1; sub++) for (let s = 0; s < 168; s++) {
+        if (s % 21 < 2) continue
+        const angle = s * Math.PI * 2 / 168
+        seat(cx + Math.sin(angle) * (innerX + .7 + sub), .76 + row * .62 + sub * .13, cz + Math.cos(angle) * (innerZ + .7 + sub), angle, '#487a62')
+      }
+    }
+    const edgeX = 21 + tiers * 2.65, edgeZ = 27 + tiers * 2.8
+    ring(cx, .55 + tiers * .62, cz, edgeX - .25, edgeZ - .25, edgeX + 1.65, edgeZ + 1.65, '#e4e5d4', 48)
+    ring(cx, .1, cz, edgeX + .3, edgeZ + .3, edgeX + 1.5, edgeZ + 1.5, '#aa7c60', 64, 10.5)
+    ring(cx, 13, cz, 23, 30, edgeX + 3, edgeZ + 3, '#d8ddd7', 64, .6)
+    for (const y of [2.8, 7.4]) ring(cx,y,cz,edgeX+.25,edgeZ+.25,edgeX+1.65,edgeZ+1.65,'#c4b9a1',64,.14)
+    for (let bay=0;bay<48;bay++) {
+      const angle=bay*Math.PI/24
+      place(cx+Math.sin(angle)*(edgeX+1.58),cz+Math.cos(angle)*(edgeZ+1.58),angle,1,()=>{
+        box(0,5,0,1.5,2.8,.18,'#456b63',false)
+        box(0,5,.12,.08,2.8,.12,'#c4b9a1',false)
+        box(1.5,5.1,0,.22,9.5,.32,'#ba997c')
+      })
+    }
+    // Open roof aperture: radial ribs and folded northern/southern roof packs.
+    for (let s = 0; s < 32; s++) {
+      const a = s * Math.PI / 16, sx = Math.sin(a), sz = Math.cos(a)
+      beam(new THREE.Vector3(cx + sx * 23, 13.7, cz + sz * 30), new THREE.Vector3(cx + sx * (edgeX + 3), 13.7, cz + sz * (edgeZ + 3)), .22, '#faf9ef')
+      if (s % 2 === 0) beam(new THREE.Vector3(cx + sx * edgeX, 4, cz + sz * edgeZ), new THREE.Vector3(cx + sx * edgeX, 13, cz + sz * edgeZ), .28, '#52665b')
+    }
+    for (const side of [-1, 1]) for (let rib = 0; rib < 6; rib++) box(cx, 13.9 + (rib % 2) * .3, cz + side * (30 + rib * .8), 34, .4, .45, '#f1f0e5')
+  }
+  const centreStand = (cx: number, cz: number, tiers: number) => {
+    // Continuous raked seating brings the spectators down to the playing apron.
+    const rows = tiers * 4
+    for (let row = 0; row < rows; row++) {
+      const spread = row * 1.08, y = .65 + row * .52
+      const rx = 12 + spread, rz = 20 + spread
+      const shade = row % 2 ? '#426a55' : '#315b4b'
+      for (const side of [-1, 1]) {
+        box(cx + side * rx, y, cz, 1.18, .55, rz * 2, shade)
+        box(cx, y, cz + side * rz, rx * 2, .55, 1.18, shade)
+        for (let s = -Math.floor(rz); s <= rz; s++) {
+          if (Math.abs(s) % 10 < 2) continue
+          seat(cx + side * rx, y + .48, cz + s, side * Math.PI / 2, '#487a62')
+        }
+        for (let s = -Math.floor(rx) + 1; s < rx; s++) {
+          if (Math.abs(s) % 10 < 2) continue
+          seat(cx + s, y + .48, cz + side * rz, side > 0 ? 0 : Math.PI, '#487a62')
+        }
+      }
     }
     for (const side of [-1, 1]) {
-      detail(cx + side * width * .32, height + .5, cz, .85, 1.4, .85, finishes.brick)
-      detail(cx + side * width * .32, height + 1.23, cz, 1.05, .15, 1.05, trim)
-      detail(cx + side * width * .32, height + 1.5, cz, .22, .48, .22, finishes.brick)
+      box(cx + side * 34.5, 5.5, cz, 1.4, 11, 85, '#aa7c60')
+      box(cx, 5.5, cz + side * 42, 70, 11, 1.4, '#aa7c60')
+      for (const y of [1,5.5,10.8]) {
+        box(cx, y, cz+side*42.8,70,.22,.32,'#c4b9a1')
+        box(cx+side*35.3,y,cz,.32,.22,85,'#c4b9a1')
+      }
+      for(let x=-32;x<=32;x+=4) {
+        box(cx+x,5.3,cz+side*42.8,.28,10.5,.32,'#ba997c')
+        // Centre Court's ivy-covered frontage, documented by Merton's archive.
+        // Broken edges leave the glazing and stone bands readable in miniature.
+        if(side===1)for(let leaf=0;leaf<7;leaf++) {
+          const y=1.1+leaf*1.25, spread=.7+.35*Math.sin(x+leaf*2.1)
+          box(cx+x,y,cz+43,spread,1.45,.25,leaf%2?'#61774b':'#516e47',false)
+        }
+        for(const y of [3.3,8]) {
+          box(cx+x+1.8,y,cz+side*42.85,1.8,2.3,.16,'#456b63',false)
+          box(cx+x+1.8,y,cz+side*42.96,.08,2.3,.1,'#c4b9a1',false)
+        }
+      }
+      box(cx + side * 29.5, 13.2, cz, 15, .65, 86, '#d8ddd7')
+      box(cx, 13.2, cz + side * 35.5, 44, .65, 13, '#d8ddd7')
+      for (let z = -40; z <= 40; z += 4) {
+        beam(new THREE.Vector3(cx + side * 22, 13.6, cz + z), new THREE.Vector3(cx + side * 37, 14.3, cz + z), .18, '#faf9ef')
+        beam(new THREE.Vector3(cx + side * 22, 13.6, cz + z), new THREE.Vector3(cx + side * 34.5, 11, cz + z), .12, '#b8c5bd')
+        box(cx + side * 34.5, 12.1, cz + z, .22, 3.1, .22, '#52665b')
+        box(cx + side * 35.3, 4, cz + z, .12, 2.3, 1.8, '#456b63')
+      }
+      for (let rib = 0; rib < 8; rib++) box(cx, 13.7 + rib % 2 * .28, cz + side * (29 + rib * .72), 44, .35, .42, '#f1f0e5')
+      // Dark scoreboards and the court-level perimeter screen define the playing enclosure.
+      box(cx + side * 12, 1.1, cz, .3, 1.8, 38, '#244b3d')
+      box(cx, 1.1, cz + side * 19.5, 24, 1.8, .3, '#244b3d')
+      box(cx + side * 17, 4.3, cz + side * 24, 5, 2.5, .3, '#273e34')
     }
   }
-  const court = (cx: number, cz: number, compact = false) => {
-    const width = compact ? 16 : 19, depth = compact ? 32 : 37
-    const apronW = width + 11, apronD = depth + 11
-    box(cx, .04, cz, apronW + 1, .13, apronD + 1, '#ddd7bd', false)
-    box(cx, .13, cz, apronW, .08, apronD, '#326c4c', false)
-    const turf=box(cx, .2, cz, width, .045, depth, '#5c934e', false);turf.material=finishes.parkGrass
-    for (let i = 0; i < 8; i++) {
-      const stripe=box(cx - width / 2 + (i + .5) * width / 8, .225, cz, width / 8, .006, depth, i % 2 ? '#639a53' : '#5f954f', false)
-      const surface=finishes.parkGrass.clone();surface.color.set(i % 2 ? '#639a53' : '#5f954f');stripe.material=surface
-    }
-    const line = (x: number, z: number, w: number, d: number) => box(cx + x, .24, cz + z, w, .015, d, '#f6f2dd', false)
-    const halfW = width * .39, halfD = depth * .43
-    for (const side of [-1, 1]) {
-      line(side * halfW, 0, .15, halfD * 2)
-      line(0, side * halfD, halfW * 2, .15)
-      line(0, side * halfD * .52, halfW * 2, .13)
-      line(side * halfW * .79, 0, .1, halfD * 2)
-    }
-    line(0, 0, .1, halfD * 1.04)
-    const net=box(cx, .77, cz, halfW * 2 + .7, .67, .035, '#dee5db', false);net.material=finishes.net
-    box(cx, 1.13, cz, halfW * 2 + .9, .07, .08, '#f8f6e8', false)
-    for (const side of [-1, 1]) cylinder(cx + side * (halfW + .45), .61, cz, .07, 1.2, '#405f4d')
-    // Slim perimeter posts give the courts depth without filling the scene with mesh.
-    for (const side of [-1, 1]) {
-      for (let i = -2; i <= 2; i++) box(cx + side * apronW / 2, 1.1, cz + i * apronD / 4, .1, 2.1, .1, '#526a55')
-      box(cx + side * apronW / 2, 1.9, cz, .045, .045, apronD, '#728871', false)
+  const smallerStand = (cx: number, cz: number, tiers: number) => {
+    for (let row = 0; row < tiers; row++) {
+      const innerX = 16 + row * 2.2, innerZ = 21 + row * 2.2
+      ring(cx, .4 + row * .48, cz, innerX, innerZ, innerX + 2.4, innerZ + 2.4, row % 2 ? '#52705a' : '#385d4d', 24)
+      for (let s = 0; s < 96; s++) {
+        if (s % 12 === 0) continue
+        const a = s * Math.PI / 48
+        seat(cx + Math.sin(a) * (innerX + .8), .8 + row * .48, cz + Math.cos(a) * (innerZ + .8), a, '#487a62')
+      }
     }
   }
-  const stand = (cx: number, cz: number, width: number, depth: number, tier: number, roof = false) => {
-    const green = id === 'wimbledon' ? '#315c48' : '#416449'
-    for (let row = 0; row < tier; row++) {
-      const spread = row * 2.1
-      const rise = .7 + row * .61
-      box(cx - width / 2 - 2.1 - spread, rise, cz, 1.8, .56, depth + 6 + spread * 2, row % 2 ? '#6c8064' : green)
-      box(cx + width / 2 + 2.1 + spread, rise, cz, 1.8, .56, depth + 6 + spread * 2, row % 2 ? '#6c8064' : green)
-      box(cx, rise, cz - depth / 2 - 2.1 - spread, width + 6 + spread * 2, .56, 1.8, row % 2 ? '#6c8064' : green)
-      box(cx, rise, cz + depth / 2 + 2.1 + spread, width + 6 + spread * 2, .56, 1.8, row % 2 ? '#6c8064' : green)
+  const queensStand = () => {
+    for (let row = 0; row < 7; row++) {
+      const spread = row * 1.7, y = .65 + row * .65
+      for (const side of [-1, 1]) {
+        box(0, y, side * (24 + spread), 38 + spread * 2, .6, 1.9, '#975952')
+        for (let seatIndex = -20; seatIndex <= 20; seatIndex++) if (seatIndex % 9 !== 0) seat(seatIndex, y + .5, side * (24 + spread), side > 0 ? 0 : Math.PI, '#b56e61')
+      }
+      box(19 + spread, y, 0, 1.9, .6, 48 + spread * 2, '#975952')
+      for (let seatIndex = -24; seatIndex <= 24; seatIndex++) if (seatIndex % 9 !== 0) seat(19 + spread, y + .5, seatIndex, Math.PI / 2, '#b56e61')
     }
-    if (roof) {
-      const spread = tier * 2.1 + 2
-      const y = tier * .61 + 1.2
-      box(cx - width / 2 - spread, y, cz, 2.7, .3, depth + spread * 2, '#e8e6d5')
-      box(cx + width / 2 + spread, y, cz, 2.7, .3, depth + spread * 2, '#e8e6d5')
-      box(cx, y, cz - depth / 2 - spread, width + spread * 2, .3, 2.7, '#e8e6d5')
-      box(cx, y, cz + depth / 2 + spread, width + spread * 2, .3, 2.7, '#e8e6d5')
+    for (const z of [-36, 36]) {
+      box(0, 5.1, z, 64, .35, 2.4, '#e5dcc7')
+      for (let x = -28; x <= 29; x += 4) {
+        box(x, 2.5, z, .22, 5, .22, '#52665b')
+        beam(new THREE.Vector3(x, .1, z), new THREE.Vector3(x + 3.8, 4.8, z), .12, '#52665b')
+      }
     }
   }
+  const mapped = createMappedVenue(id, { scene, finishes, box, place, tree, court, bowl, centreStand, smallerStand, queensStand })
 
-  const ground=box(0, -.55, 0, 188, 1, 154, id === 'wimbledon' ? '#9db685' : '#a4b989', false);ground.material=finishes.grass
-  for (const z of [-64, 68]) box(0, .015, z, 176, .04, 3, '#d5d3b6', false)
-  for (const x of [-84, 85]) box(x, .015, 0, 3, .04, 134, '#d5d3b6', false)
-  for (const [x, z, size, shade] of [
-    [-79, -57, 4.1, '#6a8955'], [-69, -57, 3.2, '#75965c'], [-75, 53, 4.6, '#5c8050'],
-    [-60, 65, 3.7, '#77945b'], [80, -57, 3.7, '#5b8050'], [73, 61, 4.2, '#6f8f55'],
-    [87, 43, 3.1, '#658653'], [-3, 61, 3.4, '#618452'], [5, -57, 3.7, '#76945a'],
-  ] as const) tree(x, z, size, shade)
-
-  if (id === 'wimbledon') {
-    court(-36, 9); stand(-36, 9, 30, 48, 5, true)
-    court(43, -24); stand(43, -24, 30, 48, 3, true)
-    court(35, 45, true); court(62, 45, true)
-    box(-3, .05, 10, 4.3, .08, 113, '#d8d2b8', false)
-    box(0, .05, -55, 113, .08, 3.5, '#d8d2b8', false)
-    box(-71, 2.2, -52, 16, 4.3, 9, '#c9b797')
-    box(-71, 4.55, -52, 17, .5, 10, '#415944')
-    facade(-71, -52, 16, 4.3, 9)
-  } else {
-    court(-30, 8); stand(-30, 8, 30, 48, 3)
-    court(42, 28, true); court(42, -34, true)
-    box(5, .05, 0, 4, .08, 117, '#d6cbb1', false)
-    box(-29, 3.8, -55, 51, 7.3, 11, '#966c55')
-    box(-29, 7.75, -55, 53, .65, 13, '#4c5844')
-    facade(-29, -55, 51, 7.3, 11)
-    for (let i = -3; i <= 3; i++) {
-      box(-29 + i * 6, 4.2, -49.37, 2.1, 2.6, .15, '#d4d6ba', false)
-      box(-29 + i * 6, 4.2, -49.24, 1.6, 2.15, .12, '#315b53', false)
-    }
-    for (const [x, z] of [[-75, -17], [-75, 31], [78, -9], [78, 38], [7, -56]] as const) tree(x, z, 3.2, '#678852')
+  for (const { material: mat, geometry, castShadow, matrices } of batches.values()) {
+    const mesh = new THREE.InstancedMesh(geometry, mat, matrices.length)
+    matrices.forEach((matrix, i) => mesh.setMatrixAt(i, matrix))
+    mesh.castShadow = castShadow; mesh.receiveShadow = !['f5f2df', 'fcf8e9'].includes((mat as THREE.MeshStandardMaterial).color.getHexString()); mesh.computeBoundingSphere(); scene.add(mesh)
   }
-
-  // The surroundings are illustrative; do not place a fictitious railway in the club grounds.
-  for (let i = 0; i < 11; i++) {
-    const x = -75 + i * 14
-    const height = 4.8 + (i % 3) * .55
-    box(x, height / 2, -72, 10.5, height, 5.5, i % 2 ? '#b9997f' : '#ad816a')
-    box(x, height + .25, -72, 11, .5, 6, '#415944')
-    facade(x, -72, 10.5, height, 5.5)
+  for (const [shade, matrices] of foliageBatches) {
+    const mat = finishes.foliage.clone(); finishes.wind(mat); mat.color.set(shade); materials.set(`foliage-${shade}`, mat)
+    const mesh = new THREE.InstancedMesh(canopy, mat, matrices.length)
+    matrices.forEach((matrix, i) => mesh.setMatrixAt(i, matrix))
+    mesh.customDepthMaterial = finishes.foliageDepth
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.computeBoundingSphere(); scene.add(mesh)
   }
-  for (let i = 0; i < 12; i++) {
-    const z = -49 + i * 9.5
-    tree(-89, z, 2.7 + (i % 3) * .4, i % 2 ? '#769354' : '#64814a')
-    tree(90, z, 2.5 + (i % 4) * .3, i % 2 ? '#8da260' : '#6d8b4d')
-  }
-  for (const [surface, batch] of detailBatches) {
-    const group = new THREE.InstancedMesh(unitBox, surface, batch.length)
-    const transform = new THREE.Object3D()
-    batch.forEach((item, index) => {
-      transform.position.set(item.x, item.y, item.z)
-      transform.scale.set(item.w, item.h, item.d)
-      transform.rotation.set(0, item.angle, 0)
-      transform.updateMatrix(); group.setMatrixAt(index, transform.matrix)
-    })
-    group.castShadow = true; group.receiveShadow = true
-    scene.add(group)
-  }
-
-  scene.add(new THREE.HemisphereLight('#fff7e3', '#587460', 1.4))
-  const sun = new THREE.DirectionalLight('#fff7db', 2.2)
-  sun.position.set(-60, 105, 42)
+  const courtLighting = createVenueLighting()
+  const litCourts = id === 'wimbledon' ? ['centre', 'number-one'].map(stop => {
+    const p = mappedCourtPosition(id, stop)
+    if ('angle' in p) courtLighting.add(id, stop, p.x, p.z, p.angle)
+    return p
+  }) : []
+  scene.add(courtLighting.root)
+  const life = createTownLife(matches.map(match => ({ ...match, nightPlayable: litCourts.some(p => Math.hypot(p.x-match.center.x,p.z-match.center.z)<1) })), mapped.paths, () => new THREE.Vector3(), [], false)
+  life.root.name = 'Court players and visitors'
+  scene.add(life.root)
+  const ambient = new THREE.HemisphereLight('#f7f2e9', '#59634f', .88)
+  const sun = new THREE.DirectionalLight('#fff0dc', 2.8)
   sun.castShadow = true
-  sun.shadow.mapSize.set(2048, 2048)
-  sun.shadow.camera.left = -115; sun.shadow.camera.right = 115
-  sun.shadow.camera.top = 95; sun.shadow.camera.bottom = -95
-  sun.shadow.normalBias = .03
-  scene.add(sun)
-  return { scene, dispose: () => {
-    const geometries = new Set<THREE.BufferGeometry>(), surfaces = new Set<THREE.Material>()
-    scene.traverse(object => {
-      if (!(object instanceof THREE.Mesh)) return
-      geometries.add(object.geometry)
-      for (const surface of Array.isArray(object.material) ? object.material : [object.material]) surfaces.add(surface)
-    })
-    geometries.forEach(value => value.dispose()); surfaces.forEach(value => value.dispose())
-    materials.forEach(value => { if(!surfaces.has(value))value.dispose() })
-    finishes.dispose(); sun.shadow.map?.dispose()
-  } }
+  sun.shadow.mapSize.set(4096, 4096)
+  sun.shadow.camera.left = -430; sun.shadow.camera.right = 430
+  sun.shadow.camera.top = 480; sun.shadow.camera.bottom = -480
+  sun.shadow.camera.far = 1600
+  sun.shadow.normalBias = .08
+  sun.shadow.bias = -.00006
+  scene.add(sun, sun.target, ambient)
+  let windTime = 0, clock = new Date(), lastNight: boolean | undefined
+  const lightTarget = new THREE.Vector3(0, 0, id === 'wimbledon' ? 15 : 0)
+  return { scene,
+    animate(delta: number, running: boolean, night: boolean, weather: WeatherSceneKind, lightingTime: number | null) {
+      life.setNight(night)
+      life.animate(delta, running, false)
+      if (running) { windTime += delta; clock = new Date() }
+      finishes.setWind(windTime, weatherWind(weather))
+      updateSceneLight(sun, ambient, lightTarget, 850, lightingTime === null ? clock : new Date(lightingTime), night, weather)
+      if (night !== lastNight) {
+        courtLighting.setNight(night)
+        scene.background = new THREE.Color(night ? '#253940' : id === 'wimbledon' ? '#dce7d5' : '#e4e8d7')
+        const glass = materials.get('#456b63')
+        if (glass) { glass.emissive.set('#e0bd7d'); glass.emissiveIntensity = night ? .65 : 0 }
+        lastNight = night
+      }
+    },
+    dispose() {
+      const geometries = new Set<THREE.BufferGeometry>(), usedMaterials = new Set<THREE.Material>()
+      scene.traverse(object => {
+        if (object instanceof THREE.Mesh) {
+          geometries.add(object.geometry)
+          const mats = Array.isArray(object.material) ? object.material : [object.material]
+          mats.forEach(mat => usedMaterials.add(mat))
+        }
+      })
+      geometries.forEach(geometry => geometry.dispose())
+      usedMaterials.forEach(mat => mat.dispose())
+      courtLighting.dispose(); finishes.dispose(); sun.shadow.map?.dispose()
+    },
+  }
 }
 
-export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: IconicClubId; event?: Tournament; onBack: () => void; onSwitch: (id: IconicClubId) => void }) {
+export function IconicCourtView({ clubId, event, onBack, onSwitch, night, motionRunning, weather, onNight, onMotion, lightingTime, onLightingTime }: { clubId: IconicClubId; event?: Tournament; onBack: () => void; onSwitch: (id: IconicClubId) => void; night: boolean; lightingTime: number | null; onLightingTime: (time: number | null) => void; motionRunning: boolean; weather: WeatherSceneKind; onNight: () => void; onMotion: () => void }) {
+  const runtime = useRef({ night, motionRunning, weather, lightingTime })
+  runtime.current = { night, motionRunning, weather, lightingTime }
   const host = useRef<HTMLDivElement>(null)
-  const pins = useRef(new Map<string, HTMLButtonElement>())
   const engine = useRef<SceneHandle | null>(null)
   const [failed, setFailed] = useState(false)
   const [selectedId, setSelectedId] = useState(COURTS[clubId][0].id)
@@ -257,97 +377,156 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: I
     const element = host.current
     if (!element) return
     let renderer: THREE.WebGLRenderer
-    try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }) }
+    try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'low-power' }) }
     catch { setFailed(true); return }
     const world = buildScene(clubId)
-    const disposeEnvironment=addSkyEnvironment(renderer,world.scene)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.05
     renderer.shadowMap.enabled = true
+    // The beauty and AO passes share one shadow map per frame.
+    renderer.shadowMap.autoUpdate = false
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.domElement.className = 'atlas-court-canvas'
     renderer.domElement.setAttribute('role', 'img')
     renderer.domElement.setAttribute('aria-label', `Illustrated interactive courts at ${club.name}. Drag to pan, scroll to zoom, right-drag to rotate.`)
     element.appendChild(renderer.domElement)
-    const camera = new THREE.OrthographicCamera(-105, 105, 75, -75, .1, 600)
-    const composer=new EffectComposer(renderer)
-    const beauty=new RenderPass(world.scene,camera)
-    const occlusion=new GTAOPass(world.scene,camera,1,1)
-    occlusion.updateGtaoMaterial({radius:1.2,thickness:1,distanceExponent:1.5,distanceFallOff:1,scale:1,samples:8,screenSpaceRadius:false})
-    occlusion.updatePdMaterial({lumaPhi:5,depthPhi:1,normalPhi:3,radius:4,samples:8})
-    occlusion.blendIntensity=.32
-    const output=new OutputPass()
-    composer.addPass(beauty);composer.addPass(occlusion);composer.addPass(output)
-    const sizeOcclusion=occlusion.setSize.bind(occlusion)
-    occlusion.setSize=(w:number,h:number)=>{
-      const ratio=Math.min(.65,Math.sqrt(1200000/(w*h)))
-      sizeOcclusion(Math.max(1,Math.ceil(w*ratio)),Math.max(1,Math.ceil(h*ratio)))
+    const camera = new THREE.OrthographicCamera(-140, 140, 135, -135, .5, 2400)
+    // Match the main map's contact shading, with a capped AO buffer so the
+    // animated scene remains practical on smaller displays.
+    // Canvas antialiasing does not cover offscreen post-processing targets.
+    // Multisample the beauty buffer so court paint and roof ribs stay continuous.
+    const renderTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 })
+    const composer = new EffectComposer(renderer, renderTarget)
+    const beauty = new RenderPass(world.scene, camera)
+    const occlusion = new GTAOPass(world.scene, camera, 1, 1)
+    occlusion.updateGtaoMaterial({ radius: 1.2, distanceExponent: 1.5, thickness: 1, distanceFallOff: 1, scale: 1, samples: 8, screenSpaceRadius: false })
+    occlusion.updatePdMaterial({ lumaPhi: 5, depthPhi: 1, normalPhi: 3, radius: 4, samples: 8 })
+    const sizeOcclusion = occlusion.setSize.bind(occlusion)
+    occlusion.setSize = (w: number, h: number) => {
+      const ratio = Math.min(.5, Math.sqrt(800000 / (w * h)))
+      sizeOcclusion(Math.max(1, Math.ceil(w * ratio)), Math.max(1, Math.ceil(h * ratio)))
     }
-    const overview = new THREE.Vector3(0, 0, 0)
-    const offset = new THREE.Vector3(115, 145, 155)
-    camera.position.copy(offset)
+    const output = new OutputPass(), antialias = new ShaderPass(FXAAShader)
+    composer.addPass(beauty); composer.addPass(occlusion); composer.addPass(output); composer.addPass(antialias)
+    let compact = element.clientWidth < 760
+    let viewSpan = 270
+    const updateProjection = () => {
+      // Keep a selected court centred in the clear area above the mobile panel,
+      // rather than multiplying the vertical offset as the camera zooms in.
+      const lift = compact ? viewSpan * .22 / camera.zoom : 0
+      camera.top = viewSpan / 2 - lift
+      camera.bottom = -viewSpan / 2 - lift
+      camera.updateProjectionMatrix()
+    }
+    const overview = new THREE.Vector3(compact ? 0 : -85, 0, compact ? 0 : 35)
+    const offset = new THREE.Vector3(420, 570, 650)
+    camera.position.copy(offset).add(overview)
     camera.lookAt(overview)
     const controls = new OrbitControls(camera, renderer.domElement)
+    controls.target.copy(overview)
+    controls.update()
     controls.enableDamping = false
     controls.minZoom = .7
     controls.maxZoom = 4
     controls.maxPolarAngle = Math.PI * .44
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
+    let animation = 0, previous = 0, rendered = 0, onScreen = true, atmosphere = ''
+    let journey: { start: number; position: THREE.Vector3; target: THREE.Vector3; zoom: number; destination: THREE.Vector3; destinationZoom: number } | null = null
+    const cancelJourney = () => { journey = null }
     const frame = () => {
+      const state = runtime.current
+      world.animate(0, false, state.night, state.weather, state.lightingTime)
+      renderer.toneMappingExposure = state.night ? .86 : 1.05
+      occlusion.blendIntensity = state.night ? .16 : .36
+      renderer.shadowMap.needsUpdate = true
       composer.render()
-      for (const stop of courts) {
-        const button = pins.current.get(stop.id)
-        if (!button) continue
-        const point = new THREE.Vector3(stop.x, 2, stop.z).project(camera)
-        button.style.left = `${(point.x + 1) * 50}%`
-        button.style.top = `${(1 - point.y) * 50}%`
-        button.hidden = point.z > 1 || point.x < -1 || point.x > 1 || point.y < -1 || point.y > 1
-      }
     }
     const resize = () => {
       const width = Math.max(1, element.clientWidth), height = Math.max(1, element.clientHeight)
-      const span = Math.max(145, 188 * height / width)
-      camera.left = -span * width / height / 2
+      if (compact !== (width < 760)) {
+        cancelJourney()
+        compact = width < 760
+        overview.set(compact ? 0 : -85, 0, compact ? 0 : 35)
+        camera.position.copy(offset).add(overview)
+        controls.target.copy(overview)
+        camera.zoom = 1
+        controls.update()
+      }
+      viewSpan = Math.max(clubId === 'wimbledon' ? 430 : 290, (compact ? (clubId === 'wimbledon' ? 560 : 410) : clubId === 'wimbledon' ? 620 : 510) * height / width)
+      camera.left = -viewSpan * width / height / 2
       camera.right = -camera.left
-      const lift = width < 760 ? span * .16 : 0
-      camera.top = span / 2 - lift
-      camera.bottom = -span / 2 - lift
-      camera.updateProjectionMatrix()
-      renderer.setPixelRatio(scenePixelRatio(width,height,window.devicePixelRatio||1))
+      updateProjection()
+      // Bound post-processing buffers on Retina and large desktop displays.
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2500000 / (width * height))))
       renderer.setSize(width, height)
-      composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(width,height)
+      composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(width, height)
+      antialias.uniforms.resolution.value.set(1 / (width * renderer.getPixelRatio()), 1 / (height * renderer.getPixelRatio()))
       frame()
     }
-    const reset = () => { camera.position.copy(offset); controls.target.copy(overview); camera.zoom = 1; camera.updateProjectionMatrix(); controls.update(); frame() }
+    const reset = () => { cancelJourney(); camera.position.copy(offset).add(overview); controls.target.copy(overview); camera.zoom = 1; updateProjection(); controls.update(); frame() }
     const focus = (courtId: string) => {
       const stop = courts.find(item => item.id === courtId)
       if (!stop) return
-      const target = new THREE.Vector3(stop.x, 0, stop.z)
-      camera.position.copy(offset).add(target)
-      controls.target.copy(target)
-      camera.zoom = 1.75
-      camera.updateProjectionMatrix()
-      controls.update(); frame()
+      const position = mappedCourtPosition(clubId, courtId)
+      const target = new THREE.Vector3(position.x, 0, position.z)
+      const destinationZoom = stop.id === 'court-one' ? 3.1 : stop.id === 'outer' || stop.id === 'practice' ? 2.4 : 2.3
+      if (!compact) {
+        const panelWidth = element.parentElement?.querySelector('.atlas-court-panel')?.clientWidth ?? 335
+        const clearAreaOffset = (panelWidth + 38) / 2 * viewSpan / element.clientHeight / destinationZoom
+        target.addScaledVector(new THREE.Vector3(offset.z, 0, -offset.x).normalize(), -clearAreaOffset)
+      }
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        cancelJourney(); camera.position.copy(offset).add(target); controls.target.copy(target); camera.zoom = destinationZoom
+        updateProjection(); controls.update(); frame()
+      } else journey = { start: performance.now(), position: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom, destination: target, destinationZoom }
     }
-    const zoom = (factor: number) => { camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, controls.minZoom, controls.maxZoom); camera.updateProjectionMatrix(); frame() }
+    const zoom = (factor: number) => { cancelJourney(); camera.zoom = THREE.MathUtils.clamp(camera.zoom * factor, controls.minZoom, controls.maxZoom); updateProjection(); frame() }
     engine.current = { focus, zoom, reset }
-    controls.addEventListener('change', frame)
+    const controlChange = () => { if (!journey) { updateProjection(); frame() } }
+    controls.addEventListener('change', controlChange)
+    controls.addEventListener('start', cancelJourney)
     renderer.domElement.addEventListener('dblclick', reset)
     const observer = new ResizeObserver(resize)
     observer.observe(element)
+    const visibility = new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting })
+    visibility.observe(element)
+    const tick = (time: number) => {
+      animation = requestAnimationFrame(tick)
+      if (document.hidden || !onScreen) { previous = time; return }
+      const state = runtime.current
+      // Update activity only when drawing it; camera gestures remain immediate.
+      const stateKey = `${state.night}-${state.weather}-${state.motionRunning}-${state.lightingTime}`
+      if ((journey || state.motionRunning || stateKey !== atmosphere) && time - rendered >= 1000 / 30) {
+        if (journey) {
+          const progress = Math.min(1, (time - journey.start) / 850), ease = progress * progress * (3 - 2 * progress)
+          controls.target.lerpVectors(journey.target, journey.destination, ease)
+          camera.position.lerpVectors(journey.position, offset.clone().add(journey.destination), ease)
+          camera.zoom = THREE.MathUtils.lerp(journey.zoom, journey.destinationZoom, ease)
+          updateProjection(); controls.update()
+          if (progress === 1) cancelJourney()
+        }
+        const delta = previous ? Math.min(.08, (time - previous) / 1000) : 0
+        previous = time
+        world.animate(delta, state.motionRunning, state.night, state.weather, state.lightingTime)
+        frame(); rendered = time; atmosphere = stateKey
+      } else if (!state.motionRunning) previous = time
+    }
+    animation = requestAnimationFrame(tick)
     resize()
     return () => {
       engine.current = null
       observer.disconnect()
+      visibility.disconnect()
+      cancelAnimationFrame(animation)
       renderer.domElement.removeEventListener('dblclick', reset)
-      controls.removeEventListener('change', frame)
+      controls.removeEventListener('change', controlChange)
+      controls.removeEventListener('start', cancelJourney)
       controls.dispose()
-      beauty.dispose();occlusion.dispose();output.dispose();composer.dispose()
-      occlusion.gtaoMaterial.dispose();occlusion.blendMaterial.dispose()
-      disposeEnvironment()
+      beauty.dispose(); occlusion.dispose(); output.dispose(); antialias.dispose(); composer.dispose()
+      occlusion.gtaoMaterial.dispose(); occlusion.blendMaterial.dispose()
       world.dispose()
       renderer.dispose()
       renderer.domElement.remove()
@@ -356,26 +535,32 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: I
 
   function chooseCourt(id: string) { setSelectedId(id); engine.current?.focus(id) }
 
-  return <section className="atlas-court-view" aria-label={`${club.name} illustrated court view`}>
+  return <section className={`atlas-court-view${night ? ' atlas-court-view--night' : ''}`} aria-label={`${club.name} illustrated court view`}>
     <div ref={host} className="atlas-court-stage">
       {failed && <div className="atlas-court-fallback"><AtlasMiniature place={clubId}/><p>The court miniature is unavailable on this device. The venue details are still here.</p></div>}
-      {!failed && courts.map((court, index) => <button key={court.id} ref={node => { if (node) pins.current.set(court.id, node); else pins.current.delete(court.id) }} className="atlas-court-pin" type="button" aria-label={`Explore ${court.name}`} aria-pressed={selectedId === court.id} onClick={() => chooseCourt(court.id)}><span>{String(index + 1).padStart(2, '0')}</span><strong>{court.name}</strong></button>)}
     </div>
     <div className="atlas-court-panel">
       <button className="atlas-court-back" type="button" onClick={onBack}><Icon name="back" size={16}/> London icons</button>
       <span className="atlas-eyebrow">A COURT-SIDE VIEW / {club.area.toUpperCase()}</span>
       <h3>{club.name}</h3>
       <p className="atlas-court-intro">{club.description}</p>
-      <div className="atlas-court-choices" aria-label="Explore courts">{courts.map(court => <button key={court.id} aria-pressed={selectedId === court.id} onClick={() => chooseCourt(court.id)}>{court.name}</button>)}</div>
+      <div className="atlas-court-choices" aria-label="Explore courts">{courts.map(court => <button key={court.id} aria-pressed={selected.id === court.id} onClick={() => chooseCourt(court.id)}>{court.name}</button>)}</div>
       <article className="atlas-court-selected"><span>ON THE GRASS</span><h4>{selected.name}</h4><p>{selected.note}</p></article>
       <p className="atlas-court-access">{club.access}</p>
       {event && <div className="atlas-court-event"><span>Next on the calendar</span><strong>{event.name}</strong><small>{tournamentDates(event)}{event.status === 'provisional' ? ' · provisional' : ''}</small></div>}
       <a className="atlas-court-visit" href={club.url} target="_blank" rel="noreferrer">{club.linkLabel}<Icon name="external" size={15}/></a>
       <a className="atlas-court-source" href={club.source} target="_blank" rel="noreferrer">Visitor & location information <Icon name="external" size={13}/></a>
-      <p className="atlas-court-disclaimer">Illustrated courts, not a measured site plan or a live view. Check the venue for access.</p>
+      <a className="atlas-court-source" href={GROUNDS_MAPS[clubId]} target="_blank" rel="noreferrer">Official grounds map <Icon name="external" size={13}/></a>
+      <p className="atlas-court-disclaimer">Street, building and court footprints follow OpenStreetMap. Heights, façades and planting are illustrated; check the venue for access.</p>
+      {night && <p className="atlas-court-disclaimer">{clubId === 'wimbledon' ? 'Sports lighting is shown on Centre Court and No. 1 Court. Other courts rest after dark.' : 'The grass courts rest after dark; no tournament floodlighting is shown.'} An evening illustration, not live court use.</p>}
     </div>
     <div className="atlas-court-switch" aria-label="Switch London venue"><button aria-pressed={clubId === 'wimbledon'} onClick={() => onSwitch('wimbledon')}>Wimbledon</button><button aria-pressed={clubId === 'queens'} onClick={() => onSwitch('queens')}>Queen’s</button></div>
+    <div className="atlas-court-world" aria-label="Miniature atmosphere">
+      <LightingControl night={night} time={lightingTime} onTime={onLightingTime} onNight={onNight}/>
+      <button onClick={onMotion} aria-label={motionRunning ? 'Pause world' : 'Run world'}><Icon name={motionRunning ? 'pause' : 'play'} size={14}/>{motionRunning ? 'Pause' : 'Run'}</button>
+    </div>
     <div className="atlas-court-controls" aria-label="Court view controls"><button onClick={() => engine.current?.zoom(1.25)} aria-label="Zoom in">+</button><button onClick={() => engine.current?.zoom(.8)} aria-label="Zoom out">−</button><button onClick={() => engine.current?.reset()} aria-label="Reset court view"><Icon name="reset" size={18}/></button></div>
     <p className="atlas-court-hint">Drag to move · scroll to zoom · double-click to reset</p>
+    <a className="atlas-court-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">Map © OpenStreetMap contributors</a>
   </section>
 }

@@ -270,19 +270,49 @@ export function createMiniatureMaterials() {
     color: '#ffffff', map: foliageMap, bumpMap: foliageBump, bumpScale: .075,
     roughness: .94, vertexColors: true, side: THREE.DoubleSide,
   })
+  // Animatein the vertex shader so every crown moves without rebuilding
+  // thousands of instance matrices. The depth pass uses the same deformation.
+  const windTime = { value: 0 }, windStrength = { value: .045 }
+  const wind = (material: THREE.Material) => {
+    material.onBeforeCompile = shader => {
+      shader.uniforms.miniatureWindTime = windTime
+      shader.uniforms.miniatureWindStrength = windStrength
+      shader.vertexShader = 'uniform float miniatureWindTime;\nuniform float miniatureWindStrength;\n' + shader.vertexShader
+      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        vec3 windOrigin = vec3(0.0);
+        #ifdef USE_INSTANCING
+          windOrigin = instanceMatrix[3].xyz;
+        #endif
+        float windPhase = windOrigin.x * .021 + windOrigin.z * .017;
+        float crownWeight = clamp((position.y + 1.0) * .5, 0.0, 1.0);
+        float gust = .72 + .28 * sin(miniatureWindTime * .19 + windPhase * .35);
+        float flutter = sin(miniatureWindTime * 2.4 + windPhase * 1.7) * .12;
+        transformed.x += (sin(miniatureWindTime * .85 + windPhase) + flutter) * miniatureWindStrength * gust * crownWeight;
+        transformed.z += cos(miniatureWindTime * .63 + windPhase) * miniatureWindStrength * .55 * gust * crownWeight;
+      `)
+    }
+    material.customProgramCacheKey = () => 'miniature-crown-wind-v2'
+  }
+  wind(foliage)
+  const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide })
+  wind(foliageDepth)
   const foliageGeometry = createFoliageGeometry()
   const materials = [brick, slate, grass, parkGrass, asphalt, paving, foliage, hardCourt, timber, ballast, net]
   const textures = [brickMap, brickBump, slateMap, slateBump, grassMap, parkMap, asphaltMap, pavingMap, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha]
   let disposed = false
 
   return {
-    brick, slate, grass, parkGrass, asphalt, paving, foliage, foliageGeometry, hardCourt, timber, ballast, net,
+    brick, slate, grass, parkGrass, asphalt, paving, foliage, foliageGeometry, foliageDepth, hardCourt, timber, ballast, net,
+    wind,
+    setWind(time: number, strength: number) { windTime.value = time; windStrength.value = strength },
     dispose() {
       if (disposed) return
       disposed = true
       materials.forEach(material => material.dispose())
       textures.forEach(texture => texture.dispose())
       foliageGeometry.dispose()
+      foliageDepth.dispose()
     },
   }
 }

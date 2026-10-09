@@ -19,7 +19,7 @@ export const geoPosition = (lat: number, lng: number) =>
 type Point = [number, number]
 type Road = { points: Point[]; width: number; avenue?: boolean; bus?: boolean; surveyed?: boolean; path?: boolean }
 type Patch = { x: number; z: number; rx: number; rz: number }
-type Instance = { x: number; y: number; z: number; sx: number; sy: number; sz: number; ry?: number; color?: string; sway?: number }
+type Instance = { x: number; y: number; z: number; sx: number; sy: number; sz: number; ry?: number; color?: string }
 
 function random(seed: number) {
   let state = seed
@@ -61,7 +61,6 @@ function distanceToSegment(x: number, z: number, a: Point, b: Point) {
 
 export function createTown(venues: MapVenue[]): TownWorld {
   const root = new THREE.Group()
-  const swayingCrowns: {mesh:THREE.InstancedMesh;index:number;base:THREE.Matrix4;phase:number}[]=[]
   const rnd = random(1978)
   const anchors = new Map<string, THREE.Vector3>()
   const courtFocusAnchors = new Map<string, THREE.Vector3>()
@@ -129,11 +128,10 @@ export function createTown(venues: MapVenue[]): TownWorld {
         transform.rotation.set(0, item.ry || 0, 0)
         transform.updateMatrix()
         group.setMatrixAt(i, transform.matrix)
-        if(item.sway!==undefined)swayingCrowns.push({mesh:group,index:i,base:transform.matrix.clone(),phase:item.sway})
         if (hasColors) group.setColorAt(i, color.set(item.color || '#ffffff'))
       })
       group.castShadow = shadows
-      if(cell.some(item=>item.sway!==undefined))group.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      if(material === leafMaterial)group.customDepthMaterial = finishes.foliageDepth
       group.receiveShadow = true
       group.computeBoundingSphere()
       parent.add(group)
@@ -397,8 +395,6 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const height = (3.8 + rnd() * 2.2) * size
     const detailedLocal = detailedNeighbourhood(x, z, 95)
     const silhouette = detailedLocal ? species % 3 : 0
-    const windSeed = Math.abs(Math.sin(x*12.9898+z*78.233)*43758.5453)%1
-    const sway = Math.hypot(x-105,z+32)<105 && windSeed<.17 ? x*.021+z*.017 : undefined
     treeTrunks.push({ x, y: height * .4, z, sx: .19 * size, sy: height * .8, sz: .19 * size })
     // Irregular clusters give mature trees layered crowns and soft, broken silhouettes.
     for (let lobe=0;lobe<7;lobe++) {
@@ -406,7 +402,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
       const radius=height*(lobe===0?.37:.24+rnd()*.07);
       treeCrowns.push({x:x+Math.cos(angle)*ring,y:height*(lobe===0?.84:.63+rnd()*.16),z:z+Math.sin(angle)*ring,
         sx:radius,sy:radius*(silhouette===1?1.4:silhouette===2?.65:.85+rnd()*.3),sz:radius,ry:rnd()*6,
-        color: lobe > 0 && (lobe + species) % 5 === 0 ? foliageColors[(species + 1) % foliageColors.length] : color,sway});
+        color: lobe > 0 && (lobe + species) % 5 === 0 ? foliageColors[(species + 1) % foliageColors.length] : color});
     }
     if (detailedLocal) {
       for (let branch = 0; branch < 4; branch++) {
@@ -420,7 +416,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
         const angle = tip * 2.399 + height, radius = height * .14
         treeCrowns.push({ x: x + Math.cos(angle) * height * .38, y: height * (.68 + tip * .025),
           z: z + Math.sin(angle) * height * .38, sx: radius, sy: radius * .8,
-          sz: radius, color: foliageColors[(species + tip) % foliageColors.length], sway })
+          sz: radius, color: foliageColors[(species + tip) % foliageColors.length] })
       }
     }
   }
@@ -679,23 +675,15 @@ export function createTown(venues: MapVenue[]): TownWorld {
   root.add(life.root)
   let trainDistance = .4
   let windTime=0
-  const windMatrix=new THREE.Matrix4(),changedCrowns=new Set<THREE.InstancedMesh>()
+  let windStrength = .045
   let previous = 0
   let trainPositioned = false
   function animate(seconds: number, runTrain: boolean, runActivity: boolean, runBuses: boolean) {
     const delta = Math.min(.08, Math.max(0, seconds - previous)); previous = seconds
     gear.animate(delta,runActivity)
     life.animate(delta,runActivity,runBuses)
-    if(runActivity){
-      windTime+=delta;changedCrowns.clear()
-      for(const crown of swayingCrowns){
-        windMatrix.copy(crown.base)
-        windMatrix.elements[12]+=.19*Math.sin(windTime*.75+crown.phase)
-        windMatrix.elements[14]+=.11*Math.cos(windTime*.58+crown.phase)
-        crown.mesh.setMatrixAt(crown.index,windMatrix);changedCrowns.add(crown.mesh)
-      }
-      changedCrowns.forEach(mesh=>{mesh.instanceMatrix.needsUpdate=true})
-    }
+    if(runActivity) windTime += delta
+    finishes.setWind(windTime, windStrength)
     if (!runTrain && trainPositioned) return
     if (runTrain) trainDistance = (trainDistance + delta * 12 / trackLength) % 1
     carriages.forEach((carriage, index) => {
@@ -712,6 +700,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     root, stations, anchors, courtFocusAnchors,
     vanPosition:gear.van.position,
     setActivity:life.setActivity,
+    setWind(strength: number) { windStrength = strength },
     setBuses:life.setBuses,
     setBusRoute:life.setBusRoute,
     setNight(night) {

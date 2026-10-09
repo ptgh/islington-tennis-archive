@@ -15,6 +15,7 @@ import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
 import { courtAreas } from '../scene/courtGeometry'
 import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
+import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import { addSkyEnvironment, scenePixelRatio } from '../scene/renderQuality'
 import '../scene/TownMap.css'
 
@@ -37,6 +38,7 @@ interface TownMapProps {
   onSelect: (id: string) => void
   visibleIds: string[]
   night: boolean
+  lightingTime: number | null
   weather: WeatherSceneKind
   showTransit: boolean
   trainRunning: boolean
@@ -72,15 +74,15 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ venues, selectedId, playCounts, coachingPins, onSelect, visibleIds, night, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ venues, selectedId, playCounts, coachingPins, onSelect, visibleIds, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
   const stationRefs = useRef(new Map<string, HTMLDivElement>())
   const vanRef=useRef<HTMLButtonElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ selectedServiceId, night, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
-  runtimeRef.current = { selectedServiceId, night, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady }
+  const runtimeRef = useRef({ selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  runtimeRef.current = { selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady }
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
   const [moving, setMoving] = useState(false)
@@ -355,6 +357,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       element.style.display = visible ? '' : 'none'
       if (visible) element.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`
     }
+    let lightClock = new Date()
     let previousVan=world.vanPosition.clone()
     const frame = () => {
       if(runtimeRef.current.selectedServiceId==='sweet-spot-stringer'&&!journey){const delta=world.vanPosition.clone().sub(previousVan);camera.position.add(delta);controls.target.add(delta);}
@@ -364,7 +367,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       weatherWorld.setView(camera,camera.zoom,weatherClearance)
       // Concentrate shadow texels around the visible neighbourhood when zoomed in.
       const span=Math.max(32,520/Math.sqrt(camera.zoom));
-      sunlight.position.copy(controls.target).add(new THREE.Vector3(-240,300,185));sunlight.target.position.copy(controls.target);
+      updateSceneLight(sunlight, ambient, controls.target, 425, runtimeRef.current.lightingTime === null ? lightClock : new Date(runtimeRef.current.lightingTime), runtimeRef.current.night, runtimeRef.current.weather);
       sunlight.shadow.camera.left=-span;sunlight.shadow.camera.right=span;sunlight.shadow.camera.top=span;sunlight.shadow.camera.bottom=-span;sunlight.shadow.camera.updateProjectionMatrix();
       occlusion.blendIntensity=runtimeRef.current.night?.16:.44
       renderer.shadowMap.needsUpdate=true
@@ -396,6 +399,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       controls.update()
       weatherWorld.setKind(runtimeRef.current.weather)
       weatherWorld.animate(time / 1000, runtimeRef.current.activityRunning)
+      world.setWind(weatherWind(runtimeRef.current.weather))
+      if (runtimeRef.current.activityRunning) lightClock = new Date()
       // The parent defaults to paused for reduced motion; an explicit Run is respected.
       const animateTrain = runtimeRef.current.trainRunning
       world.animate(time / 1000, animateTrain, runtimeRef.current.activityRunning, runtimeRef.current.showBuses&&animateTrain)
@@ -480,7 +485,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engine.ambient.groundColor.set(night ? '#263d44' : '#59634f')
     engine.renderer.toneMappingExposure = night ? .86 : 1
     engine.frame()
-  }, [night, ready])
+  }, [night, lightingTime, ready])
 
   useEffect(() => {
     engineRef.current?.world.setTransit(true)
