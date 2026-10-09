@@ -1,7 +1,7 @@
 .account-launch{position:absolute;right:30px;top:196px;z-index:5}
 .app .account-launch.pill{width:44px;height:44px;min-width:44px;padding:0;border-radius:50%;position:absolute}
 .account-launch[data-signed-in=true]{background:var(--ink);color:var(--paper);border-color:var(--paper)}
-.account-dialog{width:440px;padding:24px;position:fixed;overflow-y:auto}
+.about-dialog.account-dialog{width:440px;padding:24px;position:fixed;overflow-y:auto}
 .account-dialog .partners{overflow:visible;display:block}
 .account-dialog .detail-scroll{padding:0;overflow:visible}
 .account-dialog .back-button{display:none}
@@ -14,6 +14,6 @@
 @media(max-width:760px){
  .account-launch{right:19px;top:221px}
  .app .account-launch.pill{width:40px;height:40px;min-width:40px}
- .account-dialog{max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);padding:22px 20px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+ .about-dialog.account-dialog{max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);padding:22px 20px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
  .account-dialog .partners h1{font-size:34px}
 }
