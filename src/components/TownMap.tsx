@@ -187,7 +187,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
 
-    const world = createTown(venues)
+    let needsFrame = true
+    const world = createTown(venues, () => { needsFrame = true })
     scene.add(world.root)
     world.setNight(runtimeRef.current.night)
     const weatherWorld=createWeather();scene.add(weatherWorld.root)
@@ -228,7 +229,6 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     let animation = 0
     let destroyed = false
     let onScreen = true
-    let needsFrame = true
     const projection = new THREE.Vector3()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)

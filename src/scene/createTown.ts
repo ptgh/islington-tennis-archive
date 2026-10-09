@@ -12,6 +12,7 @@ import type { MapVenue, Station, TownWorld } from './types'
 import { createTownLife } from './createTownLife'
 import { createStreetLamps } from './createStreetLamps'
 import { busRoutes } from '../data/busRoutes'
+import { createClubSurfaces, townCourtSurface, cloneCourtFinish, courtFenceGeometry } from './clubSurfaces'
 
 export const geoPosition = (lat: number, lng: number) =>
   new THREE.Vector3((lng + 0.115) * 6900, 0, -(lat - 51.549) * 11100)
@@ -59,7 +60,7 @@ function distanceToSegment(x: number, z: number, a: Point, b: Point) {
   return Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz)
 }
 
-export function createTown(venues: MapVenue[]): TownWorld {
+export function createTown(venues: MapVenue[], invalidate: () => void = () => {}): TownWorld {
   const root = new THREE.Group()
   const rnd = random(1978)
   const anchors = new Map<string, THREE.Vector3>()
@@ -69,6 +70,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
   const standard = (color: string, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) =>
     new THREE.MeshStandardMaterial({ color, roughness: 1, ...extra })
   const finishes = createMiniatureMaterials()
+  const courtSurfaces = createClubSurfaces(finishes.hardCourt, invalidate)
   const grass = finishes.grass
   const parkGrass = finishes.parkGrass
   const verge = finishes.paving
@@ -85,8 +87,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
   const doorMaterial = standard('#394e44')
   const trunkMaterial = standard('#6c6950')
   const leafMaterial = finishes.foliage
-   const courtOuter = finishes.hardCourt.clone();courtOuter.color.set('#467c6c')
-   const courtPlaying = finishes.hardCourt
+   const courtOuter = cloneCourtFinish(courtSurfaces.synthetic);courtOuter.color.set('#467c6c')
   const courtLine = standard('#f2efdc')
    const netMaterial = finishes.net
   const metalMaterial = standard('#5a695a')
@@ -476,14 +477,24 @@ export function createTown(venues: MapVenue[]): TownWorld {
   const benches: Instance[] = []
   const benchLegs: Instance[] = []
   const lighting=createCourtLighting();root.add(lighting.root);
-   const highburyModel=createHighbury(lighting,finishes);root.add(highburyModel.root);
-  const litCourtMaterial=courtPlaying.clone();litCourtMaterial.emissive=new THREE.Color('#a4c9b2');
+   const highburyModel=createHighbury(lighting,finishes,courtSurfaces);root.add(highburyModel.root);
+  const litCourtMaterials = new Map<string, THREE.MeshStandardMaterial>()
   const highburyFocus=new THREE.Vector3(99,0,-30);
   courtFocusAnchors.set('highbury-fields',highburyFocus);anchors.set('highbury-fields',highburyFocus.clone().setY(.4));
   for(const c of renderedHighburyCourts.filter(c=>c.x>100).slice(0,4))animatedCourts.push({center:new THREE.Vector3(c.x,0,c.z),rotation:c.rotation,scale:c.depth/10.8});
   for (const venue of venues) {
     if(venue.id==='highbury-fields')continue;
     const hasFloodlights=/flood/i.test(venue.lighting);
+    const surface = townCourtSurface(venue.surface)
+    let courtPlaying = courtSurfaces[surface]
+    if (hasFloodlights) {
+      let lit = litCourtMaterials.get(surface)
+      if (!lit) {
+        lit = cloneCourtFinish(courtPlaying);lit.emissive.set('#a4c9b2');lit.emissiveIntensity=0
+        litCourtMaterials.set(surface,lit)
+      }
+      courtPlaying = lit
+    }
     const venueCenter = geoPosition(venue.lat, venue.lng)
     const isHighbury = /highbury fields/i.test(venue.name)
     const isTennisCentre = /islington tennis centre/i.test(venue.name)
@@ -497,7 +508,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const rows = Math.ceil(count / columns)
     const cw = 7.2, ch = 13.2
     const w = columns * cw + 2.8, h = rows * ch + 2.8
-    mesh(box, pathMaterial, center.x, .15, center.z, w + 4, .15, h + 4)
+    mesh(box, courtSurfaces.concrete, center.x, .15, center.z, w + 4, .15, h + 4)
     mesh(box, courtOuter, center.x, .25, center.z, w, .14, h)
     if(hasFloodlights)lighting.add(center.x,center.z,w,h);
     for (let i = 0; i < count; i++) {
@@ -508,7 +519,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
         courtFocusAnchors.set(venue.id,focus)
         if(venue.access==='public'||venue.id==='barbican') animatedCourts.push({center:focus.clone(),rotation:0,scale:1})
       } else if(isHighbury && layout===groups[0] && i===1) animatedCourts.push({center:new THREE.Vector3(x,0,z),rotation:0,scale:1})
-      mesh(box, hasFloodlights?litCourtMaterial:courtPlaying, x, .345, z, 5.3, .025, 10.8)
+      mesh(box, courtPlaying, x, .345, z, 5.3, .025, 10.8)
       const line = (x1: number, z1: number, x2: number, z2: number) => addLine(new THREE.Vector3(x + x1, .38, z + z1), new THREE.Vector3(x + x2, .38, z + z2))
       line(-2.65, -5.4, 2.65, -5.4); line(-2.65, 5.4, 2.65, 5.4)
       line(-2.65, -5.4, -2.65, 5.4); line(2.65, -5.4, 2.65, 5.4)
@@ -520,6 +531,9 @@ export function createTown(venues: MapVenue[]): TownWorld {
       for (const sign of [-1, 1]) courtFencePosts.push({ x: x + sign * 3.05, y: .79, z, sx: .095, sy: 1.12, sz: .095 })
     }
     for (const sign of [-1, 1]) {
+      const endFence = mesh(courtFenceGeometry(w, 2.6), courtSurfaces.fence, center.x, 1.55, center.z + sign * h / 2)
+      const sideFence = mesh(courtFenceGeometry(h, 2.6), courtSurfaces.fence, center.x + sign * w / 2, 1.55, center.z, 1, 1, 1, Math.PI / 2)
+      endFence.castShadow = sideFence.castShadow = false
       for (let x = -w / 2; x <= w / 2 + .1; x += w / Math.ceil(w / 3.8)) courtFencePosts.push({ x: center.x + x, y: 1.55, z: center.z + sign * h / 2, sx: .095, sy: 2.6, sz: .095 })
       for (let z = -h / 2; z <= h / 2 + .1; z += h / Math.ceil(h / 3.8)) courtFencePosts.push({ x: center.x + sign * w / 2, y: 1.55, z: center.z + z, sx: .095, sy: 2.6, sz: .095 })
       for (const y of [.75, 1.4, 2.05, 2.85]) {
@@ -545,8 +559,8 @@ export function createTown(venues: MapVenue[]): TownWorld {
     }
     }
   }
-  instances(box, metalMaterial, courtFencePosts)
-  instances(box, metalMaterial, courtFenceRails, false)
+  instances(box, courtSurfaces.steel, courtFencePosts)
+  instances(box, courtSurfaces.steel, courtFenceRails, false)
   instances(box, benchWood, benches)
   instances(box, metalMaterial, benchLegs)
   instances(sphere, leafMaterial, shrubs)
@@ -721,7 +735,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     setBuses:life.setBuses,
     setBusRoute:life.setBusRoute,
     setNight(night) {
-      lighting.setNight(night);highburyModel.setNight(night);litCourtMaterial.emissiveIntensity=night?.22:0;
+      lighting.setNight(night);highburyModel.setNight(night);litCourtMaterials.forEach(material => { material.emissiveIntensity=night?.22:0 });
       streetLamps.setNight(night)
       windowMaterial.emissiveIntensity = night ? .75 : 0
       windowMaterial.color.set(night ? '#e0bd7d' : '#465e65')
@@ -731,7 +745,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     setTransit(visible) { transit.visible = visible },
     animate,
     dispose() {
-      lighting.dispose();streetLamps.dispose();finishes.dispose();
+      lighting.dispose();streetLamps.dispose();finishes.dispose();courtSurfaces.dispose();
       const geometries = new Set<THREE.BufferGeometry>()
       const materials = new Set<THREE.Material>()
       root.traverse((object) => {
