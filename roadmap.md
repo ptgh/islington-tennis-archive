@@ -1,3 +1,5 @@
+- [x] Extend matching building/tree detail radii to Tufnell Park, Rosemary Gardens, Islington Tennis Centre and Spa Fields, and railway detail along the existing town track; enrich Wimbledon and Queen’s buildings/trees (independent WebGL renders verified; 42 tests pass).
+- [ ] Add railway surroundings to Wimbledon and Queen’s — requires sourced railway geometry; neither club scene has an existing track, so none was invented.
 - [x] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
 - [x] Explain photo URLs versus local files, locate the Mac source folder, and distinguish local DNS failure from public GitHub 404.
 - [x] Recover and host the exact T2000 and SW102 photographs; verify photo delivery and racquet navigation.

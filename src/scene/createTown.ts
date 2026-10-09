@@ -147,7 +147,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
   const courtNeighbourhoods = venues.map(venue => geoPosition(venue.lat, venue.lng))
   const detailedNeighbourhood = (x: number, z: number, highburyRadius: number) =>
     Math.hypot(x - highbury.x, z - highbury.z) < highburyRadius ||
-    courtNeighbourhoods.some(p => Math.hypot(x - p.x, z - p.z) < 48)
+    courtNeighbourhoods.some(p => Math.hypot(x - p.x, z - p.z) < highburyRadius)
   const parks: Patch[] = [
     { x: highbury.x, z: highbury.z, rx: 46, rz: 68 },
     { x: -32, z: -365, rx: 130, rz: 91 },
@@ -274,7 +274,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     return false
   }
   function house(x: number, z: number, angle: number, width: number, depth: number, height: number, color: string) {
-    const detailedHighbury = detailedNeighbourhood(x, z, 115)
+    const detailedLocal = detailedNeighbourhood(x, z, 115)
     const coord = (localx: number, localz: number) => ({
       x: x + localx * Math.cos(angle) + localz * Math.sin(angle),
       z: z - localx * Math.sin(angle) + localz * Math.cos(angle),
@@ -326,7 +326,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     chimneys.push({ ...p, y: height + 1.3, sx: .64, sy: 1.45, sz: .67, ry: angle, color })
     trims.push({...p,y:height+2.03,sx:.78,sy:.14,sz:.81,ry:angle});
     for(const dx of [-.17,.17]){const pot=coord(width*.28+dx,depth*.19);pots.push({...pot,y:height+2.31,sx:.13,sy:.49,sz:.13});}
-    if (detailedHighbury) {
+    if (detailedLocal) {
       // Georgian facade relief is batched with existing town geometry.
       for (const side of [-1, 1]) {
         for (const y of [2.7, 4.4, height - .5]) {
@@ -395,8 +395,8 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const species = Math.floor(rnd() * foliageColors.length)
     const color = foliageColors[species]
     const height = (3.8 + rnd() * 2.2) * size
-    const detailedHighbury = detailedNeighbourhood(x, z, 95)
-    const silhouette = detailedHighbury ? species % 3 : 0
+    const detailedLocal = detailedNeighbourhood(x, z, 95)
+    const silhouette = detailedLocal ? species % 3 : 0
     const windSeed = Math.abs(Math.sin(x*12.9898+z*78.233)*43758.5453)%1
     const sway = Math.hypot(x-105,z+32)<105 && windSeed<.17 ? x*.021+z*.017 : undefined
     treeTrunks.push({ x, y: height * .4, z, sx: .19 * size, sy: height * .8, sz: .19 * size })
@@ -408,7 +408,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
         sx:radius,sy:radius*(silhouette===1?1.4:silhouette===2?.65:.85+rnd()*.3),sz:radius,ry:rnd()*6,
         color: lobe > 0 && (lobe + species) % 5 === 0 ? foliageColors[(species + 1) % foliageColors.length] : color,sway});
     }
-    if (detailedHighbury) {
+    if (detailedLocal) {
       for (let branch = 0; branch < 4; branch++) {
         const angle = branch * Math.PI / 2 + height
         treeBranches.push({ x: x + Math.cos(angle) * height * .1, y: height * .55,
@@ -599,7 +599,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
       piers.push({ x, y: 4, z, sx: .5, sy: 8, sz: .5, ry })
       // Trackside growth belongs to the illustrative railway, not a new surveyed route.
       const bx = p.x - tangent.z * side * 4.4, bz = p.z + tangent.x * side * 4.4
-      if (Math.hypot(bx - highbury.x, bz - highbury.z) < 250 &&
+      if (detailedNeighbourhood(bx, bz, 250) &&
           !inCourtArea(bx, bz, exclusions, 4) && !nearLandmark(bx, bz) &&
           !roadSegments.some(road => distanceToSegment(bx, bz, road.a, road.b) < road.width / 2 + 2)) {
         tracksideShrubs.push({ x: bx, y: .65, z: bz, sx: 1.8, sy: .75, sz: 1.3, ry,
@@ -625,7 +625,7 @@ export function createTown(venues: MapVenue[]): TownWorld {
     const ry = -Math.atan2(tangent.z, tangent.x)
     ballast.push({ x: p.x, y: p.y - .38, z: p.z, sx: p.distanceTo(q) + .1, sy: .65, sz: 3.7, ry })
     if (i % 3 === 0) sleepers.push({ x: p.x, y: p.y + .02, z: p.z, sx: .26, sy: .15, sz: 2.9, ry })
-    if (i % 2 === 0 && Math.hypot(p.x - highbury.x, p.z - highbury.z) < 250) {
+    if (i % 2 === 0 && detailedNeighbourhood(p.x, p.z, 250)) {
       for (const side of [-1, 1]) {
         ballastStones.push({ x: p.x - tangent.z * side * 1.48, y: p.y + .03,
           z: p.z + tangent.x * side * 1.48, sx: .28, sy: .1, sz: .2, ry: i * .71,
