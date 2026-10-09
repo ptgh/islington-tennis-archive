@@ -1,3 +1,5 @@
+- [ ] Revisit the complete racquet collection: restore every exact photograph, fix clipped headings/photos, and verify all filters, archive, stories and My frame.
+- [ ] Review public live-time security findings without removing visitor access.
 - [x] Raise shared surface fidelity, court/net detail and render clarity without moving locations: textured courts, timber, ballast and landmarks, local sky illumination, bounded retina buffers and stronger contact shading; 44 tests and automated build pass; actual Wimbledon/Queen’s components render without runtime errors.
 - [ ] Verify the upgraded full Islington map against the reference on hardware WebGL; sandbox software rendering still stalls, so reference-level fidelity is not confirmed.
 - [x] Extend matching building/tree detail radii to Tufnell Park, Rosemary Gardens, Islington Tennis Centre and Spa Fields, and railway detail along the existing town track; enrich Wimbledon and Queen’s buildings/trees (independent WebGL renders verified; 42 tests pass).
