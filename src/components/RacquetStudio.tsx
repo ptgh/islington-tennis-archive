@@ -3,6 +3,7 @@ import { Icon } from './Icon'
 import { FieldPicker, type FieldPickerOption } from './FieldPicker'
 import { emptyRacquetProfile, parseRacquetProfile, RACQUET_PROFILE_KEY, racquetPlayers, racquets, UTR_SOURCE, GRIP_SIZE_SOURCE, wilsonStrings, luxilonStrings, WILSON_STRINGS_SOURCE, LUXILON_STRINGS_SOURCE, type Racquet, type RacquetProfile } from '../data/racquets'
 import './RacquetStudio.css'
+import { racquetPhotos } from '../data/racquetPhotos'
 
 const frameOptions: FieldPickerOption[] = [
   { value:'', label:'Another frame / not sure' },
@@ -42,8 +43,8 @@ function RacquetDrawing({ racquet }: { racquet: Racquet }) {
 function RacquetMedia({ racquet, featured = false }: { racquet: Racquet; featured?: boolean }) {
   const [failed, setFailed] = useState(false)
   return <span className={`racquet-media${featured ? ' racquet-media-featured' : ''}${racquet.id === 'blade-sw102' ? ' racquet-media-sw102' : ''}`}>
-    {racquet.image && !failed
-      ? <img src={racquet.image} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+    {(racquetPhotos[racquet.id] || racquet.image) && !failed
+      ? <img src={racquetPhotos[racquet.id] || racquet.image} alt={racquet.name} loading="lazy" decoding="async" onError={() => setFailed(true)} />
       : <RacquetDrawing racquet={racquet} />}
   </span>
 }
