@@ -15,6 +15,7 @@ import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
 import { courtAreas } from '../scene/courtGeometry'
 import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
+import { addSkyEnvironment, scenePixelRatio } from '../scene/renderQuality'
 import '../scene/TownMap.css'
 
 export interface TownMapHandle {
@@ -150,6 +151,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     host.prepend(renderer.domElement)
 
     const scene = new THREE.Scene()
+    const disposeEnvironment=addSkyEnvironment(renderer,scene)
+    scene.environmentIntensity=runtimeRef.current.night?.07:.28
     scene.background = new THREE.Color(runtimeRef.current.night ? '#253940' : DAY_BACKGROUND)
     scene.fog = new THREE.Fog(runtimeRef.current.night ? '#253940' : DAY_BACKGROUND, 900, 1900)
     const camera = new THREE.OrthographicCamera(-300, 300, 200, -200, 1, 2400)
@@ -199,7 +202,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     occlusion.updatePdMaterial({lumaPhi:5,depthPhi:1,normalPhi:3,radius:4,samples:8})
     const sizeOcclusion=occlusion.setSize.bind(occlusion)
     occlusion.setSize=(w:number,h:number)=>{
-      const ratio=Math.min(host.clientWidth>760?.65:.5,Math.sqrt(1500000/(w*h)))
+      const ratio=Math.min(host.clientWidth>760?.8:.55,Math.sqrt(1800000/(w*h)))
       sizeOcclusion(Math.max(1,Math.ceil(w*ratio)),Math.max(1,Math.ceil(h*ratio)))
     }
     const transparentObjects:THREE.Object3D[]=[]
@@ -333,7 +336,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       camera.top = halfHeight
       camera.bottom = -halfHeight
       camera.updateProjectionMatrix()
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2.5,Math.sqrt(8500000/(width*height))))
+      renderer.setPixelRatio(scenePixelRatio(width,height,window.devicePixelRatio||1))
       renderer.setSize(width, height)
       composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(width,height)
       // Retina already resolves fine edges; avoid softening brickwork twice.
@@ -454,6 +457,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       occlusion.gtaoMaterial.dispose();occlusion.blendMaterial.dispose()
       weatherWorld.dispose()
       world.dispose()
+      disposeEnvironment()
       sunlight.shadow.map?.dispose()
       renderer.dispose()
       renderer.domElement.remove()
@@ -466,6 +470,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const engine = engineRef.current
     if (!engine) return
     engine.world.setNight(night)
+    engine.scene.environmentIntensity=night?.07:.28
     engine.scene.background = new THREE.Color(night ? '#253940' : DAY_BACKGROUND)
     engine.scene.fog = new THREE.Fog(night ? '#253940' : DAY_BACKGROUND, 900, 1900)
     engine.sunlight.color.set(night ? '#b7cde4' : '#fff0dc')

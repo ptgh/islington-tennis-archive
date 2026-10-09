@@ -86,10 +86,10 @@ export function createTown(venues: MapVenue[]): TownWorld {
   const doorMaterial = standard('#394e44')
   const trunkMaterial = standard('#6c6950')
   const leafMaterial = finishes.foliage
-  const courtOuter = standard('#467c6c')
-  const courtPlaying = standard('#4d939b', { roughness: .86 })
+   const courtOuter = finishes.hardCourt.clone();courtOuter.color.set('#467c6c')
+   const courtPlaying = finishes.hardCourt
   const courtLine = standard('#f2efdc')
-  const netMaterial = standard('#748176', { transparent: true, opacity: .58, side: THREE.DoubleSide })
+   const netMaterial = finishes.net
   const metalMaterial = standard('#5a695a')
   const stoneMaterial = standard('#c5bda2')
   const box = new THREE.BoxGeometry(1, 1, 1)
@@ -459,11 +459,11 @@ export function createTown(venues: MapVenue[]): TownWorld {
   }
   const courtFencePosts: Instance[] = []
   const courtFenceRails: Instance[] = []
-  const benchWood = standard('#86765b')
+   const benchWood = finishes.timber
   const benches: Instance[] = []
   const benchLegs: Instance[] = []
   const lighting=createCourtLighting();root.add(lighting.root);
-  const highburyModel=createHighbury(lighting);root.add(highburyModel.root);
+   const highburyModel=createHighbury(lighting,finishes);root.add(highburyModel.root);
   const litCourtMaterial=courtPlaying.clone();litCourtMaterial.emissive=new THREE.Color('#a4c9b2');
   const highburyFocus=new THREE.Vector3(99,0,-30);
   courtFocusAnchors.set('highbury-fields',highburyFocus);anchors.set('highbury-fields',highburyFocus.clone().setY(.4));
@@ -607,7 +607,8 @@ export function createTown(venues: MapVenue[]): TownWorld {
       }
     }
   }
-  instances(archGeometry,stationBrick,arches,true,railway);
+   const railwayBrick=finishes.brick.clone();railwayBrick.color.set('#b27e5d');
+   instances(archGeometry,railwayBrick,arches,true,railway);
   instances(archRing,trimMaterial,archFaces,false,railway);
   instances(box,bodyMaterial,parapets,true,railway)
   instances(box,trimMaterial,copings,true,railway)
@@ -639,8 +640,8 @@ export function createTown(venues: MapVenue[]): TownWorld {
       railPositions.push(p.x + normal.x, p.y + .18, p.z + normal.z, q.x + qnormal.x, q.y + .18, q.z + qnormal.z)
     }
   }
-  instances(box, standard('#a4a191'), ballast, true, railway)
-  instances(box, standard('#857b67'), sleepers, false, railway)
+   instances(box, finishes.ballast, ballast, true, railway)
+   instances(box, finishes.timber, sleepers, false, railway)
   instances(box,stoneMaterial,ballastStones,false,railway)
   const railsGeo = new THREE.BufferGeometry(); railsGeo.setAttribute('position', new THREE.Float32BufferAttribute(railPositions, 3))
   railway.add(new THREE.LineSegments(railsGeo, railsMat))
