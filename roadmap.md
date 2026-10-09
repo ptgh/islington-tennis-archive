@@ -1,4 +1,5 @@
 - [x] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
+- [ ] Explain photo storage, identify the local source folder, and diagnose the reported GitHub connection failure.
 - [x] Recover and host the exact T2000 and SW102 photographs; verify photo delivery and racquet navigation.
 - [ ] Restore the remaining 30 original racquet photographs — blocked by missing Wilson URLs and unavailable original repository; needs original photos or a repository ZIP.
 - [x] Improve desktop contact shading and texture clarity without changing map geometry; all 42 tests pass.
