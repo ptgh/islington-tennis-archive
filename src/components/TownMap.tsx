@@ -195,11 +195,11 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const composer=new EffectComposer(renderer)
     const beauty=new RenderPass(scene,camera)
     const occlusion=new GTAOPass(scene,camera,1,1)
-    occlusion.updateGtaoMaterial({radius:1.6,distanceExponent:1.5,thickness:1.2,distanceFallOff:1,scale:1,samples:8,screenSpaceRadius:false})
+    occlusion.updateGtaoMaterial({radius:1.6,distanceExponent:1.5,thickness:1.2,distanceFallOff:1,scale:1,samples:host.clientWidth>760?16:8,screenSpaceRadius:false})
     occlusion.updatePdMaterial({lumaPhi:5,depthPhi:1,normalPhi:3,radius:4,samples:8})
     const sizeOcclusion=occlusion.setSize.bind(occlusion)
     occlusion.setSize=(w:number,h:number)=>{
-      const ratio=Math.min(.5,Math.sqrt(1100000/(w*h)))
+      const ratio=Math.min(host.clientWidth>760?.65:.5,Math.sqrt(1500000/(w*h)))
       sizeOcclusion(Math.max(1,Math.ceil(w*ratio)),Math.max(1,Math.ceil(h*ratio)))
     }
     const transparentObjects:THREE.Object3D[]=[]
@@ -336,6 +336,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2.5,Math.sqrt(8500000/(width*height))))
       renderer.setSize(width, height)
       composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(width,height)
+      // Retina already resolves fine edges; avoid softening brickwork twice.
+      antialias.enabled=renderer.getPixelRatio()<1.75
       antialias.uniforms.resolution.value.set(1/(width*renderer.getPixelRatio()),1/(height*renderer.getPixelRatio()))
       if(changed&&runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
       else if(wasMobile!==(width<=760))reset()
