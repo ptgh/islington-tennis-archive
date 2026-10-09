@@ -1,19 +1,21 @@
 import * as THREE from 'three';
 import { renderedHighburyCourts } from './courtGeometry';
 import type { createCourtLighting } from './createCourtLighting';
+import type { createMiniatureMaterials } from './miniatureMaterials';
 
 /** The eleven mapped courts, enlarged to the same miniature scale as the other venues. */
-export function createHighbury(lighting:ReturnType<typeof createCourtLighting>){
+export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, finishes:ReturnType<typeof createMiniatureMaterials>){
  const root=new THREE.Group(),box=new THREE.BoxGeometry(1,1,1);
  const material=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.92});
- const green=material('#467c6c'),playing=material('#4d939b'),white=material('#f5f2e7'),metal=material('#46594d'),net=material('#506d61');
+ const green=finishes.hardCourt.clone();green.color.set('#467c6c');
+ const playing=finishes.hardCourt,white=material('#f5f2e7'),metal=material('#46594d'),net=material('#506d61');
  const litPlaying=playing.clone();litPlaying.emissive.set('#a4c9b2');litPlaying.emissiveIntensity=0;
- const paving=material('#d7cbb5'),wood=material('#94795e'),bag=material('#315c50'),ball=material('#dce985'),frame=material('#a3654a'),strings=material('#e8e5d2');
+ const paving=finishes.paving,wood=finishes.timber,bag=material('#315c50'),ball=material('#dce985'),frame=material('#a3654a'),strings=material('#e8e5d2');
  const batches=new Map<THREE.Material,THREE.Matrix4[]>(),transform=new THREE.Object3D();
  function part(parent:THREE.Group,mat:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number){
   transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,0,0);transform.updateMatrix();parent.updateMatrixWorld(true);
   const matrix=parent.matrixWorld.clone().multiply(transform.matrix);
-  if(!batches.has(mat))batches.set(mat,[]);batches.get(mat)!.push(matrix);
+  const batch=batches.get(mat)??[];batch.push(matrix);batches.set(mat,batch);
  }
  for(const court of renderedHighburyCourts){
   const g=new THREE.Group();g.position.set(court.x,0,court.z);g.rotation.y=court.rotation;
@@ -26,6 +28,10 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>){
   for(let i=0;i<=20;i++)part(g,net,(i/20-.5)*w*1.12,.72,0,.025,.67,.025);
   for(const y of [.49,.7,.91])part(g,net,0,y,0,w*1.12,.02,.02);
   part(g,white,0,1.08,0,w*1.13,.065,.07);
+   const meshNet=new THREE.Mesh(box,finishes.net);
+   g.updateMatrixWorld(true);
+   meshNet.position.set(0,.72,0);meshNet.scale.set(w*1.12,.67,.015);
+   meshNet.updateMatrix();meshNet.applyMatrix4(g.matrixWorld);root.add(meshNet);
   for(const sign of [-1,1]){
    part(g,metal,sign*w*.57,.78,0,.085,1.05,.085);
    for(let i=0;i<=4;i++)part(g,metal,sign*ow/2,1.4,(i/4-.5)*od,.065,2.3,.065);

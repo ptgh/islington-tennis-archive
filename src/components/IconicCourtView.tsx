@@ -5,6 +5,11 @@ import { iconicClubs, tournamentDates, type IconicClubId, type Tournament } from
 import { AtlasMiniature } from './AtlasMiniature'
 import { Icon } from './Icon'
 import { createMiniatureMaterials } from '../scene/miniatureMaterials'
+import { addSkyEnvironment, scenePixelRatio } from '../scene/renderQuality'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import './IconicCourtView.css'
 
 type CourtStop = { id: string; name: string; note: string; x: number; z: number }
@@ -115,8 +120,11 @@ function buildScene(id: IconicClubId) {
     const apronW = width + 11, apronD = depth + 11
     box(cx, .04, cz, apronW + 1, .13, apronD + 1, '#ddd7bd', false)
     box(cx, .13, cz, apronW, .08, apronD, '#326c4c', false)
-    box(cx, .2, cz, width, .045, depth, '#5c934e', false)
-    for (let i = 0; i < 8; i++) box(cx - width / 2 + (i + .5) * width / 8, .225, cz, width / 8, .006, depth, i % 2 ? '#639a53' : '#5f954f', false)
+    const turf=box(cx, .2, cz, width, .045, depth, '#5c934e', false);turf.material=finishes.parkGrass
+    for (let i = 0; i < 8; i++) {
+      const stripe=box(cx - width / 2 + (i + .5) * width / 8, .225, cz, width / 8, .006, depth, i % 2 ? '#639a53' : '#5f954f', false)
+      const surface=finishes.parkGrass.clone();surface.color.set(i % 2 ? '#639a53' : '#5f954f');stripe.material=surface
+    }
     const line = (x: number, z: number, w: number, d: number) => box(cx + x, .24, cz + z, w, .015, d, '#f6f2dd', false)
     const halfW = width * .39, halfD = depth * .43
     for (const side of [-1, 1]) {
@@ -126,7 +134,7 @@ function buildScene(id: IconicClubId) {
       line(side * halfW * .79, 0, .1, halfD * 2)
     }
     line(0, 0, .1, halfD * 1.04)
-    box(cx, .77, cz, halfW * 2 + .7, .67, .035, '#dee5db', false)
+    const net=box(cx, .77, cz, halfW * 2 + .7, .67, .035, '#dee5db', false);net.material=finishes.net
     box(cx, 1.13, cz, halfW * 2 + .9, .07, .08, '#f8f6e8', false)
     for (const side of [-1, 1]) cylinder(cx + side * (halfW + .45), .61, cz, .07, 1.2, '#405f4d')
     // Slim perimeter posts give the courts depth without filling the scene with mesh.
@@ -155,7 +163,7 @@ function buildScene(id: IconicClubId) {
     }
   }
 
-  box(0, -.55, 0, 188, 1, 154, id === 'wimbledon' ? '#9db685' : '#a4b989', false)
+  const ground=box(0, -.55, 0, 188, 1, 154, id === 'wimbledon' ? '#9db685' : '#a4b989', false);ground.material=finishes.grass
   for (const z of [-64, 68]) box(0, .015, z, 176, .04, 3, '#d5d3b6', false)
   for (const x of [-84, 85]) box(x, .015, 0, 3, .04, 134, '#d5d3b6', false)
   for (const [x, z, size, shade] of [
@@ -217,7 +225,7 @@ function buildScene(id: IconicClubId) {
   const sun = new THREE.DirectionalLight('#fff7db', 2.2)
   sun.position.set(-60, 105, 42)
   sun.castShadow = true
-  sun.shadow.mapSize.set(1024, 1024)
+  sun.shadow.mapSize.set(2048, 2048)
   sun.shadow.camera.left = -115; sun.shadow.camera.right = 115
   sun.shadow.camera.top = 95; sun.shadow.camera.bottom = -95
   sun.shadow.normalBias = .03
@@ -230,6 +238,7 @@ function buildScene(id: IconicClubId) {
       for (const surface of Array.isArray(object.material) ? object.material : [object.material]) surfaces.add(surface)
     })
     geometries.forEach(value => value.dispose()); surfaces.forEach(value => value.dispose())
+    materials.forEach(value => { if(!surfaces.has(value))value.dispose() })
     finishes.dispose(); sun.shadow.map?.dispose()
   } }
 }
@@ -248,9 +257,10 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: I
     const element = host.current
     if (!element) return
     let renderer: THREE.WebGLRenderer
-    try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'low-power' }) }
+    try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }) }
     catch { setFailed(true); return }
     const world = buildScene(clubId)
+    const disposeEnvironment=addSkyEnvironment(renderer,world.scene)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -262,6 +272,19 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: I
     renderer.domElement.setAttribute('aria-label', `Illustrated interactive courts at ${club.name}. Drag to pan, scroll to zoom, right-drag to rotate.`)
     element.appendChild(renderer.domElement)
     const camera = new THREE.OrthographicCamera(-105, 105, 75, -75, .1, 600)
+    const composer=new EffectComposer(renderer)
+    const beauty=new RenderPass(world.scene,camera)
+    const occlusion=new GTAOPass(world.scene,camera,1,1)
+    occlusion.updateGtaoMaterial({radius:1.2,thickness:1,distanceExponent:1.5,distanceFallOff:1,scale:1,samples:8,screenSpaceRadius:false})
+    occlusion.updatePdMaterial({lumaPhi:5,depthPhi:1,normalPhi:3,radius:4,samples:8})
+    occlusion.blendIntensity=.32
+    const output=new OutputPass()
+    composer.addPass(beauty);composer.addPass(occlusion);composer.addPass(output)
+    const sizeOcclusion=occlusion.setSize.bind(occlusion)
+    occlusion.setSize=(w:number,h:number)=>{
+      const ratio=Math.min(.65,Math.sqrt(1200000/(w*h)))
+      sizeOcclusion(Math.max(1,Math.ceil(w*ratio)),Math.max(1,Math.ceil(h*ratio)))
+    }
     const overview = new THREE.Vector3(0, 0, 0)
     const offset = new THREE.Vector3(115, 145, 155)
     camera.position.copy(offset)
@@ -274,7 +297,7 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: I
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
     const frame = () => {
-      renderer.render(world.scene, camera)
+      composer.render()
       for (const stop of courts) {
         const button = pins.current.get(stop.id)
         if (!button) continue
@@ -293,7 +316,9 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: I
       camera.top = span / 2 - lift
       camera.bottom = -span / 2 - lift
       camera.updateProjectionMatrix()
+      renderer.setPixelRatio(scenePixelRatio(width,height,window.devicePixelRatio||1))
       renderer.setSize(width, height)
+      composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(width,height)
       frame()
     }
     const reset = () => { camera.position.copy(offset); controls.target.copy(overview); camera.zoom = 1; camera.updateProjectionMatrix(); controls.update(); frame() }
@@ -320,6 +345,9 @@ export function IconicCourtView({ clubId, event, onBack, onSwitch }: { clubId: I
       renderer.domElement.removeEventListener('dblclick', reset)
       controls.removeEventListener('change', frame)
       controls.dispose()
+      beauty.dispose();occlusion.dispose();output.dispose();composer.dispose()
+      occlusion.gtaoMaterial.dispose();occlusion.blendMaterial.dispose()
+      disposeEnvironment()
       world.dispose()
       renderer.dispose()
       renderer.domElement.remove()

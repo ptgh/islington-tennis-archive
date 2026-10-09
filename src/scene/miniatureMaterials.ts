@@ -211,6 +211,34 @@ export function createMiniatureMaterials() {
   asphaltMap.repeat.set(3, 3)
   const pavingMap = surface(256, pavingPixel)
   pavingMap.repeat.set(3, 3)
+  const grassBump = surface(256, (x, y) => {
+    const value = 120 + (noise(x, y, 167) - .5) * 65 + field(x, y, 9, 55) * 30
+    return [value, value, value]
+  }, false)
+  grassBump.repeat.copy(grassMap.repeat)
+  const parkBump = grassBump.clone()
+  parkBump.repeat.copy(parkMap.repeat)
+  const aggregateMap = surface(256, (x, y) => {
+    const value = 210 + (noise(x, y, 173) - .5) * 45 + (field(x, y, 7, 179) - .5) * 18
+    return [value, value, value]
+  })
+  aggregateMap.repeat.set(4, 6)
+  const aggregateBump = surface(256, (x, y) => {
+    const value = 100 + noise(x, y, 173) * 100
+    return [value, value, value]
+  }, false)
+  aggregateBump.repeat.copy(aggregateMap.repeat)
+  const woodMap = surface(256, (x, y) => {
+    const grain = Math.sin(x * .7 + field(x, y, 24, 181) * 9) * 11
+    const value = 220 + grain + (noise(x, y, 183) - .5) * 16
+    return [value, value * .96, value * .89]
+  })
+  woodMap.repeat.set(2, 1)
+  const netAlpha = surface(128, (x, y) => {
+    const value = x % 8 < 1 || y % 8 < 1 ? 255 : 0
+    return [value, value, value]
+  }, false)
+  netAlpha.repeat.set(12, 1)
   const foliageMap = surface(128, (x, y) => {
     const leaf = leafPixel(x, y)
     const value = 193 + leaf.cover * (32 + leaf.variation * 26) + field(x, y, 22, 93) * 15
@@ -230,21 +258,25 @@ export function createMiniatureMaterials() {
   const slate = new THREE.MeshStandardMaterial({
     color: '#9ca7a5', map: slateMap, bumpMap: slateBump, bumpScale: .035, roughness: .86,
   })
-  const grass = new THREE.MeshStandardMaterial({ color: '#8aa777', map: grassMap, roughness: 1 })
-  const parkGrass = new THREE.MeshStandardMaterial({ color: '#91ad73', map: parkMap, roughness: 1 })
-  const asphalt = new THREE.MeshStandardMaterial({ color: '#a6a69e', map: asphaltMap, roughness: .97 })
+  const grass = new THREE.MeshStandardMaterial({ color: '#8aa777', map: grassMap, bumpMap: grassBump, bumpScale: .025, roughness: 1 })
+  const parkGrass = new THREE.MeshStandardMaterial({ color: '#91ad73', map: parkMap, bumpMap: parkBump, bumpScale: .025, roughness: 1 })
+  const asphalt = new THREE.MeshStandardMaterial({ color: '#a6a69e', map: asphaltMap, bumpMap: aggregateBump, bumpScale: .012, roughness: .97 })
   const paving = new THREE.MeshStandardMaterial({ color: '#d8d0bd', map: pavingMap, roughness: .98 })
+  const hardCourt = new THREE.MeshStandardMaterial({ color: '#4d939b', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .006, roughness: .91 })
+  const timber = new THREE.MeshStandardMaterial({ color: '#94795e', map: woodMap, roughness: .87 })
+  const ballast = new THREE.MeshStandardMaterial({ color: '#a4a191', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .065, roughness: 1 })
+  const net = new THREE.MeshStandardMaterial({ color: '#506d61', alphaMap: netAlpha, alphaTest: .45, side: THREE.DoubleSide, roughness: .95 })
   const foliage = new THREE.MeshStandardMaterial({
     color: '#ffffff', map: foliageMap, bumpMap: foliageBump, bumpScale: .075,
     roughness: .94, vertexColors: true, side: THREE.DoubleSide,
   })
   const foliageGeometry = createFoliageGeometry()
-  const materials = [brick, slate, grass, parkGrass, asphalt, paving, foliage]
-  const textures = [brickMap, brickBump, slateMap, slateBump, grassMap, parkMap, asphaltMap, pavingMap, foliageMap, foliageBump]
+  const materials = [brick, slate, grass, parkGrass, asphalt, paving, foliage, hardCourt, timber, ballast, net]
+  const textures = [brickMap, brickBump, slateMap, slateBump, grassMap, parkMap, asphaltMap, pavingMap, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha]
   let disposed = false
 
   return {
-    brick, slate, grass, parkGrass, asphalt, paving, foliage, foliageGeometry,
+    brick, slate, grass, parkGrass, asphalt, paving, foliage, foliageGeometry, hardCourt, timber, ballast, net,
     dispose() {
       if (disposed) return
       disposed = true

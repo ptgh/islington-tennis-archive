@@ -1,3 +1,5 @@
+- [x] Raise shared surface fidelity, court/net detail and render clarity without moving locations: textured courts, timber, ballast and landmarks, local sky illumination, bounded retina buffers and stronger contact shading; 44 tests and automated build pass; actual Wimbledon/Queen’s components render without runtime errors.
+- [ ] Verify the upgraded full Islington map against the reference on hardware WebGL; sandbox software rendering still stalls, so reference-level fidelity is not confirmed.
 - [x] Extend matching building/tree detail radii to Tufnell Park, Rosemary Gardens, Islington Tennis Centre and Spa Fields, and railway detail along the existing town track; enrich Wimbledon and Queen’s buildings/trees (independent WebGL renders verified; 42 tests pass).
 - [ ] Add railway surroundings to Wimbledon and Queen’s — requires sourced railway geometry; neither club scene has an existing track, so none was invented.
 - [x] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
