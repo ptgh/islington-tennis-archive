@@ -11,7 +11,6 @@ const position=(x:number,y:number):CSSProperties=>({left:`${x}%`,top:`${y}%`});
 const project=(lng:number,lat:number)=>[(lng+180)*2,(90-lat)*2];
 
 function LondonMap({clubId,onClub,onExplore,onHome}:{clubId:IconicClubId;onClub:(id:IconicClubId)=>void;onExplore:(id:IconicClubId)=>void;onHome:()=>void}) {
-  const lastTap=useRef<{id:IconicClubId;time:number}|null>(null);
   return <div className="atlas-london" aria-label="London tennis destinations, separate from the local court directory">
     <svg className="atlas-london-ground" viewBox="0 0 660 440" preserveAspectRatio="none" aria-hidden="true">
       <defs><pattern id="atlas-streets" width="58" height="48" patternUnits="userSpaceOnUse" patternTransform="rotate(-15)"><path d="M0 14H58M13 0V48" fill="none" stroke="#fffcef" strokeWidth="2"/></pattern></defs>
@@ -25,7 +24,7 @@ function LondonMap({clubId,onClub,onExplore,onHome}:{clubId:IconicClubId;onClub:
     <button className="atlas-home-place" style={position(75,21)} onClick={onHome} aria-label="Return to Islington map">
       <AtlasMiniature place="islington"/><strong>Islington</strong><span>Our home court</span>
     </button>
-    {iconicClubs.map(club=><button key={club.id} className={`atlas-club-place ${club.id}`} style={position(club.id==='queens'?30:39,club.id==='queens'?44:76)} aria-pressed={club.id===clubId} onClick={()=>onClub(club.id)} onDoubleClick={()=>onExplore(club.id)} onPointerUp={e=>{if(e.pointerType!=='touch')return;const time=performance.now();if(lastTap.current?.id===club.id&&time-lastTap.current.time<400){lastTap.current=null;onExplore(club.id);}else lastTap.current={id:club.id,time};}}>
+    {iconicClubs.map(club=><button key={club.id} className={`atlas-club-place ${club.id}`} style={position(club.id==='queens'?30:39,club.id==='queens'?44:76)} aria-pressed={club.id===clubId} onClick={()=>club.id===clubId?onExplore(club.id):onClub(club.id)}>
       <AtlasMiniature place={club.id}/><strong>{club.name}</strong><span>{club.id==='queens'?'West Kensington':'SW19'}</span>
     </button>)}
     <p className="atlas-map-caption">London, a little further afield.<span>Illustrated positions · not a travel route</span></p>

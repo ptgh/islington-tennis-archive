@@ -37,7 +37,7 @@
 .atlas-club-place:active,.atlas-home-place:active{transform:translate(-50%,-50%)}
 .atlas-miniature{width:100%;overflow:visible;display:block;transition:transform .3s}
 .atlas-club-place:hover .atlas-miniature,.atlas-home-place:hover .atlas-miniature{transform:translateY(-5px)}
-.atlas-club-place{width:215px}.atlas-home-place{width:172px}
+.atlas-club-place{width:215px;padding:8px 10px 10px;touch-action:manipulation}.atlas-home-place{width:172px}
 .atlas-club-place .atlas-miniature{margin-bottom:-13px}.atlas-home-place .atlas-miniature{margin-bottom:-5px}
 .atlas-club-place strong,.atlas-home-place strong{font:24px/1.1 var(--serif);background:#f9f8eeed;padding:5px 12px;border-radius:7px;white-space:nowrap;box-shadow:0 2px 10px #3854330b}
 .atlas-club-place[aria-pressed=true] strong{background:var(--ink);color:var(--paper)}
