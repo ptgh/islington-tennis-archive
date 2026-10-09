@@ -1,3 +1,6 @@
+- [ ] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
+- [ ] Restore original racquet photography with reliable app-hosted images.
+- [ ] Improve map detail and verify the player, racquet and map screens.
 - [x] Make the mobile Play together sheet scroll as a whole, keeping filters, sessions and detail actions reachable.
 - [x] Share mobile scrolling across Courts and Coaching, add bottom spacing, and replace the map overlay attribution with access to required credits.
 - [x] Replace the weather attribution's emoji arrow with the app's external-link icon.
