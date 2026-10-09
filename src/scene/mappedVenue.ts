@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import geography from '../data/iconic-geography.json' with { type: 'json' }
 import type { createMiniatureMaterials } from './miniatureMaterials'
-import { createFootprintRoof } from './footprintRoof'
+import { createFootprintRoof } from './footprintRoof.ts'
 
 type Point = number[]
 type Feature = { id: number; tags: Record<string, string>; points: Point[]; outlines?: Point[][] }
