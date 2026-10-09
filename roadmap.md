@@ -1,5 +1,10 @@
 - [x] Make the mobile Play together sheet scroll as a whole, keeping filters, sessions and detail actions reachable.
 - [x] Replace the weather attribution's emoji arrow with the app's external-link icon.
-- [x] Verify mobile scrolling and taps, and check the preview for errors.- [ ] Hours and prices for EGA School, Coolhurst, Barbican (official sources only)
+- [x] Verify mobile scrolling and taps, and check the preview for errors.
+- [x] Hours and prices for EGA School, Coolhurst, Barbican (official sources only)
 - [x] Court booking page showing hours, prices and booking link, styled like court panels
 - [x] Booking link on every court in the data, used by the Ask guide
+- [x] Phase 1: research UTR, SPIN, Play Tennis, clubs; draft partner enquiries
+- [ ] Phase 2: live free court times from Better's feed — waiting on your go-ahead
+- [ ] Phase 3: player accounts and partner finding — waiting on your decision about sign-in
+- [ ] Phase 4: in-app booking — waiting on a provider agreeing to give access
