@@ -386,7 +386,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   }
 }
 
-export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch, night, motionRunning, weather, onNight, onMotion, lightingTime, onLightingTime }: { active?: boolean; clubId: IconicClubId; event?: Tournament; onBack: () => void; onSwitch: (id: IconicClubId) => void; night: boolean; lightingTime: number | null; onLightingTime: (time: number | null) => void; motionRunning: boolean; weather: WeatherSceneKind; onNight: () => void; onMotion: () => void }) {
+export function IconicCourtView({ active = true, clubId, event, onBack, onHome, onSwitch, night, motionRunning, weather, onNight, onMotion, lightingTime, onLightingTime }: { active?: boolean; clubId: IconicClubId; event?: Tournament; onBack: () => void; onHome: () => void; onSwitch: (id: IconicClubId) => void; night: boolean; lightingTime: number | null; onLightingTime: (time: number | null) => void; motionRunning: boolean; weather: WeatherSceneKind; onNight: () => void; onMotion: () => void }) {
   const runtime = useRef({ active, night, motionRunning, weather, lightingTime })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
   runtime.current = { active, night, motionRunning, weather, lightingTime,
@@ -628,7 +628,7 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
       {night && <p className="atlas-court-disclaimer">{clubId === 'wimbledon' ? 'Sports lighting is shown on Centre Court and No. 1 Court. Other courts rest after dark.' : 'The grass courts rest after dark; no tournament floodlighting is shown.'} An evening illustration, not live court use.</p>}
     </div>
     <button className="pill atlas-court-panel-toggle" aria-controls="atlas-club-details" aria-expanded={panelOpen} onClick={() => setPanelOpen(open => !open)}><Icon name={panelOpen ? 'layers' : 'court'} size={16}/>{panelOpen ? 'Explore map' : 'Club details'}</button>
-    <div className="atlas-court-switch" aria-label="Switch London venue"><button aria-pressed={clubId === 'wimbledon'} onClick={() => onSwitch('wimbledon')}>Wimbledon</button><button aria-pressed={clubId === 'queens'} onClick={() => onSwitch('queens')}>Queen’s</button></div>
+    <div className="atlas-court-switch" aria-label="Switch London venue"><button className="atlas-court-switch__home" onClick={onHome} aria-label="Return to Islington map"><span className="atlas-home-dot"/>Islington</button><button aria-pressed={clubId === 'wimbledon'} onClick={() => onSwitch('wimbledon')}>Wimbledon</button><button aria-pressed={clubId === 'queens'} onClick={() => onSwitch('queens')}>Queen’s</button></div>
     <div className="atlas-court-world" aria-label="Miniature atmosphere">
       <LightingControl night={night} time={lightingTime} onTime={onLightingTime} onNight={onNight} open={timeOpen} onOpenChange={setTimeOpen}/>
       <button onClick={onMotion} aria-label={motionRunning ? 'Pause world' : 'Run world'}><Icon name={motionRunning ? 'pause' : 'play'} size={14}/>{motionRunning ? 'Pause' : 'Run'}</button>

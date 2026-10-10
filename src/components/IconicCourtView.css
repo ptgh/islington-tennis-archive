@@ -72,3 +72,4 @@
  .atlas-court-view{--club-sheet-height:40%}
  .atlas-court-panel h3{font-size:23px}
 }
+.atlas-court-switch__home{display:flex;align-items:center;gap:6px}

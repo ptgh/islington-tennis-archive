@@ -5,9 +5,9 @@
 .account-dialog .partners{overflow:visible;display:block}
 .account-dialog .detail-scroll{padding:0;overflow:visible}
 .account-dialog .back-button{display:none}
-.account-dialog .partners h1{font-size:38px;margin:18px 32px 18px 0}
-.account-dialog .account-links{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 20px;padding-bottom:18px;border-bottom:1px solid var(--line)}
-.account-dialog .partners-form input{min-height:44px}
+.account-dialog .partners h1{font-size:34px;margin:10px 32px 12px 0}
+.account-dialog .account-links{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.account-dialog .partners-form input:not([type=checkbox]){min-height:44px}
 .account-dialog .partners-form .primary-button{justify-content:center;min-height:44px}
 .account-dialog .partners-form .pill{width:100%}
 .account-dialog .partners-form .access-note{margin:0}
@@ -20,3 +20,5 @@
  .about-dialog.account-dialog{max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);padding:22px 20px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
  .account-dialog .partners h1{font-size:34px}
 }
+/* The dialog title already names the card; the form's own heading would repeat it. */
+.account-dialog .partners-form>.small-heading{display:none}

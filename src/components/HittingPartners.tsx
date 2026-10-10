@@ -89,11 +89,11 @@ function Signed({ session, venues, account = false }: { session: Session; venues
   return <>
     {editing ? <form className="partners-form" onSubmit={save}>
       <h2 className="small-heading">Your player card</h2>
-      <label>Name<input required maxLength={60} value={me.display_name} onChange={e => setMe({ ...me, display_name: e.target.value })}/></label>
-      <SelectField label="Level" value={me.level} onChange={level => setMe({ ...me, level })} options={LEVELS.map(level => ({value:level,label:level}))}/>
-      <label>UTR rating (optional)<input inputMode="decimal" placeholder="e.g. 4.5" value={me.utr_rating ?? ''} onChange={e => setMe({ ...me, utr_rating: e.target.value === '' ? null : Number(e.target.value) })}/></label>
+      <div className="partners-pair"><label>Name<input required maxLength={60} value={me.display_name} onChange={e => setMe({ ...me, display_name: e.target.value })}/></label>
+      <label>How players reach you<input maxLength={120} placeholder="Instagram or email" value={me.contact} onChange={e => setMe({ ...me, contact: e.target.value })}/></label></div>
+      <div className="partners-pair"><SelectField label="Level" value={me.level} onChange={level => setMe({ ...me, level })} options={LEVELS.map(level => ({value:level,label:level}))}/>
+      <label>UTR rating (optional)<input inputMode="decimal" placeholder="e.g. 4.5" value={me.utr_rating ?? ''} onChange={e => setMe({ ...me, utr_rating: e.target.value === '' ? null : Number(e.target.value) })}/></label></div>
       <fieldset><legend>Courts you like to play</legend>{venues.map(v => <label key={v.id} className="partners-check"><input type="checkbox" checked={me.preferred_courts.includes(v.id)} onChange={e => setMe({ ...me, preferred_courts: e.target.checked ? [...me.preferred_courts, v.id] : me.preferred_courts.filter(id => id !== v.id) })}/>{v.name}</label>)}</fieldset>
-      <label>How players can reach you<input maxLength={120} placeholder="e.g. Instagram @name or email" value={me.contact} onChange={e => setMe({ ...me, contact: e.target.value })}/></label>
       <label className="partners-check"><input type="checkbox" checked={me.visible} onChange={e => setMe({ ...me, visible: e.target.checked })}/>Show my card to other signed-in players</label>
       <button className="primary-button">Save my card</button>
       {msg && <p role="status" className="access-note">{msg}</p>}

@@ -564,7 +564,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       if (!courtFocusAnchors.has(venue.id)) {
         const focus=new THREE.Vector3(x,0,z)
         courtFocusAnchors.set(venue.id,focus)
-        if(venue.access==='public'||venue.id==='barbican') animatedCourts.push({center:focus.clone(),rotation:0,scale:1})
+        // Every venue gets a rally; the visit bar labels it a miniature animation, not live use.
+        animatedCourts.push({center:focus.clone(),rotation:0,scale:1})
       } else if(isHighbury && layout===groups[0] && i===1) animatedCourts.push({center:new THREE.Vector3(x,0,z),rotation:0,scale:1})
       mesh(box, courtPlaying, x, .345, z, 5.3, .025, 10.8)
       const line = (x1: number, z1: number, x2: number, z2: number) => addLine(new THREE.Vector3(x + x1, .38, z + z1), new THREE.Vector3(x + x2, .38, z + z2))
