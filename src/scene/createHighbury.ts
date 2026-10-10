@@ -8,7 +8,7 @@ import { cloneCourtFinish, courtFenceGeometry, type createClubSurfaces } from '.
 export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, finishes:ReturnType<typeof createMiniatureMaterials>, surfaces:ReturnType<typeof createClubSurfaces>){
  const root=new THREE.Group(),box=new THREE.BoxGeometry(1,1,1);
  const material=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.92});
- const green=cloneCourtFinish(surfaces.synthetic);green.color.set('#467c6c');
+ const green=cloneCourtFinish(surfaces.synthetic);green.color.set('#42787a');
  const playing=surfaces.synthetic,white=material('#f5f2e7'),metal=surfaces.steel,net=material('#506d61');
  const litPlaying=cloneCourtFinish(playing);litPlaying.emissive.set('#a4c9b2');litPlaying.emissiveIntensity=0;
  const paving=surfaces.concrete,wood=finishes.timber,bag=material('#315c50'),ball=material('#dce985'),frame=material('#a3654a'),strings=material('#e8e5d2');

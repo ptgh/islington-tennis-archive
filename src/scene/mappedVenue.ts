@@ -87,7 +87,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     place((a[0]+b[0])/2,(a[1]+b[1])/2,-Math.atan2(dz,dx),1,()=>box(0,y,0,length,height,width,colour,false))
   }
   const allGround=[[-1100,-1100],[1100,-1100],[1100,1100],[-1100,1100],[-1100,-1100]]
-  shape(allGround,-.24,id==='queens'?'#8f9d7a':'#8fA777','grass')
+  shape(allGround,-.24,'#8fa777','grass')
   // Area geometry supplies the real park/garden/venue outlines, rather than a rectangular island.
   for(const f of features) {
     if(!closed(f.points)||f.tags.building||f.tags.leisure==='pitch'||f.tags.leisure==='stadium')continue

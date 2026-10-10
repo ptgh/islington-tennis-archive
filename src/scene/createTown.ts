@@ -65,7 +65,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const doorMaterial = standard('#394e44')
   const trunkMaterial = standard('#6c6950')
   const leafMaterial = finishes.foliage
-   const courtOuter = cloneCourtFinish(courtSurfaces.synthetic);courtOuter.color.set('#467c6c')
+   const courtOuter = cloneCourtFinish(courtSurfaces.synthetic);courtOuter.color.set('#42787a')
   const courtLine = standard('#f2efdc')
    const netMaterial = finishes.net
   const metalMaterial = standard('#5a695a')
@@ -352,6 +352,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   }
 
   const gardenRnd = random(2718)
+  const highburyLoop: Point[] = [[68,-90],[92,-106],[130,-91],[150,-61],[152,-21],[130,20],[108,25],[72,27],[64,3],[64,-38]]
   const gardenTrees: { x: number; z: number }[] = []
   for (const segment of roadSegments) {
     const dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1]
@@ -494,6 +495,15 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         const z = segment.a[1] + dz / length * d + dx / length * offset * side
         if (plantable(x, z, 1.1, 3.4)) tree(x, z, .62 + rnd() * .12, true)
       }
+    }
+  }
+  // Plane trees line Highbury Fields' loop path, as they line the real park's walks.
+  for (let i = 0; i < highburyLoop.length; i++) {
+    const [ax, az] = highburyLoop[i], [bx, bz] = highburyLoop[(i + 1) % highburyLoop.length]
+    const length = Math.hypot(bx - ax, bz - az), nx = -(bz - az) / length, nz = (bx - ax) / length
+    for (let d = 3; d < length - 2; d += 7) for (const side of [-1, 1]) {
+      const x = ax + (bx - ax) * d / length + nx * 2.6 * side, z = az + (bz - az) * d / length + nz * 2.6 * side
+      if (plantable(x, z, .5, 4)) tree(x, z, .8 + rnd() * .2)
     }
   }
   for (const p of gardenTrees) {
@@ -727,7 +737,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   }
   const trackLength = track.getLength()
   const walkPaths=[
-    [[68,-90],[92,-106],[130,-91],[150,-61],[152,-21],[130,20],[108,25],[72,27],[64,3],[64,-38]].map(([x,z])=>new THREE.Vector3(x,.2,z)),
+    highburyLoop.map(([x,z])=>new THREE.Vector3(x,.2,z)),
     ...parks.slice(1,3).map(park=>Array.from({length:32},(_,i)=>{
       const angle=i/32*Math.PI*2;
       return new THREE.Vector3(park.x+Math.cos(angle)*(park.rx-7),.2,park.z+Math.sin(angle)*(park.rz-7));

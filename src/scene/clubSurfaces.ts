@@ -81,9 +81,9 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
     materials.push(material)
     return material
   }
-  const grass = scanned([grassColor, grassNormal, grassRough], [5, 10], '#b0d3a0', .28)
+  const grass = scanned([grassColor, grassNormal, grassRough], [5, 10], '#76a65e', .28)
   const concrete = scanned([concreteColor, concreteNormal, concreteRough], [3, 6], '#d0cec6', .35)
-  const synthetic = scanned([syntheticColor, syntheticNormal, syntheticRough], [5, 10], '#62958a', .16)
+  const synthetic = scanned([syntheticColor, syntheticNormal, syntheticRough], [5, 10], '#5a969c', .16)
   const clay = synthetic.clone(); clay.color.set('#b97f60'); materials.push(clay)
   // Court-space UVs keep mowing and wear continuous instead of ten tiny tiled strips.
   for (const [kind, material] of Object.entries({ grass, synthetic, concrete, clay })) {
@@ -93,7 +93,7 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
       shader.fragmentShader = 'varying vec2 courtUv;\n' + shader.fragmentShader
       shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `
         #include <color_fragment>
-        ${kind === 'synthetic' ? 'diffuseColor.rgb = mix(vec3(.13,.29,.24), diffuseColor.rgb, .5);' : ''}
+        ${kind === 'synthetic' ? 'diffuseColor.rgb = mix(vec3(.14,.36,.41), diffuseColor.rgb, .5);' : ''}
         float edge = 1.0 - smoothstep(0.0, 0.055, min(min(courtUv.x, 1.0-courtUv.x), min(courtUv.y, 1.0-courtUv.y)));
         float baseline = exp(-pow((abs(courtUv.y-.5)-.44)/.024, 2.0));
         float footfall = exp(-pow((courtUv.x-.5)/.27, 2.0));
@@ -106,7 +106,7 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
         diffuseColor.rgb *= 1.0-edge*irregular*.10;
       `)
     }
-    material.customProgramCacheKey = () => `club-surface-${kind}-v1`
+    material.customProgramCacheKey = () => `club-surface-${kind}-v2`
   }
   const meshBytes = new Uint8Array(128 * 128 * 4)
   for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {

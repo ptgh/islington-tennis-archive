@@ -388,7 +388,9 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
 
 export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch, night, motionRunning, weather, onNight, onMotion, lightingTime, onLightingTime }: { active?: boolean; clubId: IconicClubId; event?: Tournament; onBack: () => void; onSwitch: (id: IconicClubId) => void; night: boolean; lightingTime: number | null; onLightingTime: (time: number | null) => void; motionRunning: boolean; weather: WeatherSceneKind; onNight: () => void; onMotion: () => void }) {
   const runtime = useRef({ active, night, motionRunning, weather, lightingTime })
-  runtime.current = { active, night, motionRunning, weather, lightingTime }
+  // Dev builds only: window.__townOverride pins weather/time for render comparisons.
+  runtime.current = { active, night, motionRunning, weather, lightingTime,
+    ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const host = useRef<HTMLDivElement>(null)
   const engine = useRef<SceneHandle | null>(null)
   const [failed, setFailed] = useState(false)
@@ -477,6 +479,7 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
       renderer.shadowMap.needsUpdate = true
       composer.render(); textureDirty = false
     }
+    if (import.meta.env.DEV) Object.assign(window, { __club: { camera, controls, frame, renderer, runtime, composer } })
     const resize = () => {
       const width = Math.max(1, element.clientWidth), height = Math.max(1, element.clientHeight)
       if (compact !== (width < 760)) {
