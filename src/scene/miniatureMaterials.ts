@@ -265,6 +265,30 @@ export function createMiniatureMaterials() {
   })
   const grass = new THREE.MeshStandardMaterial({ color: '#8aa777', map: grassMap, bumpMap: grassBump, bumpScale: .025, roughness: 1 })
   const parkGrass = new THREE.MeshStandardMaterial({ color: '#91ad73', map: parkMap, bumpMap: parkBump, bumpScale: .025, roughness: 1 })
+  // World-space mottling: broad sunlit and shaded patches plus drier, warmer
+  // ground, as in the concept's lawns. Fixed to the world so it never crawls.
+  const mottle = (material: THREE.MeshStandardMaterial, key: string) => {
+    material.onBeforeCompile = shader => {
+      shader.vertexShader = 'varying vec2 lawnWorld;\n' + shader.vertexShader.replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        lawnWorld = (modelMatrix * vec4(transformed, 1.0)).xz;`)
+      shader.fragmentShader = `varying vec2 lawnWorld;
+        float lawnHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float lawnNoise(vec2 p) {
+          vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(lawnHash(i), lawnHash(i + vec2(1, 0)), f.x), mix(lawnHash(i + vec2(0, 1)), lawnHash(i + vec2(1, 1)), f.x), f.y);
+        }
+        float lawnField(vec2 p) { return lawnNoise(p) * .55 + lawnNoise(p * 2.03 + 17.0) * .3 + lawnNoise(p * 4.1 + 31.0) * .15; }
+        ` + shader.fragmentShader.replace('#include <color_fragment>', `
+        #include <color_fragment>
+        float lawnBroad = lawnField(lawnWorld / 34.0), lawnFine = lawnField(lawnWorld / 7.0 + 9.0);
+        diffuseColor.rgb *= mix(.9, 1.07, lawnBroad) * mix(.97, 1.03, lawnFine);
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.02, .8), smoothstep(.6, .8, lawnBroad) * .45);`)
+    }
+    material.customProgramCacheKey = () => key
+  }
+  mottle(grass, 'miniature-lawn-v1')
+  mottle(parkGrass, 'miniature-park-lawn-v1')
   const asphalt = new THREE.MeshStandardMaterial({ color: '#a6a69e', map: asphaltMap, bumpMap: aggregateBump, bumpScale: .012, roughness: .97 })
   const paving = new THREE.MeshStandardMaterial({ color: '#d8d0bd', map: pavingMap, roughness: .98 })
   const hardCourt = new THREE.MeshStandardMaterial({ color: '#4d939b', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .006, roughness: .91 })

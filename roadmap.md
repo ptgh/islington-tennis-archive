@@ -10,7 +10,7 @@
 - [ ] Decide the first-visit weather: the rain preview is on by default (`demo` in Weather.tsx) and halves sunlight for every visitor.
 - [ ] Phones: GTAO costs ~7ms of 21ms GPU at 375×812 on an M4; test on a real iPhone before deciding whether compact screens drop or cheapen it.
 - [x] Court finishes across every venue (2026-10-10): Islington hard courts moved from forest green to the concept's blue-teal (measured #4e7c78 vs concept #528081); Wimbledon and Queen's grass courts were bleached mint in the original too and are now a lawn green (#76a65e tint); Queen's surrounding ground matches Wimbledon's. Highbury's loop path is lined with plane trees. GPU frame 26.4–27.9ms vs original 28.1–28.8ms at 1440×900@2x. Before/after: docs/verification/courts-before-after-2026-10-10.png.
-- [ ] Park lawns are still a flat colour; the concept has worn desire lines and mottled grass.
+- [x] Town lawns carry world-space mottling (sunlit/shaded patches, drier warm ground) instead of one flat green; club views keep their plain grass (clones don't inherit the shader hook).
 - [ ] Wimbledon's beige grounds and flat dark roofs come from OSM footprints; consider greyer paving and roof texture without moving any footprint.
 - [x] Extend matching building/tree detail radii to Tufnell Park, Rosemary Gardens, Islington Tennis Centre and Spa Fields, and railway detail along the existing town track; enrich Wimbledon and Queen’s buildings/trees (independent WebGL renders verified; 42 tests pass).
 - [ ] Add railway surroundings to Wimbledon and Queen’s — requires sourced railway geometry; neither club scene has an existing track, so none was invented.
