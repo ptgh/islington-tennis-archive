@@ -69,17 +69,19 @@ test('curbside lamps illuminate only in night mode', () => {
   lamps.dispose()
 })
 
-test('bus routes bend around court enclosures instead of crossing them', async () => {
+test('bus routes skirt Highbury Fields and bend around court enclosures', async () => {
   const { busRoutes } = await import('./busRoutes.ts')
-  const { routeAroundCourts, ROUTE_COURT_CLEARANCE } = await import('../scene/courtGeometry.ts')
+  const { busRouteLine, ROUTE_COURT_CLEARANCE, HIGHBURY_PARK, PARK_ROAD_CLEARANCE } = await import('../scene/courtGeometry.ts')
   const areas = courtAreas(venues)
   for (const route of busRoutes) {
     const raw = route.points.map(([lng, lat]): [number, number] => { const p = project(lat, lng); return [p.x, p.z] })
-    const bent = routeAroundCourts(raw, areas)
+    const bent = busRouteLine(raw, areas)
     assert.deepEqual(bent[0], raw[0]); assert.deepEqual(bent.at(-1), raw.at(-1))
     for (let i = 1; i < bent.length; i++) for (let s = 0; s <= 10; s++) {
       const x = bent[i - 1][0] + (bent[i][0] - bent[i - 1][0]) * s / 10, z = bent[i - 1][1] + (bent[i][1] - bent[i - 1][1]) * s / 10
       assert.equal(inCourtArea(x, z, areas, ROUTE_COURT_CLEARANCE - .3), false, `route ${route.id} crosses a court`)
+      const rx = HIGHBURY_PARK.rx + PARK_ROAD_CLEARANCE - .3, rz = HIGHBURY_PARK.rz + PARK_ROAD_CLEARANCE - .3
+      assert.ok(((x - HIGHBURY_PARK.x) / rx) ** 2 + ((z - HIGHBURY_PARK.z) / rz) ** 2 >= 1, `route ${route.id} crosses Highbury Fields`)
     }
   }
 })

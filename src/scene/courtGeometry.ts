@@ -71,3 +71,35 @@ export function routeAroundCourts(points:[number,number][],areas:CourtArea[],mar
  if(points.length)out.push(points[points.length-1]);
  return out;
 }
+/** The illustrated Highbury Fields. It is drawn far larger than life, so the streets that
+ * really bound it (Highbury Grove, Highbury Place, Highbury Corner) fall inside it on the map. */
+export const HIGHBURY_PARK=(()=>{const [x,z]=projectPoint(-.099,51.5525);return {x,z,rx:46,rz:68};})();
+/** Bus roads skirt the park beyond its perimeter walk (walk edge ~1.9, road half-width 2.9). */
+export const PARK_ROAD_CLEARANCE=5.2;
+/** Replace every stretch of a polyline inside the park with the shorter arc around its edge. */
+export function routeAroundPark(points:[number,number][],park:{x:number;z:number;rx:number;rz:number}=HIGHBURY_PARK,margin=PARK_ROAD_CLEARANCE):[number,number][]{
+ const rx=park.rx+margin,rz=park.rz+margin;
+ const inside=([x,z]:[number,number])=>((x-park.x)/rx)**2+((z-park.z)/rz)**2<1;
+ const angle=([x,z]:[number,number])=>Math.atan2((z-park.z)/rz,(x-park.x)/rx);
+ const onEdge=(t:number):[number,number]=>[park.x+Math.cos(t)*rx,park.z+Math.sin(t)*rz];
+ const dense:[number,number][]=[];
+ for(let i=1;i<points.length;i++){const [ax,az]=points[i-1],[bx,bz]=points[i],n=Math.max(1,Math.ceil(Math.hypot(bx-ax,bz-az)));for(let k=0;k<n;k++)dense.push([ax+(bx-ax)*k/n,az+(bz-az)*k/n]);}
+ if(points.length)dense.push(points[points.length-1]);
+ if(!dense.some(inside))return points;
+ const out:[number,number][]=[];
+ for(let i=0;i<dense.length;){
+  if(!inside(dense[i])){out.push(dense[i]);i++;continue;}
+  let j=i;while(j<dense.length&&inside(dense[j]))j++;
+  if(i===0||j===dense.length){for(let k=i;k<j;k++)out.push(onEdge(angle(dense[k])));i=j;continue;}
+  const from=angle(dense[i-1]),to=angle(dense[j]);
+  const sweep=Math.atan2(Math.sin(to-from),Math.cos(to-from)),steps=Math.max(2,Math.ceil(Math.abs(sweep)*(rx+rz)/2));
+  for(let k=1;k<steps;k++)out.push(onEdge(from+sweep*k/steps));
+  i=j;
+ }
+ return out;
+}
+/** The one line a bus route follows: around Highbury Fields, then around court enclosures.
+ * Roads, buses and the stringer van all use it, so they can never disagree. */
+export function busRouteLine(points:[number,number][],areas:CourtArea[]):[number,number][]{
+ return routeAroundCourts(routeAroundPark(points),areas);
+}

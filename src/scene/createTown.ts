@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
 import { createMiniatureMaterials, SHADOW_PROXY_LAYER } from './miniatureMaterials'
-import { courtAreas, inCourtArea, renderedHighburyCourts, routeAroundCourts } from './courtGeometry'
+import { courtAreas, inCourtArea, renderedHighburyCourts, busRouteLine, HIGHBURY_PARK } from './courtGeometry'
 import { createGear } from './createGear'
 import { mappedServices } from '../data/hub'
 import { createLandmarks } from './createLandmarks'
@@ -135,7 +135,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     Math.hypot(x - highbury.x, z - highbury.z) < highburyRadius ||
     courtNeighbourhoods.some(p => Math.hypot(x - p.x, z - p.z) < highburyRadius)
   const parks: Patch[] = [
-    { x: highbury.x, z: highbury.z, rx: 46, rz: 68 },
+    { ...HIGHBURY_PARK },
     { x: -32, z: -365, rx: 130, rz: 91 },
     { x: -205, z: -125, rx: 38, rz: 45 },
     { x: 222, z: -183, rx: 62, rz: 90 },
@@ -167,7 +167,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     { points: [[-338, -315], [-240, -303], [-113, -340], [-24, -325], [103, -290], [195, -331], [342, -342]], width: 8, avenue: true },
   ]
   const roads: Road[] = [...primaryRoads, ...busRoutes.map(route=>({
-    points:routeAroundCourts(route.points.map(([lng,lat]):Point=>{const p=geoPosition(lat,lng);return [p.x,p.z]}),exclusions),
+    points:busRouteLine(route.points.map(([lng,lat]):Point=>{const p=geoPosition(lat,lng);return [p.x,p.z]}),exclusions),
     width:5.8,avenue:true,bus:true,
   }))]
   // Neighbourhood streets are deliberately irregular and finer than the main roads.
@@ -207,8 +207,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         const t = (j + .5) / subdivisions
         const x = a[0] + (b[0] - a[0]) * t
         const z = a[1] + (b[1] - a[1]) * t
-        const local=Math.abs(x-109)<50&&Math.abs(z+32)<82;
-        const width=local&&road.bus?1.2:road.width;
+        const local=!road.bus&&Math.abs(x-109)<50&&Math.abs(z+32)<82;
+        const width=road.width;
         if(inCourtArea(x,z,exclusions,width/2+(local?.2:1)))continue;
         // Streets never stop dead at a park: main avenues cross it as footpaths,
         // side streets run on to the perimeter walk and end at its gate.
