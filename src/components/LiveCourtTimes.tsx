@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../integrations/supabase/client';
+import { feedIsFresh, nextFreeByVenue, type NextFree } from '../data/freeCourts';
 
 /** Venues whose individual courts appear in Better's open slot feed. */
 export const LIVE_TIME_VENUES = ['highbury-fields', 'islington-tennis-centre'];
@@ -7,7 +8,30 @@ export const LIVE_TIME_VENUES = ['highbury-fields', 'islington-tennis-centre'];
 type Slot = { start_at: string; court_name: string; remaining_uses: number };
 const day = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' });
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
-const STALE_MS = 90 * 60_000;
+
+/** Next free start per live venue for the map pins; empty unless Better's feed is fresh.
+ * Refreshes every ten minutes while the page is open, matching the 15-minute sync. */
+export function useNextFreeCourts(enabled: boolean) {
+  const [next, setNext] = useState<Record<string, NextFree>>({});
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    const load = () => {
+      const now = new Date(), until = new Date(now.getTime() + 86400_000);
+      Promise.all([
+        supabase.from('court_slots').select('venue_id,start_at,court_name,remaining_uses').in('venue_id', LIVE_TIME_VENUES).gt('remaining_uses', 0)
+          .gte('start_at', now.toISOString()).lt('start_at', until.toISOString()).order('start_at').limit(400),
+        supabase.from('feed_state').select('last_success,caught_up').eq('id', 'better-slots').maybeSingle(),
+      ]).then(([slots, feed]) => {
+        if (live) setNext(!slots.error && feedIsFresh(feed.data) ? nextFreeByVenue(slots.data ?? []) : {});
+      });
+    };
+    load();
+    const timer = setInterval(load, 10 * 60_000);
+    return () => { live = false; clearInterval(timer); };
+  }, [enabled]);
+  return next;
+}
 
 export function LiveCourtTimes({ venueId }: { venueId: string }) {
   const [state, setState] = useState<{ slots: Slot[]; checked: string | null; ok: boolean } | null>(null);
@@ -20,9 +44,7 @@ export function LiveCourtTimes({ venueId }: { venueId: string }) {
       supabase.from('feed_state').select('last_success,caught_up').eq('id', 'better-slots').maybeSingle(),
     ]).then(([slots, feed]) => {
       if (!live) return;
-      const checked = feed.data?.last_success ?? null;
-      const fresh = !!feed.data?.caught_up && !!checked && Date.now() - Date.parse(checked) < STALE_MS;
-      setState({ slots: slots.data ?? [], checked, ok: !slots.error && fresh });
+      setState({ slots: slots.data ?? [], checked: feed.data?.last_success ?? null, ok: !slots.error && feedIsFresh(feed.data) });
     });
     return () => { live = false; };
   }, [venueId]);

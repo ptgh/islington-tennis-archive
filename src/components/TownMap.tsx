@@ -17,6 +17,7 @@ import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import { SHADOW_PROXY_LAYER } from '../scene/miniatureMaterials'
+import { freeLabel, type NextFree } from '../data/freeCourts'
 import { addSkyEnvironment, scenePixelRatio, createLensFinish, resizeLensFinish, applySceneGrade, SCENE_TONE_MAPPING } from '../scene/renderQuality'
 import '../scene/TownMap.css'
 
@@ -37,6 +38,8 @@ interface TownMapProps {
   selectedId: string | null
   coachingPins?: boolean
   playCounts?: Record<string, number>
+  /** Next free start per venue from Better's live feed; pins show it as a chip. */
+  nextFree?: Record<string, NextFree>
   onSelect: (id: string) => void
   visibleIds: string[]
   night: boolean
@@ -76,7 +79,7 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ suspended = false, venues, selectedId, playCounts, coachingPins, onSelect, visibleIds, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -530,11 +533,11 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
             ref={(element) => { if (element) markerRefs.current.set(venue.id, element); else markerRefs.current.delete(venue.id) }}
             style={{ display: 'none' }}
             onClick={() => onSelect(venue.id)}
-            aria-label={playCounts?`${venue.name}. ${playCounts[venue.id]??0} ${coachingPins?(playCounts[venue.id]===1?'coaching option':'coaches & programmes'):playCounts[venue.id]===1?'way to play together':'ways to play together'}`:`${index + 1}. ${venue.name}. Show court details`}
+            aria-label={playCounts?`${venue.name}. ${playCounts[venue.id]??0} ${coachingPins?(playCounts[venue.id]===1?'coaching option':'coaches & programmes'):playCounts[venue.id]===1?'way to play together':'ways to play together'}`:`${index + 1}. ${venue.name}.${nextFree?.[venue.id]?` Next free court ${freeLabel(nextFree[venue.id].start)}.`:''} Show court details`}
             aria-pressed={selectedId === venue.id}
           >
-            <span className="town-pin__number">{playCounts?<Icon name={coachingPins?'ball':'people'} size={18}/>:index + 1}</span>{playCounts&&<span className="town-pin__count" aria-hidden="true">{playCounts[venue.id]??0}</span>}
-            <span className="town-pin__label">{venue.name}<span>{playCounts?`${playCounts[venue.id]??0} ${coachingPins?(playCounts[venue.id]===1?'coaching option':'coaches & programmes'):playCounts[venue.id]===1?'way to play together':'ways to play together'} ↗`:'Explore this court ↗'}</span></span>
+            <span className="town-pin__number">{playCounts?<Icon name={coachingPins?'ball':'people'} size={18}/>:index + 1}</span>{playCounts&&<span className="town-pin__count" aria-hidden="true">{playCounts[venue.id]??0}</span>}{!playCounts&&nextFree?.[venue.id]&&<span className="town-pin__free" aria-hidden="true">Free {freeLabel(nextFree[venue.id].start)}</span>}
+            <span className="town-pin__label">{venue.name}<span>{playCounts?`${playCounts[venue.id]??0} ${coachingPins?(playCounts[venue.id]===1?'coaching option':'coaches & programmes'):playCounts[venue.id]===1?'way to play together':'ways to play together'} ↗`:nextFree?.[venue.id]?`${nextFree[venue.id].courts} ${nextFree[venue.id].courts===1?'court':'courts'} free at ${freeLabel(nextFree[venue.id].start)} · Better ↗`:'Explore this court ↗'}</span></span>
           </button>
         ))}
         {STATION_NAMES.map((name) => (

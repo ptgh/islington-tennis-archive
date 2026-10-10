@@ -29,6 +29,7 @@ import { AskIslington } from './components/AskIslington';
 import { threadIdFromHash } from './data/askThreads';
 import { LoadingScreen } from './components/LoadingScreen';
 import { AccountCircle } from './components/AccountCircle';
+import { useNextFreeCourts } from './components/LiveCourtTimes';
 
 type MapCard='places'|'forecast'|'time';
 
@@ -78,6 +79,7 @@ export default function App() {
   // One floating map card at a time. On phones a card retracts the hub sheet so
   // the map shows beneath it; closing restores the sheet unless the card moved
   // the map on purpose. Opening the sheet closes the card.
+  const nextFree=useNextFreeCourts(!atlas);
   const [card,setCard]=useState<MapCard|null>(null);
   const restoreSheet=useRef(false);
   const cardProps=(name:MapCard)=>({open:card===name,onOpenChange:(open:boolean)=>{
@@ -150,7 +152,7 @@ export default function App() {
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom&&askHash===undefined){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen,askHash]);
   return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} ${card?'card-open':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
-    <TownMap ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
+    <TownMap ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
     <div className="map-vignette"/><Weather onWeather={setWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onLocate={(lat,lng)=>{restoreSheet.current=false;setPanelOpen(false);setStations(true);map.current?.locate(lat,lng);}}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
     <button className="pill ask-launch" onClick={()=>{window.location.hash='#/ask';}} aria-haspopup="dialog">Ask</button>
