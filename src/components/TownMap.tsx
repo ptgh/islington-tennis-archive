@@ -521,6 +521,15 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engine.frame()
   }, [selectedId, venues])
 
+  // Court pins describe; they don't promise a link. Once a court is selected its card is
+  // already open, so the label is just the name (plus Better's free time when known).
+  const pinSubline = (id: string) => {
+    if (playCounts) return `${playCounts[id]??0} ${coachingPins?(playCounts[id]===1?'coaching option':'coaches & programmes'):playCounts[id]===1?'way to play together':'ways to play together'} ↗`
+    const free = nextFree?.[id]
+    if (free) return `${free.courts} ${free.courts===1?'court':'courts'} free at ${freeLabel(free.start)} · Better`
+    return selectedId === id ? null : 'View court details'
+  }
+
   return (
     <div className={`town-map${night ? ' town-map--night' : ''}${moving ? ' town-map--moving' : ''}`} ref={hostRef}>
       {failed && <div className="town-map__fallback" role="status"><strong>The miniature map couldn’t start.</strong><span>You can still discover every court and open booking links in the directory.</span></div>}
@@ -537,7 +546,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
             aria-pressed={selectedId === venue.id}
           >
             <span className="town-pin__number">{playCounts?<Icon name={coachingPins?'ball':'people'} size={18}/>:index + 1}</span>{playCounts&&<span className="town-pin__count" aria-hidden="true">{playCounts[venue.id]??0}</span>}{!playCounts&&nextFree?.[venue.id]&&<span className="town-pin__free" aria-hidden="true">Free {freeLabel(nextFree[venue.id].start)}</span>}
-            <span className="town-pin__label">{venue.name}<span>{playCounts?`${playCounts[venue.id]??0} ${coachingPins?(playCounts[venue.id]===1?'coaching option':'coaches & programmes'):playCounts[venue.id]===1?'way to play together':'ways to play together'} ↗`:nextFree?.[venue.id]?`${nextFree[venue.id].courts} ${nextFree[venue.id].courts===1?'court':'courts'} free at ${freeLabel(nextFree[venue.id].start)} · Better ↗`:'Explore this court ↗'}</span></span>
+            <span className="town-pin__label">{venue.name}{pinSubline(venue.id)&&<span>{pinSubline(venue.id)}</span>}</span>
           </button>
         ))}
         {STATION_NAMES.map((name) => (
