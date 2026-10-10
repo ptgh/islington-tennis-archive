@@ -16,7 +16,8 @@ import { courtAreas } from '../scene/courtGeometry'
 import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
-import { addSkyEnvironment, scenePixelRatio, createLensFinish } from '../scene/renderQuality'
+import { SHADOW_PROXY_LAYER } from '../scene/miniatureMaterials'
+import { addSkyEnvironment, scenePixelRatio, createLensFinish, resizeLensFinish, applySceneGrade, SCENE_TONE_MAPPING } from '../scene/renderQuality'
 import '../scene/TownMap.css'
 
 export interface TownMapHandle {
@@ -83,7 +84,9 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   const vanRef=useRef<HTMLButtonElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
   const runtimeRef = useRef({ suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
-  runtimeRef.current = { suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady }
+  // Dev builds only: window.__townOverride pins weather/time for render comparisons.
+  runtimeRef.current = { suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady,
+    ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
   const [moving, setMoving] = useState(false)
@@ -144,9 +147,15 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     renderer.shadowMap.enabled = true
     renderer.shadowMap.autoUpdate = false
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    // The render list is built before shadows, so proxies on this layer reach
+    // the shadow map without ever being drawn (or written into the AO buffers).
+    const renderShadows = renderer.shadowMap.render.bind(renderer.shadowMap)
+    renderer.shadowMap.render = (lights, scene, camera) => {
+      camera.layers.enable(SHADOW_PROXY_LAYER)
+      try { renderShadows(lights, scene, camera) } finally { camera.layers.disable(SHADOW_PROXY_LAYER) }
+    }
     renderer.outputColorSpace = THREE.SRGBColorSpace
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = runtimeRef.current.night ? .86 : 1
+    renderer.toneMapping = SCENE_TONE_MAPPING
     renderer.domElement.className = 'town-map__canvas'
     renderer.domElement.setAttribute('aria-label', 'Interactive miniature map of Islington. Drag to pan, scroll or pinch to zoom, right-drag to rotate. Select court markers to discover venues.')
     renderer.domElement.setAttribute('role', 'img')
@@ -346,7 +355,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       // Retina already resolves fine edges; avoid softening brickwork twice.
       antialias.enabled=renderer.getPixelRatio()<1.75
       antialias.uniforms.resolution.value.set(1/(width*renderer.getPixelRatio()),1/(height*renderer.getPixelRatio()))
-      lens.uniforms.resolution.value.set(width*renderer.getPixelRatio(),height*renderer.getPixelRatio())
+      resizeLensFinish(lens.uniforms,width,height,renderer.getPixelRatio())
       if(changed&&runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
       else if(wasMobile!==(width<=760))reset()
       frame()
@@ -373,6 +382,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       updateSceneLight(sunlight, ambient, controls.target, 425, runtimeRef.current.lightingTime === null ? lightClock : new Date(runtimeRef.current.lightingTime), runtimeRef.current.night, runtimeRef.current.weather);
       sunlight.shadow.camera.left=-span;sunlight.shadow.camera.right=span;sunlight.shadow.camera.top=span;sunlight.shadow.camera.bottom=-span;sunlight.shadow.camera.updateProjectionMatrix();
       occlusion.blendIntensity=runtimeRef.current.night?.16:.44
+      applySceneGrade(renderer,lens.uniforms,runtimeRef.current.night)
       renderer.shadowMap.needsUpdate=true
       composer.render()
       const runtime = runtimeRef.current
@@ -383,6 +393,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     }
     const engine: SceneHandle = { camera, controls, world, scene, sunlight, ambient, renderer, reset, resize, frame, focus, travel, cancelTravel, visitCourt }
     engineRef.current = engine
+    // Dev-only handle for pinned-camera render comparisons; stripped from production builds.
+    if (import.meta.env.DEV) Object.assign(window, { __town: { engine, runtime: runtimeRef, composer } })
     resize()
     if(runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
     else reset()
@@ -486,7 +498,6 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engine.ambient.intensity = night ? .95 : .88
     engine.ambient.color.set(night ? '#a9bfda' : '#f7f2e9')
     engine.ambient.groundColor.set(night ? '#263d44' : '#59634f')
-    engine.renderer.toneMappingExposure = night ? .86 : 1
     engine.frame()
   }, [night, lightingTime, ready])
 

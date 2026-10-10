@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {places} from '../data/places.ts';
 import type {createMiniatureMaterials} from './miniatureMaterials';
+import {gableRoofGeometry} from './gableRoof.ts';
 // Small architectural miniatures, deliberately subordinate to the tennis courts.
 // All dimensions are illustrative; positions share the map's geographic projection.
 export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,finishes?:ReturnType<typeof createMiniatureMaterials>){
@@ -27,7 +28,10 @@ export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,f
     const short=part(g,roof,Math.sin(a)*2.60,21,Math.cos(a)*2.60,.85,.12,.12);short.rotation.y=a;}
    part(g,roof,0,24,0,3,3,3,new THREE.ConeGeometry(1,1,4));
   }else if(place.id==='union-chapel'){
-   part(g,brick,0,5,0,11,10,18);const r=part(g,roof,0,11,0,8,5,19,new THREE.CylinderGeometry(0,1,1,3));r.rotation.y=Math.PI/2;
+   part(g,brick,0,5,0,11,10,18);
+   // Gabled nave: ridge runs the hall's length, with brick gable ends above the rose window.
+   const gable=gableRoofGeometry();const r=part(g,roof,0,10,0,19,5,11.8,gable);r.rotation.y=Math.PI/2;r.name='union-chapel-roof';
+   for(const z of [-9.56,9.56]){const end=part(g,brick,0,10,z,.12,4.9,11.2,gable);end.rotation.y=Math.PI/2;}
    part(g,brick,6,10,-4,4,20,4);part(g,roof,6,22,-4,3.3,7,3.3,new THREE.ConeGeometry(1,1,8));
    const rose=part(g,stone,0,7,9.06,2.1,2.1,1,new THREE.RingGeometry(.65,1,16));rose.material=new THREE.MeshStandardMaterial({color:stone,side:THREE.DoubleSide});
    part(g,glass,0,7,9.02,1.4,1.4,1,new THREE.CircleGeometry(1,16));

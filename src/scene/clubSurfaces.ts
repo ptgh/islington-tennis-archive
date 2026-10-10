@@ -93,7 +93,7 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
       shader.fragmentShader = 'varying vec2 courtUv;\n' + shader.fragmentShader
       shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `
         #include <color_fragment>
-        ${kind === 'synthetic' ? 'diffuseColor.rgb = mix(vec3(.13,.29,.24), diffuseColor.rgb, .28);' : ''}
+        ${kind === 'synthetic' ? 'diffuseColor.rgb = mix(vec3(.13,.29,.24), diffuseColor.rgb, .5);' : ''}
         float edge = 1.0 - smoothstep(0.0, 0.055, min(min(courtUv.x, 1.0-courtUv.x), min(courtUv.y, 1.0-courtUv.y)));
         float baseline = exp(-pow((abs(courtUv.y-.5)-.44)/.024, 2.0));
         float footfall = exp(-pow((courtUv.x-.5)/.27, 2.0));

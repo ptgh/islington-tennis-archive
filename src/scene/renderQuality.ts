@@ -7,6 +7,20 @@ export function scenePixelRatio(width: number, height: number, deviceRatio: numb
     Math.sqrt((compact ? 3200000 : 8500000) / Math.max(1, width * height)))
 }
 
+/** Khronos PBR Neutral keeps painted colours true in bright light. ACES pushed
+ * lawns toward olive and court acrylic toward black, away from the illustration. */
+export const SCENE_TONE_MAPPING = THREE.NeutralToneMapping
+
+/** Exposure and lens saturation measured against docs/design-concept.png (map
+ * area: mean luma .469, saturation .312) and, at night, the previous ACES look.
+ * `lift` lets a view keep its relative brightness without a second rule. */
+export const SCENE_GRADE = { day: { exposure: 1.5, saturation: .82 }, night: { exposure: 1, saturation: .72 } }
+export function applySceneGrade(renderer: THREE.WebGLRenderer, lens: Record<string, THREE.IUniform>, night: boolean, lift = 1) {
+  const grade = night ? SCENE_GRADE.night : SCENE_GRADE.day
+  renderer.toneMappingExposure = grade.exposure * (night ? 1 : lift)
+  lens.saturation.value = grade.saturation
+}
+
 /** Local sky illumination: no HDR downloads or asynchronous scene dependencies. */
 export function addSkyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
   const width = 256, height = 128
@@ -42,13 +56,14 @@ export function addSkyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Sc
  * gentle split-tone grading, soft vignette and fine grain to break up
  * flat computer-graphics fills. Runs once per frame on the final image.
  */
-export const LENS_FINISH = { focus: .5, band: .22, blur: 2.4, vignette: .28, contrast: 1.06, saturation: 1.04, grain: .018 }
+export const LENS_FINISH = { focus: .5, band: .22, blur: 3.2, vignette: .28, contrast: 1.06, saturation: SCENE_GRADE.day.saturation, grain: .018 }
 
 export function createLensFinish() {
   return {
     uniforms: {
       tDiffuse: { value: null },
       resolution: { value: new THREE.Vector2(1, 1) },
+      pixelRatio: { value: 1 },
       focus: { value: LENS_FINISH.focus },
       band: { value: LENS_FINISH.band },
       blur: { value: LENS_FINISH.blur },
@@ -60,7 +75,7 @@ export function createLensFinish() {
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `
-      uniform sampler2D tDiffuse; uniform vec2 resolution;
+      uniform sampler2D tDiffuse; uniform vec2 resolution; uniform float pixelRatio;
       uniform float focus, band, blur, vignette, contrast, saturation, grain, time;
       varying vec2 vUv;
       float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
@@ -70,10 +85,10 @@ export function createLensFinish() {
         vec3 colour = texture2D(tDiffuse, vUv).rgb;
         if (amount > .01) {
           vec3 sum = colour; float weight = 1.0;
-          for (int i = 0; i < 12; i++) {
+          for (int i = 0; i < 16; i++) {
             float a = float(i) * 2.39996;
-            float r = sqrt(float(i) + .5) / 3.6;
-            vec2 o = vec2(cos(a), sin(a)) * r * amount / resolution;
+            float r = sqrt(float(i) + .5) / 4.0;
+            vec2 o = vec2(cos(a), sin(a)) * r * amount * pixelRatio / resolution;
             sum += texture2D(tDiffuse, vUv + o).rgb; weight += 1.0;
           }
           colour = sum / weight;
@@ -89,4 +104,10 @@ export function createLensFinish() {
         gl_FragColor = vec4(clamp(colour, 0.0, 1.0), 1.0);
       }`,
   }
+}
+
+/** Blur is authored in CSS pixels, so Retina screens get the same depth of field. */
+export function resizeLensFinish(uniforms: Record<string, THREE.IUniform>, width: number, height: number, pixelRatio: number) {
+  uniforms.resolution.value.set(width * pixelRatio, height * pixelRatio)
+  uniforms.pixelRatio.value = pixelRatio
 }

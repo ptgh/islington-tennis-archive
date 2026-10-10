@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 
+/** Layer seen only by the sun's shadow pass (see TownMap's shadowMap wrapper). */
+export const SHADOW_PROXY_LAYER = 1
+
 // Small, repeatable surface maps keep the miniature crisp close up without
 // shipping a photograph, creating a canvas, or adding a network dependency.
 function noise(x: number, y: number, seed = 0) {
@@ -87,7 +90,9 @@ function pavingPixel(x: number, y: number): Pixel {
 }
 
 function createFoliageGeometry() {
-  const geometry = new THREE.SphereGeometry(1, 16, 11)
+  // 12x9 core + 72 leaf cards: ~1/3 fewer triangles than 16x11 + 96, which pays
+  // for the denser garden and avenue planting at the same frame cost.
+  const geometry = new THREE.SphereGeometry(1, 12, 9)
   const position = geometry.getAttribute('position')
   const colors = new Float32Array(position.count * 3)
   for (let i = 0; i < position.count; i++) {
@@ -123,8 +128,8 @@ function createFoliageGeometry() {
 
   // Tiny folded leaves physically break the outline. This replaces detail in
   // the smooth core rather than multiplying the geometry cost of every tree.
-  for (let i = 0; i < 96; i++) {
-    const y = 1 - (i + .5) / 48
+  for (let i = 0; i < 72; i++) {
+    const y = 1 - (i + .5) / 36
     const angle = i * 2.399963229728653
     const radius = Math.sqrt(1 - y * y)
     const direction = new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius)
@@ -298,12 +303,20 @@ export function createMiniatureMaterials() {
   const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide })
   wind(foliageDepth)
   const foliageGeometry = createFoliageGeometry()
+  // Crowns cast shadows through 80-triangle single-sided stand-ins: leaf cards are
+  // invisible at shadow-map resolution, and full crowns made foliage shadows ~4x
+  // the GPU cost of drawing the crowns themselves (measured 14ms vs 3ms).
+  const foliageShadowGeometry = new THREE.SphereGeometry(1, 8, 6)
+  const foliageShadowDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking })
+  wind(foliageShadowDepth)
+  const foliageShadowProxy = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
   const materials = [brick, slate, grass, parkGrass, asphalt, paving, foliage, hardCourt, timber, ballast, net]
   const textures = [brickMap, brickBump, slateMap, slateBump, grassMap, parkMap, asphaltMap, pavingMap, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha]
   let disposed = false
 
   return {
     brick, slate, grass, parkGrass, asphalt, paving, foliage, foliageGeometry, foliageDepth, hardCourt, timber, ballast, net,
+    foliageShadowGeometry, foliageShadowDepth, foliageShadowProxy,
     wind,
     setWind(time: number, strength: number) { windTime.value = time; windStrength.value = strength },
     dispose() {
@@ -313,6 +326,7 @@ export function createMiniatureMaterials() {
       textures.forEach(texture => texture.dispose())
       foliageGeometry.dispose()
       foliageDepth.dispose()
+      foliageShadowGeometry.dispose(); foliageShadowDepth.dispose(); foliageShadowProxy.dispose()
     },
   }
 }

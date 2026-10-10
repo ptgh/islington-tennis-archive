@@ -17,9 +17,12 @@ import { createVenueLighting } from '../scene/createVenueLighting'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import type { WeatherSceneKind } from '../scene/createWeather'
 import { createMappedVenue, mappedCourtPosition } from '../scene/mappedVenue'
-import { addSkyEnvironment, scenePixelRatio, createLensFinish } from '../scene/renderQuality'
+import { addSkyEnvironment, scenePixelRatio, createLensFinish, resizeLensFinish, applySceneGrade, SCENE_TONE_MAPPING } from '../scene/renderQuality'
 import { createClubSurfaces, type ClubCourtSurface } from '../scene/clubSurfaces'
 import './IconicCourtView.css'
+
+// Club scenes were authored brighter than the town (1.18 vs 1.0 under ACES).
+const ICONIC_DAY_LIFT = 1.18
 
 type CourtStop = { id: string; name: string; note: string; x: number; z: number }
 
@@ -410,8 +413,7 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
     const disposeEnvironment = addSkyEnvironment(renderer, world.scene)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
-    renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.05
+    renderer.toneMapping = SCENE_TONE_MAPPING
     renderer.shadowMap.enabled = true
     // The beauty and AO passes share one shadow map per frame.
     renderer.shadowMap.autoUpdate = false
@@ -469,7 +471,7 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
       const state = runtime.current
       if (!state.active) return
       world.animate(0, false, state.night, state.weather, state.lightingTime)
-      renderer.toneMappingExposure = state.night ? .86 : 1.18
+      applySceneGrade(renderer, lens.uniforms, state.night, ICONIC_DAY_LIFT)
       occlusion.blendIntensity = state.night ? .16 : .30
       renderer.shadowMap.needsUpdate = true
       composer.render(); textureDirty = false
@@ -494,7 +496,7 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
       renderer.setSize(width, height)
       composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(width, height)
       antialias.uniforms.resolution.value.set(1 / (width * renderer.getPixelRatio()), 1 / (height * renderer.getPixelRatio()))
-      lens.uniforms.resolution.value.set(width * renderer.getPixelRatio(), height * renderer.getPixelRatio())
+      resizeLensFinish(lens.uniforms, width, height, renderer.getPixelRatio())
       frame()
     }
     const reset = () => { cancelJourney(); camera.position.copy(offset).add(overview); controls.target.copy(overview); camera.zoom = 1; updateProjection(); controls.update(); frame() }

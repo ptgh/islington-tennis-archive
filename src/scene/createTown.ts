@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
-import { createMiniatureMaterials } from './miniatureMaterials'
+import { createMiniatureMaterials, SHADOW_PROXY_LAYER } from './miniatureMaterials'
 import { courtAreas, inCourtArea, renderedHighburyCourts } from './courtGeometry'
 import { createGear } from './createGear'
 import { mappedServices } from '../data/hub'
@@ -12,6 +12,7 @@ import type { MapVenue, Station, TownWorld } from './types'
 import { createTownLife } from './createTownLife'
 import { createStreetLamps } from './createStreetLamps'
 import { busRoutes } from '../data/busRoutes'
+import { gableRoofGeometry } from './gableRoof'
 import { createClubSurfaces, townCourtSurface, cloneCourtFinish, courtFenceGeometry } from './clubSurfaces'
 
 export const geoPosition = (lat: number, lng: number) =>
@@ -28,29 +29,6 @@ function random(seed: number) {
     state = (state * 1664525 + 1013904223) >>> 0
     return state / 4294967296
   }
-}
-
-function roofGeometry() {
-  const points = [
-    -.5, 0, -.5, .5, 0, -.5, .5, 1, 0,
-    -.5, 0, -.5, .5, 1, 0, -.5, 1, 0,
-    -.5, 1, 0, .5, 1, 0, .5, 0, .5,
-    -.5, 1, 0, .5, 0, .5, -.5, 0, .5,
-    -.5, 0, .5, -.5, 0, -.5, -.5, 1, 0,
-    .5, 0, -.5, .5, 0, .5, .5, 1, 0,
-  ]
-  const geometry = new THREE.BufferGeometry()
-  // Roof faces must point outward; otherwise the building's flat top shows through.
-  for (let triangle = 0; triangle < points.length; triangle += 9) {
-    for (let axis = 0; axis < 3; axis++) {
-      const a = triangle + 3 + axis, b = triangle + 6 + axis
-      ;[points[a], points[b]] = [points[b], points[a]]
-    }
-  }
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(points.flatMap((_, i) => i % 3 === 0 ? [points[i] + .5, points[i + 2] + .5 + points[i + 1] * .5] : []), 2))
-  geometry.computeVertexNormals()
-  return geometry
 }
 
 function distanceToSegment(x: number, z: number, a: Point, b: Point) {
@@ -94,7 +72,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const stoneMaterial = standard('#c5bda2')
   const box = new THREE.BoxGeometry(1, 1, 1)
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 7)
-  const roof = roofGeometry()
+  const roof = gableRoofGeometry()
   const sphere = finishes.foliageGeometry
 
   function mesh(geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, ry = 0, parent: THREE.Group = root) {
@@ -131,11 +109,20 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         group.setMatrixAt(i, transform.matrix)
         if (hasColors) group.setColorAt(i, color.set(item.color || '#ffffff'))
       })
-      group.castShadow = shadows
-      if(material === leafMaterial)group.customDepthMaterial = finishes.foliageDepth
+      group.castShadow = shadows && material !== leafMaterial
       group.receiveShadow = true
       group.computeBoundingSphere()
       parent.add(group)
+      if (material === leafMaterial && shadows) {
+        const proxy = new THREE.InstancedMesh(finishes.foliageShadowGeometry, finishes.foliageShadowProxy, cell.length)
+        proxy.instanceMatrix = group.instanceMatrix
+        proxy.castShadow = true
+        proxy.receiveShadow = false
+        proxy.customDepthMaterial = finishes.foliageShadowDepth
+        proxy.layers.set(SHADOW_PROXY_LAYER)
+        proxy.computeBoundingSphere()
+        parent.add(proxy)
+      }
     }
   }
 
@@ -364,6 +351,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     }
   }
 
+  const gardenRnd = random(2718)
+  const gardenTrees: { x: number; z: number }[] = []
   for (const segment of roadSegments) {
     const dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1]
     const length = Math.hypot(dx, dz)
@@ -386,6 +375,12 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         const variation = Math.abs(Math.sin(x * 8.17 + z * 14.83) * 43758.5453) % 1
         const tone = brickPalette[(toneIndex + (variation < .18 ? 1 : variation > .85 ? brickPalette.length - 1 : 0)) % brickPalette.length]
         house(x, z, angle, width, depth + (variation - .5) * .6, height + (variation - .5) * 1.15, tone)
+        // Back gardens: the side facing away from this road. Planted later from
+        // their own random stream so existing park trees keep their positions.
+        if (gardenRnd() < .5) {
+          const along = (gardenRnd() - .5) * width * .7, back = side * (depth / 2 + 3.2 + gardenRnd() * 2.6)
+          gardenTrees.push({ x: x + along * Math.cos(angle) + back * Math.sin(angle), z: z - along * Math.sin(angle) + back * Math.cos(angle) })
+        }
       }
     }
   }
@@ -405,7 +400,9 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const treeBranches: Instance[] = []
   const shrubs: Instance[] = []
   const foliageColors = ['#64814a', '#769354', '#8da260', '#a0ad6e', '#6d8b4d', '#a8b676']
-  function tree(x: number, z: number, size = 1) {
+  // Compact trees (gardens, avenues) use four lobes and skip the outer clusters,
+  // keeping crown instances near the original budget while doubling coverage.
+  function tree(x: number, z: number, size = 1, compact = false) {
     const species = Math.floor(rnd() * foliageColors.length)
     const color = foliageColors[species]
     const height = (3.8 + rnd() * 2.2) * size
@@ -415,14 +412,14 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     treeTrunks.push({ x, y: height * .4, z, sx: .19 * size, sy: height * .8, sz: .19 * size })
     // Gaps between lobes let sunlight through, so crowns cast broken, dappled shade.
     // Irregular clusters give mature trees layered crowns and soft, broken silhouettes.
-    for (let lobe=0;lobe<7;lobe++) {
-      const angle=lobe*2.399+height, ring=lobe===0?0:height*(silhouette===1?.19:silhouette===2?.31:.25);
-      const radius=height*(lobe===0?.37:.24+rnd()*.07);
+    for (let lobe=0;lobe<(compact?4:7);lobe++) {
+      const angle=lobe*2.399+height, ring=lobe===0?0:height*(compact?.15:silhouette===1?.19:silhouette===2?.31:.25);
+      const radius=height*(lobe===0?.37:(compact?.28:.24)+rnd()*.07);
       treeCrowns.push({x:x+Math.cos(angle)*ring,y:height*(lobe===0?.84:.63+rnd()*.16),z:z+Math.sin(angle)*ring,
         sx:radius,sy:radius*(silhouette===1?1.4:silhouette===2?.65:.85+rnd()*.3),sz:radius,ry:rnd()*6,
         color: lobe > 0 && (lobe + species) % 5 === 0 ? foliageColors[(species + 1) % foliageColors.length] : color});
     }
-    if (detailedLocal) {
+    if (detailedLocal && !compact) {
       for (let branch = 0; branch < 4; branch++) {
         const angle = branch * Math.PI / 2 + height
         treeBranches.push({ x: x + Math.cos(angle) * height * .1, y: height * .55,
@@ -461,6 +458,46 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     if(!nearPark(x,z,-5)||inCourtArea(x,z,exclusions,5)||nearLandmark(x,z))continue;
     if(roadSegments.some(road=>distanceToSegment(x,z,road.a,road.b)<road.width/2+3))continue;
     tree(x,z,.85+rnd()*.4);
+  }
+  // Street planes on avenues and trees behind terraces: the concept's leafy
+  // density. Clearances keep trunks off carriageways, buildings and venues.
+  const houseCells = new Map<string, Instance[]>()
+  for (const body of bodies) {
+    const key = `${Math.floor(body.x / 8)},${Math.floor(body.z / 8)}`
+    if (!houseCells.has(key)) houseCells.set(key, [])
+    houseCells.get(key)!.push(body)
+  }
+  const nearHouse = (x: number, z: number, clearance: number) => {
+    for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) {
+      for (const body of houseCells.get(`${Math.floor(x / 8) + ox},${Math.floor(z / 8) + oz}`) ?? []) {
+        if (Math.hypot(body.x - x, body.z - z) < clearance) return true
+      }
+    }
+    return false
+  }
+  const planted = new Set<string>()
+  const plantable = (x: number, z: number, roadClearance: number, houseClearance: number) => {
+    const key = `${Math.round(x / 3.5)},${Math.round(z / 3.5)}`
+    if (planted.has(key) || inCourtArea(x, z, exclusions, 5) || nearLandmark(x, z) || nearHouse(x, z, houseClearance)) return false
+    if (canalPoints.some(p => Math.hypot(p.x - x, p.z - z) < 7)) return false
+    if (roadSegments.some(road => distanceToSegment(x, z, road.a, road.b) < road.width / 2 + roadClearance)) return false
+    planted.add(key)
+    return true
+  }
+  for (const segment of roadSegments) {
+    if (!segment.avenue) continue
+    const dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1], length = Math.hypot(dx, dz)
+    for (let d = 5.5; d < length - 3; d += 11) {
+      for (const side of [-1, 1]) {
+        const offset = segment.width / 2 + 1.35
+        const x = segment.a[0] + dx / length * d - dz / length * offset * side
+        const z = segment.a[1] + dz / length * d + dx / length * offset * side
+        if (plantable(x, z, 1.1, 3.4)) tree(x, z, .62 + rnd() * .12, true)
+      }
+    }
+  }
+  for (const p of gardenTrees) {
+    if (!nearPark(p.x, p.z, 2) && plantable(p.x, p.z, 2.5, 4.4)) tree(p.x, p.z, .7 + rnd() * .3, true)
   }
   instances(cylinder, trunkMaterial, treeTrunks)
   instances(box, trunkMaterial, treeBranches)
