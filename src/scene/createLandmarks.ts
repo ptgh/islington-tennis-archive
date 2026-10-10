@@ -10,12 +10,14 @@ export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,f
  const materials=new Map<string,THREE.MeshStandardMaterial>();
  const mat=(color:string)=>{
   if(!materials.has(color)){
-   const surface=finishes&&['#a77d59','#b49b7d'].includes(color)?finishes.brick.clone():finishes&&color==='#46534a'?finishes.slate.clone():new THREE.MeshStandardMaterial({roughness:.9});
+   const surface=finishes&&['#a77d59','#b49b7d'].includes(color)?finishes.brick.clone():finishes&&['#46534a','#7d8885'].includes(color)?finishes.slate.clone():new THREE.MeshStandardMaterial({roughness:.9});
    surface.color.set(color);materials.set(color,surface);
   }return materials.get(color)!;
  };
  function part(parent:THREE.Group,color:string,x:number,y:number,z:number,w:number,h:number,d:number,geometry:THREE.BufferGeometry=box){const m=new THREE.Mesh(geometry,mat(color));m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
- const brick='#a77d59',stone='#c9c4ac',roof='#46534a',glass='#617d77';
+ // `roof` stays near-black for clock hands and doors; `slate` is the mid-grey of the town's
+ // roofs, so landmark roofs no longer read as black wedges in sunlight.
+ const brick='#a77d59',stone='#c9c4ac',roof='#46534a',slate='#7d8885',glass='#617d77';
  for(const place of places.filter(p=>p.kind==='landmark')){
   const g=new THREE.Group();g.name=place.id;g.position.copy(project(place.lat,place.lng));root.add(g);
   if(place.id==='clock-tower'){
@@ -26,18 +28,18 @@ export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,f
    for(let i=0;i<4;i++){const a=i*Math.PI/2;const f=part(g,'#f0e8cc',Math.sin(a)*2.56,21,Math.cos(a)*2.56,1.6,1.6,1,face);f.rotation.y=a;
     const hand=part(g,roof,Math.sin(a)*2.59,21.45,Math.cos(a)*2.59,.12,1, .12);hand.rotation.y=a;
     const short=part(g,roof,Math.sin(a)*2.60,21,Math.cos(a)*2.60,.85,.12,.12);short.rotation.y=a;}
-   part(g,roof,0,24,0,3,3,3,new THREE.ConeGeometry(1,1,4));
+   part(g,slate,0,24,0,3,3,3,new THREE.ConeGeometry(1,1,4));
   }else if(place.id==='union-chapel'){
    part(g,brick,0,5,0,11,10,18);
    // Gabled nave: ridge runs the hall's length, with brick gable ends above the rose window.
-   const gable=gableRoofGeometry();const r=part(g,roof,0,10,0,19,5,11.8,gable);r.rotation.y=Math.PI/2;r.name='union-chapel-roof';
+   const gable=gableRoofGeometry();const r=part(g,slate,0,10,0,19,5,11.8,gable);r.rotation.y=Math.PI/2;r.name='union-chapel-roof';
    for(const z of [-9.56,9.56]){const end=part(g,brick,0,10,z,.12,4.9,11.2,gable);end.rotation.y=Math.PI/2;}
-   part(g,brick,6,10,-4,4,20,4);part(g,roof,6,22,-4,3.3,7,3.3,new THREE.ConeGeometry(1,1,8));
+   part(g,brick,6,10,-4,4,20,4);part(g,slate,6,22,-4,3.3,7,3.3,new THREE.ConeGeometry(1,1,8));
    const rose=part(g,stone,0,7,9.06,2.1,2.1,1,new THREE.RingGeometry(.65,1,16));rose.material=new THREE.MeshStandardMaterial({color:stone,side:THREE.DoubleSide});
    part(g,glass,0,7,9.02,1.4,1.4,1,new THREE.CircleGeometry(1,16));
    for(const x of [-3.5,0,3.5])part(g,glass,x,2.6,9.1,1.4,4,.12);
   }else if(place.id==='estorick'){
-   part(g,stone,0,.2,0,17,.4,17);part(g,'#b49b7d',0,4,0,12,8,10);part(g,roof,0,8.3,0,12.5,1,10.5);
+   part(g,stone,0,.2,0,17,.4,17);part(g,'#b49b7d',0,4,0,12,8,10);part(g,slate,0,8.3,0,12.5,1,10.5);
    for(const x of [-4,-2,0,2,4])for(const y of [2,5.5]){part(g,'#eee5cd',x,y,5.08,1.25,2,.16);part(g,glass,x,y,5.18,.9,1.6,.08);}
    part(g,roof,0,1.5,5.3,1.3,3,.3);part(g,stone,0,.4,6.1,3,.8,2);
    // Gallery entrance banners, walled sculpture garden and conservatory distinguish the villa.

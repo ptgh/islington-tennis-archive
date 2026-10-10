@@ -81,7 +81,7 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
     materials.push(material)
     return material
   }
-  const grass = scanned([grassColor, grassNormal, grassRough], [5, 10], '#76a65e', .28)
+  const grass = scanned([grassColor, grassNormal, grassRough], [5, 10], '#86b46e', .28)
   const concrete = scanned([concreteColor, concreteNormal, concreteRough], [3, 6], '#d0cec6', .35)
   const synthetic = scanned([syntheticColor, syntheticNormal, syntheticRough], [5, 10], '#5a969c', .16)
   const clay = synthetic.clone(); clay.color.set('#b97f60'); materials.push(clay)
