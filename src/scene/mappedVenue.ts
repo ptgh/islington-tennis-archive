@@ -43,7 +43,9 @@ export function footprint(points:Point[]) {
 }
 const random=(n:number)=>{const v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v)}
 const paint=['#b39a79','#c7b090','#b0876e','#d1bba0','#ad8269','#c4ad90','#9e775f']
-const roofs=['#66736c','#52625c','#727d73','#5c6964']
+const roofs=['#7c8983','#6b7a74','#87918a','#74807b']
+// Flat roofs inside the grounds read as pale membrane panels, not dark slate courses.
+const flatRoofs=['#b3b8b2','#a8aea8','#bcbfb7']
 const foliage=['#64814a','#769354','#8da260','#a0ad6e','#6d8b4d']
 
 /** Draw mapped ground geometry; architectural decoration deliberately remains a miniature. */
@@ -95,7 +97,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     else if(['park','garden','recreation_ground'].includes(f.tags.leisure)||['grass','forest','cemetery','meadow'].includes(f.tags.landuse)||['wood','scrub','grassland'].includes(f.tags.natural))shape(f.points,-.12,f.tags.natural==='wood'?'#788e60':'#91a774','grass')
     else if(f.tags.natural==='water')shape(f.points,-.10,'#7d9e9a')
   }
-  for(const outline of outlines)if(outline.length)shape(outline,-.14,id==='wimbledon'?'#c5c2aa':'#a1b180',id==='wimbledon'?'paving':'grass')
+  for(const outline of outlines)if(outline.length)shape(outline,-.14,id==='wimbledon'?'#cfd0c8':'#a1b180',id==='wimbledon'?'paving':'grass')
   const roadSegments:{a:Point;b:Point;width:number;path:boolean}[]=[]
   for(const f of roads) {
     if(f.tags.area==='yes') { shape(f.points,.01,'#c7c5b0','paving'); continue }
@@ -148,7 +150,8 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     g.rotateX(-Math.PI/2)
     const uv=g.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/6,uv.getY(i)/6)
     collect(g,mat(colour,'brick'))
-    shape(f.points,height+.035,roofTone,'roof')
+    const flatRoof=inVenue&&!clubhouse
+    shape(f.points,height+.035,flatRoof?flatRoofs[Math.abs(f.id)%flatRoofs.length]:roofTone,flatRoof?'paving':'roof')
     let polygonArea=0
     for(let i=1;i<f.points.length;i++)polygonArea+=f.points[i-1][0]*f.points[i][1]-f.points[i][0]*f.points[i-1][1]
     const coverage=Math.abs(polygonArea)/2/b.area
