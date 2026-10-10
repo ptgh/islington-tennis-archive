@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
 import { createMiniatureMaterials, SHADOW_PROXY_LAYER } from './miniatureMaterials'
-import { courtAreas, inCourtArea, renderedHighburyCourts } from './courtGeometry'
+import { courtAreas, inCourtArea, renderedHighburyCourts, routeAroundCourts } from './courtGeometry'
 import { createGear } from './createGear'
 import { mappedServices } from '../data/hub'
 import { createLandmarks } from './createLandmarks'
@@ -167,7 +167,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     { points: [[-338, -315], [-240, -303], [-113, -340], [-24, -325], [103, -290], [195, -331], [342, -342]], width: 8, avenue: true },
   ]
   const roads: Road[] = [...primaryRoads, ...busRoutes.map(route=>({
-    points:route.points.map(([lng,lat]):Point=>{const p=geoPosition(lat,lng);return [p.x,p.z]}),
+    points:routeAroundCourts(route.points.map(([lng,lat]):Point=>{const p=geoPosition(lat,lng);return [p.x,p.z]}),exclusions),
     width:5.8,avenue:true,bus:true,
   }))]
   // Neighbourhood streets are deliberately irregular and finer than the main roads.
@@ -192,6 +192,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const laneMarks: Instance[] = []
   const kerbs: Instance[] = []
   const gutters: Instance[] = []
+  const parkPaths: Instance[] = []
   const kerbMaterial = standard('#cfc8b8', { roughness: .92 })
   const gutterMaterial = standard('#3f4442', { roughness: .7, transparent: true, opacity: .35 })
   for (const road of roads) {
@@ -209,7 +210,12 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         const local=Math.abs(x-109)<50&&Math.abs(z+32)<82;
         const width=local&&road.bus?1.2:road.width;
         if(inCourtArea(x,z,exclusions,width/2+(local?.2:1)))continue;
-        if (!road.surveyed && nearPark(x, z, 3) && !road.bus) continue
+        // Streets never stop dead at a park: main avenues cross it as footpaths,
+        // side streets run on to the perimeter walk and end at its gate.
+        if (!road.surveyed && nearPark(x, z, 3) && !road.bus) {
+          if (road.avenue || !nearPark(x, z, 0)) parkPaths.push({ x, y: .07, z, sx: length / subdivisions + .3, sy: .05, sz: road.avenue ? 1.7 : 1.5, ry: angle })
+          continue
+        }
         const sx = length / subdivisions + (road.surveyed?.025:.4)
         roadEdges.push({ x, y: .035, z, sx, sy: .07, sz: width + (road.surveyed||local?.32:2.4), ry: angle })
         ;(road.path?surveyedPaths:roadBodies).push({ x, y: .08, z, sx, sy: .06, sz: width, ry: angle })
@@ -229,6 +235,19 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   instances(box, verge, roadEdges, false)
   instances(box, tarmac, roadBodies, false)
   instances(box, pathMaterial, surveyedPaths, false)
+  // A perimeter walk just outside each park edge, where side streets meet it.
+  for (const park of parks) {
+    const steps = Math.ceil((park.rx + park.rz) * Math.PI / 3)
+    for (let i = 0; i < steps; i++) {
+      const a0 = i / steps * Math.PI * 2, a1 = (i + 1) / steps * Math.PI * 2
+      const x0 = park.x + Math.cos(a0) * (park.rx + 1.2), z0 = park.z + Math.sin(a0) * (park.rz + 1.2)
+      const x1 = park.x + Math.cos(a1) * (park.rx + 1.2), z1 = park.z + Math.sin(a1) * (park.rz + 1.2)
+      const x = (x0 + x1) / 2, z = (z0 + z1) / 2
+      if (inCourtArea(x, z, exclusions, 1)) continue
+      parkPaths.push({ x, y: .07, z, sx: Math.hypot(x1 - x0, z1 - z0) + .25, sy: .05, sz: 1.3, ry: -Math.atan2(z1 - z0, x1 - x0) })
+    }
+  }
+  instances(box, pathMaterial, parkPaths, false)
   instances(box, kerbMaterial, kerbs)
   instances(box, gutterMaterial, gutters, false)
   instances(box, lane, laneMarks, false)
@@ -629,7 +648,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   church(-227, -32, .72)
 
   root.add(createLandmarks(geoPosition,finishes))
-  const gear=createGear(geoPosition);root.add(gear.root)
+  const gear=createGear(geoPosition,exclusions);root.add(gear.root)
 
   const stations: Station[] = mapStations.map(s=>({name:s.name,position:geoPosition(s.lat,s.lng).setY(6),lines:s.lines}))
   const transit = new THREE.Group(); root.add(transit)

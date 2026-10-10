@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { busRoutes } from '../data/busRoutes.ts'
-import { inCourtArea, type CourtArea } from './courtGeometry.ts'
+import { inCourtArea, routeAroundCourts, type CourtArea } from './courtGeometry.ts'
 
 type Project = (lat: number, lng: number) => THREE.Vector3
 type Part = { node: THREE.Object3D; color: string }
@@ -200,7 +200,8 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   const routes = busRoutes.map((route, index) => {
     const group = new THREE.Group()
     buses.add(group)
-    const points = route.points.map(([lng, lat]) => project(lat, lng).setY(.16))
+    // Same bent line as the drawn road, so buses never cross (or vanish at) a court.
+    const points = routeAroundCourts(route.points.map(([lng, lat]): [number, number] => { const p = project(lat, lng); return [p.x, p.z] }), exclusions).map(([x, z]) => new THREE.Vector3(x, .16, z))
     const curve = new THREE.CurvePath<THREE.Vector3>()
     for (let i = 1; i < points.length; i++) curve.add(new THREE.LineCurve3(points[i - 1], points[i]))
     const length = curve.getLength()
@@ -242,12 +243,14 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   })
 
   // Keep small road users on road stretches away from the collection van's route.
-  const vanPoints=busRoutes.find(route=>route.id==='19')!.points.map(([lng,lat])=>project(lat,lng))
+  const vanPoints=routeAroundCourts(busRoutes.find(route=>route.id==='19')!.points.map(([lng,lat]):[number,number]=>{const p=project(lat,lng);return [p.x,p.z]}),exclusions).map(([x,z])=>new THREE.Vector3(x,0,z))
   const vanRoad=vanPoints.slice(1).map((point,i)=>new THREE.Line3(vanPoints[i],point))
   const closest=new THREE.Vector3()
-  function roadPoint(curve:THREE.CurvePath<THREE.Vector3>,length:number,distance:number,cycling:boolean){
+  // `lane` is the offset to the left of travel: positive keeps to the left, as in the UK.
+  function roadPoint(curve:THREE.CurvePath<THREE.Vector3>,length:number,distance:number,cycling:boolean,direction=1,lane=1){
     const t=distance/length,p=curve.getPointAt(t),tangent=curve.getTangentAt(Math.min(.99999,Math.max(.00001,t)))
-    p.x+=tangent.z*(cycling?1.35:2.1);p.z-=tangent.x*(cycling?1.35:2.1)
+    const offset=(cycling?1.35:2.1)*lane*direction
+    p.x+=tangent.z*offset;p.z-=tangent.x*offset
     return {p,tangent}
   }
   function safeStretches(curve:THREE.CurvePath<THREE.Vector3>,length:number,cycling:boolean){
@@ -255,14 +258,16 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     let start:number|null=null
     for(let distance=0;distance<=length;distance+=2){
       const {p}=roadPoint(curve,length,Math.min(distance,length),cycling)
-      const clear=vanRoad.every(segment=>segment.closestPointToPoint(p,true,closest).distanceTo(p)>10)
+      const back=roadPoint(curve,length,Math.min(distance,length),cycling,-1).p
+      // Stretches avoid the van's route and, in both lanes, the court enclosures.
+      const clear=vanRoad.every(segment=>segment.closestPointToPoint(p,true,closest).distanceTo(p)>10)&&!inCourtArea(p.x,p.z,exclusions,2.6)&&!inCourtArea(back.x,back.z,exclusions,2.6)
       if(clear&&start===null)start=distance
       if((!clear||distance>=length)&&start!==null){const end=Math.min(distance,length);if(end-start>65)spans.push({start:start+3,end:end-3});start=null}
     }
     if(start!==null&&length-start>65)spans.push({start:start+3,end:length-3})
     return spans
   }
-  const traffic: {model:THREE.Group;curve:THREE.CurvePath<THREE.Vector3>;length:number;speed:number;distance:number;start:number;end:number;wheels:THREE.Object3D[];cycling:boolean}[]=[]
+  const traffic: {model:THREE.Group;curve:THREE.CurvePath<THREE.Vector3>;length:number;speed:number;distance:number;start:number;end:number;wheels:THREE.Object3D[];cycling:boolean;direction:number;turn:number;heading:number|null}[]=[]
   const carPaint=['#b86753','#e3d9bd','#506c70']
   for(let i=0;i<5;i++){
     const cycling=i>=3, route=routes.find(r=>r.id===(i===0?'30':i===1?'43':i===2?'393':i===3?'43':'393'))??routes[0]
@@ -291,20 +296,31 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const spans=safeStretches(route.curve,route.length,cycling)
     const span=spans[i>=3?spans.length-1:0]
     if(!span){model.visible=false;continue}
-    traffic.push({model,curve:route.curve,length:route.length,speed:cycling?3.9:8.8,distance:span.start+(span.end-span.start)*((.12+i*.21)%1),start:span.start,end:span.end,wheels,cycling})
+    traffic.push({model,curve:route.curve,length:route.length,speed:cycling?3.9:8.8,distance:span.start+(span.end-span.start)*((.12+i*.21)%1),start:span.start,end:span.end,wheels,cycling,direction:i%2?-1:1,turn:1,heading:null})
   }
 
+  // Riders shuttle along their stretch. At each end they turn round, swinging across
+  // into the opposite lane over a few metres, instead of shrinking away and respawning.
   function updateTraffic(delta:number){
     for(const rider of traffic){
-      const next=rider.distance+delta*rider.speed
-      const wrapped=next>rider.end?rider.start+(next-rider.end):next
-      const {p,tangent}=roadPoint(rider.curve,rider.length,wrapped,rider.cycling)
-      rider.distance=wrapped
+      const step=delta*rider.speed
+      let next=rider.distance+step*rider.direction
+      if(next>rider.end){next=rider.end-(next-rider.end);rider.direction=-1;rider.turn=0}
+      else if(next<rider.start){next=rider.start+(rider.start-next);rider.direction=1;rider.turn=0}
+      rider.turn=Math.min(1,rider.turn+step/7)
+      const swing=rider.turn*rider.turn*(3-2*rider.turn)
+      const {p,tangent}=roadPoint(rider.curve,rider.length,next,rider.cycling,rider.direction,swing*2-1)
+      const dx=p.x-rider.model.position.x,dz=p.z-rider.model.position.z
+      rider.distance=next
+      if(rider.heading===null)rider.heading=Math.atan2(tangent.x*rider.direction,tangent.z*rider.direction)
+      else if(dx*dx+dz*dz>1e-6){
+        const target=Math.atan2(dx,dz)
+        const turnBy=Math.atan2(Math.sin(target-rider.heading),Math.cos(target-rider.heading))
+        rider.heading+=turnBy*Math.min(1,delta*6)
+      }
       rider.model.position.copy(p).setY(.11)
-      rider.model.rotation.y=Math.atan2(tangent.x,tangent.z)
-      rider.model.scale.setScalar(Math.min(1,(wrapped-rider.start)/5,(rider.end-wrapped)/5))
-      rider.model.visible=!inCourtArea(p.x,p.z,exclusions,2.2)
-      for(const wheel of rider.wheels)wheel.rotation.x+=delta*rider.speed/.28
+      rider.model.rotation.y=rider.heading
+      for(const wheel of rider.wheels)wheel.rotation.x+=step/.28
     }
   }
 

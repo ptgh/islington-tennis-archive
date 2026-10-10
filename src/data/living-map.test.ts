@@ -25,7 +25,7 @@ test('miniature cars and cyclists remain outside court enclosures and pause', ()
 })
 
 test('illustrated road users keep clear of the collection van', () => {
-  const gear=createGear(project)
+  const gear=createGear(project,courtAreas(venues))
   const life=createTownLife([],[],project,courtAreas(venues))
   const roadUsers:THREE.Group[]=[]
   life.root.traverse(node=>{if(node instanceof THREE.Group && /^Miniature (car|cyclist)$/.test(node.name))roadUsers.push(node)})
@@ -36,6 +36,29 @@ test('illustrated road users keep clear of the collection van', () => {
   }
 })
 
+test('road users never vanish and turn round smoothly at the ends of their stretch', () => {
+  const life=createTownLife([],[],project,courtAreas(venues))
+  const riders:THREE.Group[]=[]
+  life.root.traverse(node=>{if(node instanceof THREE.Group && /^Miniature (car|cyclist)$/.test(node.name))riders.push(node)})
+  life.animate(1/60,true,false)
+  const heading=riders.map(r=>r.rotation.y), position=riders.map(r=>r.position.clone())
+  const move=riders.map(()=>new THREE.Vector3())
+  let reversals=0
+  for(let frame=0;frame<20000;frame++){
+    life.animate(1/60,true,false)
+    riders.forEach((r,i)=>{
+      assert.ok(r.visible,'rider stays visible');assert.equal(r.scale.x,1,'rider keeps full size')
+      const turn=Math.abs(Math.atan2(Math.sin(r.rotation.y-heading[i]),Math.cos(r.rotation.y-heading[i])))
+      assert.ok(turn<.35,`no snap turn (${turn.toFixed(2)} rad in one frame)`)
+      const step=r.position.clone().sub(position[i])
+      if(step.lengthSq()>1e-8&&move[i].lengthSq()>1e-8&&step.dot(move[i])<0)reversals++
+      if(step.lengthSq()>1e-8)move[i].copy(step)
+      heading[i]=r.rotation.y;position[i].copy(r.position)
+    })
+  }
+  assert.ok(reversals>0,'the run covers at least one turn-round')
+})
+
 test('curbside lamps illuminate only in night mode', () => {
   const lamps=createStreetLamps([{points:[[-100,-200],[100,-200]],width:8},{points:[[-100,-120],[100,-120]],width:8}],[])
   const lit=()=>{let count=0;lamps.root.traverseVisible(node=>{if(node instanceof THREE.Sprite)count++});return count}
@@ -44,4 +67,19 @@ test('curbside lamps illuminate only in night mode', () => {
   lamps.setNight(true);assert.equal(lit(),lamps.count)
   lamps.setNight(false);assert.equal(lit(),0)
   lamps.dispose()
+})
+
+test('bus routes bend around court enclosures instead of crossing them', async () => {
+  const { busRoutes } = await import('./busRoutes.ts')
+  const { routeAroundCourts, ROUTE_COURT_CLEARANCE } = await import('../scene/courtGeometry.ts')
+  const areas = courtAreas(venues)
+  for (const route of busRoutes) {
+    const raw = route.points.map(([lng, lat]): [number, number] => { const p = project(lat, lng); return [p.x, p.z] })
+    const bent = routeAroundCourts(raw, areas)
+    assert.deepEqual(bent[0], raw[0]); assert.deepEqual(bent.at(-1), raw.at(-1))
+    for (let i = 1; i < bent.length; i++) for (let s = 0; s <= 10; s++) {
+      const x = bent[i - 1][0] + (bent[i][0] - bent[i - 1][0]) * s / 10, z = bent[i - 1][1] + (bent[i][1] - bent[i - 1][1]) * s / 10
+      assert.equal(inCourtArea(x, z, areas, ROUTE_COURT_CLEARANCE - .3), false, `route ${route.id} crosses a court`)
+    }
+  }
 })

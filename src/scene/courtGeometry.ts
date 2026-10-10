@@ -34,3 +34,40 @@ export function inCourtArea(x:number,z:number,areas:CourtArea[],margin=0){return
  const dx=x-a.x,dz=z-a.z,c=Math.cos(a.rotation),s=Math.sin(a.rotation);
  return Math.abs(dx*c-dz*s)<a.halfWidth+margin&&Math.abs(dx*s+dz*c)<a.halfDepth+margin;
 });}
+/** Enough clearance that a full-width bus road (5.8) passes a court without being cut. */
+export const ROUTE_COURT_CLEARANCE=4.2;
+/** Bend a polyline around court enclosures, hugging one side of each, so a road and
+ * the buses on it share one path that never crosses (or vanishes at) a court. The
+ * swing eases in and out over `ease` units before each enclosure, so it never clips a corner. */
+export function routeAroundCourts(points:[number,number][],areas:CourtArea[],margin=ROUTE_COURT_CLEARANCE,ease=8):[number,number][]{
+ const toLocal=(a:CourtArea,x:number,z:number)=>{const c=Math.cos(a.rotation),s=Math.sin(a.rotation),dx=x-a.x,dz=z-a.z;return [dx*c-dz*s,dx*s+dz*c];};
+ const toWorld=(a:CourtArea,u:number,v:number):[number,number]=>{const c=Math.cos(a.rotation),s=Math.sin(a.rotation);return [a.x+u*c+v*s,a.z-u*s+v*c];};
+ const out:[number,number][]=[];
+ for(let i=1;i<points.length;i++){
+  const [ax,az]=points[i-1],[bx,bz]=points[i],steps=Math.max(1,Math.ceil(Math.hypot(bx-ax,bz-az)));
+  const samples=Array.from({length:steps},(_,k):[number,number]=>[ax+(bx-ax)*k/steps,az+(bz-az)*k/steps]);
+  // Per enclosure: which local axis the segment runs along, and which side it passes.
+  const plans=areas.map(a=>{
+   const [u0,v0]=toLocal(a,ax,az),[u1,v1]=toLocal(a,bx,bz),alongU=Math.abs(u1-u0)>=Math.abs(v1-v0);
+   const run=alongU?a.halfWidth+margin:a.halfDepth+margin,across=alongU?a.halfDepth+margin:a.halfWidth+margin;
+   const local=samples.map(([x,z])=>{const [u,v]=toLocal(a,x,z);return alongU?[u,v]:[v,u];});
+   const nearest=local.reduce((best,p)=>Math.abs(p[0])<Math.abs(best[0])?p:best,local[0]);
+   const hit=local.some(([r,q])=>Math.abs(q)<across&&Math.abs(r)<run+ease);
+   return {a,alongU,run,across,side:nearest[1]<0?-1:1,hit};
+  }).filter(plan=>plan.hit);
+  if(!plans.length){out.push(points[i-1]);continue;}
+  for(const [sx,sz] of samples){
+   let x=sx,z=sz;
+   for(const {a,alongU,run,across,side} of plans){
+    const [u,v]=toLocal(a,x,z),r=alongU?u:v,q=alongU?v:u;
+    if(Math.abs(q)>=across)continue;
+    const t=Math.abs(r)<=run?1:Math.abs(r)>=run+ease?0:1-(Math.abs(r)-run)/ease;
+    const w=t*t*(3-2*t),moved=q+(side*across-q)*w;
+    [x,z]=alongU?toWorld(a,u,moved):toWorld(a,moved,v);
+   }
+   out.push([x,z]);
+  }
+ }
+ if(points.length)out.push(points[points.length-1]);
+ return out;
+}
