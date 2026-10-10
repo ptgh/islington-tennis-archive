@@ -9,4 +9,4 @@ export function parseForecast(value:unknown,now=Date.now()):ForecastHour[]{
   return rows.slice(0,48);
 }
 export function weatherKind(code:number){return code>=51&&code<=67||code>=80&&code<=82||code>=95?'rain':code>=71&&code<=77||code===85||code===86?'snow':code>=2?'cloud':'clear';}
-export function weatherLabel(code:number){return code>=95?'Thunderstorms':weatherKind(code)==='rain'?'Rain / showers':weatherKind(code)==='snow'?'Snow':code===45||code===48?'Fog':code===3?'Overcast':code===2?'Partly cloudy':'Clear / mostly clear';}
+export function weatherLabel(code:number){return code>=95?'Thunderstorms':code>=51&&code<=57?'Drizzle':weatherKind(code)==='rain'?'Rain / showers':weatherKind(code)==='snow'?'Snow':code===45||code===48?'Fog':code===3?'Overcast':code===2?'Partly cloudy':'Clear / mostly clear';}

@@ -33,7 +33,7 @@ import { AccountCircle } from './components/AccountCircle';
 type MapCard='places'|'forecast'|'time';
 
 export default function App() {
-  const [weather,setWeather]=useState<WeatherSceneKind>('rain');
+  const [weather,setWeather]=useState<WeatherSceneKind>('clear');
   const map=useRef<TownMapHandle>(null);
   const [favourites,setFavourites]=useState<string[]>(()=>{try{return parseFavourites(localStorage.getItem('islington-tennis:favourites'),venues.map(v=>v.id));}catch{return [];}});
   const [savedOnly,setSavedOnly]=useState(false);
