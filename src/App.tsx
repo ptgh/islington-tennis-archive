@@ -30,6 +30,8 @@ import { threadIdFromHash } from './data/askThreads';
 import { LoadingScreen } from './components/LoadingScreen';
 import { AccountCircle } from './components/AccountCircle';
 
+type MapCard='places'|'forecast'|'time';
+
 export default function App() {
   const [weather,setWeather]=useState<WeatherSceneKind>('rain');
   const map=useRef<TownMapHandle>(null);
@@ -73,6 +75,22 @@ export default function App() {
   const closeAsk=useCallback(()=>{history.pushState(null,'',window.location.pathname+window.location.search);setAskHash(undefined);},[]);
   const [panelOpen,setPanelOpen]=useState(true);
   const [isMobile,setIsMobile]=useState(()=>window.matchMedia('(max-width:760px)').matches);
+  // One floating map card at a time. On phones a card retracts the hub sheet so
+  // the map shows beneath it; closing restores the sheet unless the card moved
+  // the map on purpose. Opening the sheet closes the card.
+  const [card,setCard]=useState<MapCard|null>(null);
+  const restoreSheet=useRef(false);
+  const cardProps=(name:MapCard)=>({open:card===name,onOpenChange:(open:boolean)=>{
+    if(open){
+      if(card===null){restoreSheet.current=isMobile&&panelOpen;if(isMobile)setPanelOpen(false);}
+      setCard(name);
+    }else if(card===name){
+      setCard(null);
+      if(restoreSheet.current)setPanelOpen(true);
+      restoreSheet.current=false;
+    }
+  }});
+  useEffect(()=>{if(isMobile&&panelOpen){setCard(null);restoreSheet.current=false;}},[isMobile,panelOpen]);
   const [ready,setReady]=useState(false);
   const previousDetail=useRef<string|null>(null);
   const previousVisit=useRef<string|null>(null);
@@ -130,14 +148,14 @@ export default function App() {
   useEffect(()=>{if(section==='play'&&playFocusId){const venue=venues.find(v=>v.id===playFocusId);if(venue)map.current?.locate(venue.lat,venue.lng);}},[playFocusId,playId,section]);
   useEffect(()=>{if(routeId)map.current?.followRoute(routeId);},[routeId]);
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom&&askHash===undefined){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen,askHash]);
-  return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} hub-section-${section}`}>
+  return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} ${card?'card-open':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
     <TownMap ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
-    <div className="map-vignette"/><Weather onWeather={setWeather}/><MapPlaces onLocate={(lat,lng)=>{setPanelOpen(false);setStations(true);map.current?.locate(lat,lng);}}/>
+    <div className="map-vignette"/><Weather onWeather={setWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onLocate={(lat,lng)=>{restoreSheet.current=false;setPanelOpen(false);setStations(true);map.current?.locate(lat,lng);}}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
     <button className="pill ask-launch" onClick={()=>{window.location.hash='#/ask';}} aria-haspopup="dialog">Ask</button>
     <AccountCircle venues={venues} onRacquets={openMyFrame} onPartners={()=>{changeSection('play');setPartnersOpen(true);}}/>
-    <header className="app-header"><button className="brand" onClick={home} aria-label="Islington Tennis home"><Icon name="ball" size={35}/><span>Islington Tennis</span></button><div className="header-actions"><button className="pill about-button" onClick={()=>setAbout(true)} aria-label="About"><span>About</span><Icon name="info" size={17}/></button><LightingControl night={night} time={lightingTime} onTime={setLightingTime} onNight={toggleNight}/></div></header>
+    <header className="app-header"><button className="brand" onClick={home} aria-label="Islington Tennis home"><Icon name="ball" size={35}/><span>Islington Tennis</span></button><div className="header-actions"><button className="pill about-button" onClick={()=>setAbout(true)} aria-label="About"><span>About</span><Icon name="info" size={17}/></button><LightingControl night={night} time={lightingTime} onTime={setLightingTime} onNight={toggleNight} {...cardProps('time')}/></div></header>
     <aside id="court-browser" className={`directory-panel ${hasDetail?'has-detail':''}`} aria-label="Explore the tennis hub" inert={!panelOpen} aria-hidden={!panelOpen?true:undefined}>
       <button className="mobile-handle" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen} aria-label={panelOpen?'Minimise tennis hub':'Open tennis hub'}><span/></button>
       <HubNavigation section={section} onChange={changeSection}/>

@@ -1,11 +1,10 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { Icon } from './Icon'
 import { clockLabel, londonMinutes, londonPreviewTime } from '../data/lightingTime'
 import './LightingControl.css'
 
-type Props = { night: boolean; time: number | null; onTime: (time: number | null) => void; onNight: () => void }
-export function LightingControl({ night, time, onTime, onNight }: Props) {
-  const [open, setOpen] = useState(false)
+type Props = { night: boolean; time: number | null; onTime: (time: number | null) => void; onNight: () => void; open: boolean; onOpenChange: (open: boolean) => void }
+export function LightingControl({ night, time, onTime, onNight, open, onOpenChange: setOpen }: Props) {
   const root = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null), id = useId()
   const minutes = time === null ? Math.min(1425, Math.round(londonMinutes(new Date()) / 15) * 15) : londonMinutes(new Date(time))
   useEffect(() => {
@@ -13,7 +12,7 @@ export function LightingControl({ night, time, onTime, onNight }: Props) {
     const outside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false) }
     document.addEventListener('pointerdown', outside)
     return () => document.removeEventListener('pointerdown', outside)
-  }, [open])
+  }, [open, setOpen])
   return <div className="lighting-control" ref={root} onKeyDown={event => {
     if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus() }
   }}>

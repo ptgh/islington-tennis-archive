@@ -3,8 +3,7 @@ import {useState} from 'react';
 import {borough} from '../data/borough';
 const places=borough.places;
 import {mapStations,tubeConnections} from '../data/transit';
-export function MapPlaces({onLocate}:{onLocate:(lat:number,lng:number)=>void}){
-  const [open,setOpen]=useState(false);
+export function MapPlaces({onLocate,open,onOpenChange:setOpen}:{onLocate:(lat:number,lng:number)=>void;open:boolean;onOpenChange:(open:boolean)=>void}){
   const [building,setBuilding]=useState(''),[stationName,setStationName]=useState('');
   const [stop,setStop]=useState<number|null>(null);
   function visit(index:number){setStop(index);const point=borough.tour[index];onLocate(point.lat,point.lng);}

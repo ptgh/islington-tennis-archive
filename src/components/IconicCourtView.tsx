@@ -393,6 +393,7 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
   const engine = useRef<SceneHandle | null>(null)
   const [failed, setFailed] = useState(false)
   const [panelOpen, setPanelOpen] = useState(true)
+  const [timeOpen, setTimeOpen] = useState(false)
   const [preparing, setPreparing] = useState(true)
   const [selectedId, setSelectedId] = useState(COURTS[clubId][0].id)
   const club = iconicClubs.find(item => item.id === clubId) ?? iconicClubs[0]
@@ -626,7 +627,7 @@ export function IconicCourtView({ active = true, clubId, event, onBack, onSwitch
     <button className="pill atlas-court-panel-toggle" aria-controls="atlas-club-details" aria-expanded={panelOpen} onClick={() => setPanelOpen(open => !open)}><Icon name={panelOpen ? 'layers' : 'court'} size={16}/>{panelOpen ? 'Explore map' : 'Club details'}</button>
     <div className="atlas-court-switch" aria-label="Switch London venue"><button aria-pressed={clubId === 'wimbledon'} onClick={() => onSwitch('wimbledon')}>Wimbledon</button><button aria-pressed={clubId === 'queens'} onClick={() => onSwitch('queens')}>Queen’s</button></div>
     <div className="atlas-court-world" aria-label="Miniature atmosphere">
-      <LightingControl night={night} time={lightingTime} onTime={onLightingTime} onNight={onNight}/>
+      <LightingControl night={night} time={lightingTime} onTime={onLightingTime} onNight={onNight} open={timeOpen} onOpenChange={setTimeOpen}/>
       <button onClick={onMotion} aria-label={motionRunning ? 'Pause world' : 'Run world'}><Icon name={motionRunning ? 'pause' : 'play'} size={14}/>{motionRunning ? 'Pause' : 'Run'}</button>
     </div>
     <div className="atlas-court-controls" aria-label="Court view controls"><button onClick={() => engine.current?.zoom(1.25)} aria-label="Zoom in">+</button><button onClick={() => engine.current?.zoom(.8)} aria-label="Zoom out">−</button><button onClick={() => engine.current?.reset()} aria-label="Reset court view"><Icon name="reset" size={18}/></button></div>

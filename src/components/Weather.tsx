@@ -4,8 +4,8 @@ import {useEffect,useState} from 'react';
 import type {WeatherSceneKind} from '../scene/createWeather';
 import {parseForecast,WEATHER_URL,weatherKind,weatherLabel,type ForecastHour} from '../data/weather';
 const hourLabel=(time:number)=>new Intl.DateTimeFormat('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}).format(time);
-export function Weather({onWeather}:{onWeather:(kind:WeatherSceneKind)=>void}){
-  const [enabled,setEnabled]=useState(true),[open,setOpen]=useState(false),[hours,setHours]=useState<ForecastHour[]>([]),[status,setStatus]=useState(''),[refresh,setRefresh]=useState(0),[selected,setSelected]=useState(0),[effects,setEffects]=useState(false),[demo,setDemo]=useState(true),[fetched,setFetched]=useState(0);
+export function Weather({onWeather,open,onOpenChange:setOpen}:{onWeather:(kind:WeatherSceneKind)=>void;open:boolean;onOpenChange:(open:boolean)=>void}){
+  const [enabled,setEnabled]=useState(true),[hours,setHours]=useState<ForecastHour[]>([]),[status,setStatus]=useState(''),[refresh,setRefresh]=useState(0),[selected,setSelected]=useState(0),[effects,setEffects]=useState(false),[demo,setDemo]=useState(true),[fetched,setFetched]=useState(0);
   useEffect(()=>{if(!open)return;const controller=new AbortController();let alive=true;const timeout=setTimeout(()=>controller.abort(),12000);setStatus('Loading forecast…');
     fetch(WEATHER_URL,{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{if(alive){setHours(parseForecast(data));setSelected(0);setFetched(Date.now());setStatus('');}}).catch(()=>{if(alive){setHours([]);setEffects(false);setStatus('Forecast unavailable. Try again shortly.');}}).finally(()=>clearTimeout(timeout));return()=>{alive=false;controller.abort();clearTimeout(timeout);};
   },[open,refresh]);
