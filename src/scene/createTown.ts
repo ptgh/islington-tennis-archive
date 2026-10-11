@@ -129,7 +129,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   mesh(box, grass, 0, -1.4, 0, 2000, 2.5, 2000)
 
   // Geography supplies the locations; the miniature town around them is illustrative.
-  const highbury = geoPosition(51.5525, -.099)
+  const highbury = HIGHBURY_PARK
   const courtNeighbourhoods = venues.map(venue => geoPosition(venue.lat, venue.lng))
   const detailedNeighbourhood = (x: number, z: number, highburyRadius: number) =>
     Math.hypot(x - highbury.x, z - highbury.z) < highburyRadius ||

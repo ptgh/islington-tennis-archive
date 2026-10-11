@@ -542,7 +542,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
             ref={(element) => { if (element) markerRefs.current.set(venue.id, element); else markerRefs.current.delete(venue.id) }}
             style={{ display: 'none' }}
             onClick={() => onSelect(venue.id)}
-            aria-label={playCounts?`${venue.name}. ${playCounts[venue.id]??0} ${coachingPins?(playCounts[venue.id]===1?'coaching option':'coaches & programmes'):playCounts[venue.id]===1?'way to play together':'ways to play together'}`:`${index + 1}. ${venue.name}.${nextFree?.[venue.id]?` Next free court ${freeLabel(nextFree[venue.id].start)}.`:''} Show court details`}
+            aria-label={playCounts?`${venue.name}. ${playCounts[venue.id]??0} ${coachingPins?(playCounts[venue.id]===1?'coaching option':'coaches & programmes'):playCounts[venue.id]===1?'way to play together':'ways to play together'}`:`${index + 1}. ${venue.name}.${nextFree?.[venue.id]?` Next free court ${freeLabel(nextFree[venue.id].start)}.`:''} View court details`}
             aria-pressed={selectedId === venue.id}
           >
             <span className="town-pin__number">{playCounts?<Icon name={coachingPins?'ball':'people'} size={18}/>:index + 1}</span>{playCounts&&<span className="town-pin__count" aria-hidden="true">{playCounts[venue.id]??0}</span>}{!playCounts&&nextFree?.[venue.id]&&<span className="town-pin__free" aria-hidden="true">Free {freeLabel(nextFree[venue.id].start)}</span>}
