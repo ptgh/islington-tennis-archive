@@ -524,7 +524,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   // Court pins describe; they don't promise a link. Once a court is selected its card is
   // already open, so the label is just the name (plus Better's free time when known).
   const pinSubline = (id: string) => {
-    if (playCounts) return `${playCounts[id]??0} ${coachingPins?(playCounts[id]===1?'coaching option':'coaches & programmes'):playCounts[id]===1?'way to play together':'ways to play together'} ↗`
+    if (playCounts) return `${playCounts[id]??0} ${coachingPins?(playCounts[id]===1?'coaching option':'coaches & programmes'):playCounts[id]===1?'way to play together':'ways to play together'}`
     const free = nextFree?.[id]
     if (free) return `${free.courts} ${free.courts===1?'court':'courts'} free at ${freeLabel(free.start)} · Better`
     return selectedId === id ? null : 'View court details'
@@ -554,7 +554,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
             <span className="town-station__roundel" aria-hidden="true" /><span hidden={!showTransit}>{name}</span>
           </div>
         ))}
-        <button className="town-pin town-pin--shop" ref={vanRef} style={{display:'none'}} aria-label="Sweet Spot Stringer van. Follow the miniature" onClick={()=>{onSelectService('sweet-spot-stringer');const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),9);}}><span className="town-pin__number"><Icon name="bus" size={17}/></span><span className="town-pin__label">Sweet Spot Stringer<span>Follow the miniature van ↗</span></span></button>
+        <button className="town-pin town-pin--shop" ref={vanRef} style={{display:'none'}} aria-label="Sweet Spot Stringer van. Follow the miniature" onClick={()=>{onSelectService('sweet-spot-stringer');const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),9);}}><span className="town-pin__number"><Icon name="bus" size={17}/></span><span className="town-pin__label">Sweet Spot Stringer<span>Follow the miniature van</span></span></button>
         {mappedServices.map(service=><button className={`town-pin town-pin--shop${selectedServiceId===service.id?' town-pin--selected':''}`} key={service.id} ref={element=>{if(element)shopRefs.current.set(service.id,element);else shopRefs.current.delete(service.id)}} style={{display:'none'}} aria-label={`${service.name}. Show shop details`} onClick={()=>onSelectService(service.id)}><span className="town-pin__number"><Icon name="bag" size={16}/></span><span className="town-pin__label">{service.name}</span></button>)}
       </div>
       <div className="town-map__vignette" aria-hidden="true" />
