@@ -733,6 +733,11 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
           for(const [y,height] of [[2.6,2.7],[8.15,2.5]])hallWallTrim.push({x:wallX,y,z,sx:.30,sy:height,sz:.24})
         }
         mesh(box, metalMaterial, shedx + side * 8.7, 9.5, center.z, .18, .22, h + 1)
+        for(const end of [-1,1]){
+          const z=center.z+end*(h/2-.55),x=wallX+side*.18
+          hallWallMetal.push({x,y:4.95,z,sx:.11,sy:8.9,sz:.11})
+          for(const y of [1.0,4.8,8.8])hallWallMetal.push({x:x-side*.04,y,z,sx:.20,sy:.09,sz:.22})
+        }
         mesh(box, windowMaterial, shedx + side * 8.53, 5.4, center.z, .08, 2.65, h * .82)
         for (let z = -h*.41; z <= h*.41; z += 2.4) {
           mesh(box, trimMaterial, shedx + side * 8.6, 5.4, center.z + z, .16, 2.85, .11)

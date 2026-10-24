@@ -218,6 +218,12 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
         })
       }
       if(modern && len>=6) {
+        // Drainage hardware gives the tall wall a familiar human scale. It is
+        // illustrative and follows the existing facade, without changing access.
+        place(a[0]+dx/len*.42+nx*.24,a[1]+dz/len*.42+nz*.24,-Math.atan2(dz,dx),1,()=>{
+          box(0,height/2,0,.10,height-.55,.14,'#66736c',false)
+          for(const y of [1.0,height-.9])box(0,y,0,.22,.09,.22,'#66736c',false)
+        })
         // Restrained glazed bays and piers, rather than domestic sash windows
         // on large venue halls. All elevations remain on the mapped outline.
         const bays=Math.max(2,Math.floor(len/4)),angle=-Math.atan2(dz,dx)

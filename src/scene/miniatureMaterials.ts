@@ -410,6 +410,31 @@ export function createMiniatureMaterials() {
   const seamRoof = new THREE.MeshStandardMaterial({color:'#87938b',map:metalRoofMap,bumpMap:metalRoofBump,bumpScale:.055,roughnessMap:metalRoofRoughness,roughness:.8,metalness:.22})
   const membrane = new THREE.MeshStandardMaterial({color:'#b3b8b2',map:membraneMap,bumpMap:renderBump,bumpScale:.012,roughnessMap:membraneRoughness,roughness:1})
   architecturalUV(stucco,false);architecturalUV(seamRoof,true);architecturalUV(membrane,true)
+  // Broad, world-anchored weathering sits above the fine repeating texture.
+  // Roofs retain their mapped outlines; variation adds scale without geometry.
+  for (const material of [stucco, seamRoof, membrane]) {
+    const prepare=material.onBeforeCompile,key=material.customProgramCacheKey()
+    material.onBeforeCompile=(shader,renderer)=>{
+      prepare.call(material,shader,renderer)
+      shader.vertexShader='varying vec3 finishWorld;\n'+shader.vertexShader.replace('#include <project_vertex>',`
+        finishWorld=architectureWorld;
+        #include <project_vertex>`)
+      shader.fragmentShader=`varying vec3 finishWorld;
+        float finishHash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
+        float finishNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(finishHash(i),finishHash(i+vec2(1,0)),f.x),mix(finishHash(i+vec2(0,1)),finishHash(i+vec2(1,1)),f.x),f.y);}
+        `+shader.fragmentShader.replace('#include <color_fragment>',`
+        #include <color_fragment>
+        ${material===stucco?`
+          float wallWeather=finishNoise(vec2((finishWorld.x+finishWorld.z)/5.0,finishWorld.y/11.0));
+          float wallBase=1.0-smoothstep(.3,2.3,finishWorld.y);
+          diffuseColor.rgb*=mix(.91,1.025,wallWeather)*(1.0-wallBase*.13);
+        `:`
+          float roofWeather=finishNoise(finishWorld.xz/13.0+finishWorld.y*.13)*.7+finishNoise(finishWorld.xz/3.1)*.3;
+          diffuseColor.rgb*=mix(.87,1.035,roofWeather);
+        `}`)
+    }
+    material.customProgramCacheKey=()=>`${key}-building-weather-v1`
+  }
   const glazing = new THREE.MeshStandardMaterial({color:'#456b63',roughness:.25,metalness:.12,envMapIntensity:1.1,emissive:'#f2bf6d',emissiveIntensity:0})
   architecturalGlass(glazing)
   const grass = new THREE.MeshStandardMaterial({ color: '#8aa777', map: grassMap, bumpMap: grassBump, bumpScale: .025, roughness: 1 })
