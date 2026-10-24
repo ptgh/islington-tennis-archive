@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-/** Layer seen only by the sun's shadow pass (see TownMap's shadowMap wrapper). */
+/** Layer seen only by the shadow pass in the town and club renderers. */
 export const SHADOW_PROXY_LAYER = 1
 
 // Small, repeatable surface maps keep the miniature crisp close up without
@@ -21,6 +21,94 @@ function field(x: number, y: number, size: number, seed: number) {
 }
 
 type Pixel = [number, number, number]
+
+/** Clones retain the world-scale UV treatment; Three's material.clone does not
+ * copy onBeforeCompile. Shared texture ownership remains with the finish set. */
+export function cloneArchitecturalFinish(base: THREE.MeshStandardMaterial, color: string) {
+  const copy = base.clone()
+  copy.color.set(color)
+  copy.onBeforeCompile = base.onBeforeCompile
+  copy.customProgramCacheKey = base.customProgramCacheKey
+  return copy
+}
+
+/** Landmark dimensions vary widely; keep masonry and roof courses in metres. */
+export function cloneWorldArchitecturalFinish(base:THREE.MeshStandardMaterial,color:string,roof=false) {
+  const copy=cloneArchitecturalFinish(base,color)
+  architecturalUV(copy,roof)
+  return copy
+}
+
+function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, span = roof ? 6 : 4) {
+  material.onBeforeCompile = shader => {
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
+      #include <begin_vertex>
+      mat4 architectureModel = modelMatrix;
+      #ifdef USE_INSTANCING
+        architectureModel *= instanceMatrix;
+      #endif
+      vec3 architectureWorld = (architectureModel * vec4(transformed, 1.0)).xyz;
+      vec3 architectureNormal = mat3(architectureModel) * normal;
+      vec2 architectureUv = ${roof ? 'architectureWorld.xz' : 'vec2(abs(architectureNormal.x) > abs(architectureNormal.z) ? architectureWorld.z : architectureWorld.x, architectureWorld.y)'} / ${span.toFixed(1)};
+      #ifdef USE_MAP
+        vMapUv = architectureUv;
+      #endif
+      #ifdef USE_BUMPMAP
+        vBumpMapUv = architectureUv;
+      #endif
+      #ifdef USE_ROUGHNESSMAP
+        vRoughnessMapUv = architectureUv;
+      #endif
+    `)
+  }
+  material.customProgramCacheKey = () => `architecture-world-uv-${roof ? 'roof' : 'wall'}-${span}-v2`
+}
+
+/** Varied panes and selective warm rooms use the existing lighting and PBR
+ * environment. No interior geometry, extra pass, or per-frame uniforms. */
+function architecturalGlass(material: THREE.MeshStandardMaterial) {
+  material.onBeforeCompile = shader => {
+    shader.vertexShader = 'varying vec3 glassWorld; varying vec3 glassOrigin; varying vec2 glassPanel; varying vec2 glassSpan; varying float glassVertical;\n' + shader.vertexShader.replace('#include <begin_vertex>', `
+      #include <begin_vertex>
+      mat4 glassModel = modelMatrix;
+      #ifdef USE_INSTANCING
+        glassModel *= instanceMatrix;
+      #endif
+      glassWorld = (glassModel * vec4(transformed, 1.0)).xyz;
+      glassOrigin = glassModel[3].xyz;
+      vec3 glassSize = vec3(length(glassModel[0].xyz), length(glassModel[1].xyz), length(glassModel[2].xyz));
+      // Project onto the actual face: upright windows use their height, while
+      // horizontal rooflights retain a clear sky-facing surface.
+      if (abs(normal.y) > .5) glassSpan = glassSize.xz;
+      else if (abs(normal.x) > .5) glassSpan = glassSize.zy;
+      else glassSpan = glassSize.xy;
+      glassPanel = uv - .5;
+      glassVertical = 1.0 - step(.5, abs(normal.y));
+    `)
+    shader.fragmentShader = `varying vec3 glassWorld; varying vec3 glassOrigin; varying vec2 glassPanel; varying vec2 glassSpan; varying float glassVertical;
+      float paneHash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+      ` + shader.fragmentShader.replace('#include <color_fragment>', `
+        #include <color_fragment>
+        vec2 paneCount = max(vec2(1.0), floor(glassSpan / 2.4 + .5));
+        vec2 paneCoordinates = clamp(glassPanel + .5, 0.0, .9999) * paneCount;
+        vec2 paneLocal = fract(paneCoordinates);
+        float pane = paneHash(floor(glassOrigin.xz * 1.7) + floor(glassOrigin.y) * 7.0 + floor(paneCoordinates));
+        float reflection = smoothstep(0.0, 18.0, glassWorld.y);
+        diffuseColor.rgb *= mix(.82, 1.09, pane);
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.91,1.025,1.12), reflection * .32);
+        float edgeDistance = min(min(paneLocal.x, 1.0-paneLocal.x), min(paneLocal.y, 1.0-paneLocal.y));
+        diffuseColor.rgb *= mix(1.0, mix(.68, 1.0, smoothstep(0.0, .07, edgeDistance)), glassVertical);
+        float curtainX = mix(paneLocal.x, 1.0-paneLocal.x, step(.5, fract(pane * 7.13)));
+        float curtain = (1.0-smoothstep(.12 + pane*.16, .16 + pane*.16, curtainX)) * step(.48, pane) * glassVertical;
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.46, .43, .34), curtain * .42);
+      `).replace('#include <emissivemap_fragment>', `
+        #include <emissivemap_fragment>
+        float occupied = step(.60, pane);
+        totalEmissiveRadiance *= mix(.055, 1.0, occupied) * (1.0-curtain*.65);
+      `)
+  }
+  material.customProgramCacheKey = () => 'architecture-glass-v2'
+}
 
 function surface(size: number, pixel: (x: number, y: number) => Pixel, color = true) {
   const bytes = new Uint8Array(size * size * 4)
@@ -89,92 +177,114 @@ function pavingPixel(x: number, y: number): Pixel {
   return [value, value * .979, value * .94]
 }
 
-function createFoliageGeometry() {
-  // 12x9 core + 72 leaf cards: ~1/3 fewer triangles than 16x11 + 96, which pays
-  // for the denser garden and avenue planting at the same frame cost.
-  const geometry = new THREE.SphereGeometry(1, 12, 9)
-  const position = geometry.getAttribute('position')
-  const colors = new Float32Array(position.count * 3)
-  for (let i = 0; i < position.count; i++) {
-    const x = position.getX(i), y = position.getY(i), z = position.getZ(i)
-    const azimuth = Math.atan2(z, x)
-    const middle = Math.sqrt(Math.max(0, 1 - y * y))
-    const lobes = Math.sin(azimuth * 5 + y * 3.4) * .085
-      + Math.cos(azimuth * 8 - y * 5.1) * .045
-      + Math.sin(azimuth * 3 + y * 7.8) * .055
-    const radius = 1 + lobes * middle
-    position.setXYZ(i,
-      x * radius * (1 - .12 * Math.max(0, y)),
-      y * .96 + Math.sin(azimuth * 4 + 1.7) * .035 * middle,
-      z * radius * (1 + .035 * Math.sin(y * 6)),
-    )
-    // Linear vertex tints multiply the per-instance species colour. The crown
-    // has a warm top and deeper underside, including with soft ambient light.
-    const light = .72 + (y + 1) * .12 + Math.sin(azimuth * 4 + y * 3) * .035 * middle
-    colors[i * 3] = light
-    colors[i * 3 + 1] = Math.min(1, light + .025)
-    colors[i * 3 + 2] = light * .93
+/** Twenty-four-metre asphalt tile: small repairs and occasional hairline cracks
+ * share one baked colour/relief/roughness field, without extra street meshes. */
+function asphaltSample(x:number,y:number) {
+  const col=Math.floor(x/128),row=Math.floor(y/128),u=x%128,v=y%128
+  const repair=noise(col,row,281)>.90
+  const halfWidth=16+noise(col,row,283)*16,halfDepth=22+noise(col,row,293)*24
+  const centreX=44+noise(col,row,337)*40,centreY=50+noise(col,row,347)*28
+  const edge=Math.min(halfWidth-Math.abs(u-centreX),halfDepth-Math.abs(v-centreY))+(field(x,y,7,307)-.5)*2
+  const patch=repair?THREE.MathUtils.smoothstep(edge,-1,1):0
+  const crackX=33+field(0,y,17,311)*42
+  const crack=noise(col,row,313)>.90&&v>12&&v<112&&Math.abs(u-crackX)<.45?1:0
+  const grain=noise(x,y,317)-.5,broad=field(x,y,87,331)-.5
+  return {
+    tone:228+grain*25+broad*24-patch*16-crack*22,
+    height:145+grain*42-patch*3-crack*28,
+    roughness:242+broad*13-patch*19+grain*7,
   }
-  position.needsUpdate = true
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  geometry.computeVertexNormals()
-  const core = geometry.toNonIndexed()
-  const positions = Array.from(core.getAttribute('position').array)
-  const normals = Array.from(core.getAttribute('normal').array)
-  const uvs = Array.from(core.getAttribute('uv').array)
-  const tints = Array.from(core.getAttribute('color').array)
-  const normal = new THREE.Vector3(), edge = new THREE.Vector3()
-  const up = new THREE.Vector3(0, 1, 0)
+}
 
-  // Tiny folded leaves physically break the outline. This replaces detail in
-  // the smooth core rather than multiplying the geometry cost of every tree.
-  for (let i = 0; i < 72; i++) {
-    const y = 1 - (i + .5) / 36
-    const angle = i * 2.399963229728653
-    const radius = Math.sqrt(1 - y * y)
-    const direction = new THREE.Vector3(Math.cos(angle) * radius, y, Math.sin(angle) * radius)
-    const lobes = Math.sin(angle * 5 + y * 3.4) * .085
-      + Math.cos(angle * 8 - y * 5.1) * .045
-      + Math.sin(angle * 3 + y * 7.8) * .055
-    const center = direction.clone().multiplyScalar(1.015 + lobes * radius)
-    center.x *= 1 - .12 * Math.max(0, y)
-    center.y = y * .96 + Math.sin(angle * 4 + 1.7) * .035 * radius
-    center.z *= 1 + .035 * Math.sin(y * 6)
-    const across = new THREE.Vector3().crossVectors(direction, up).normalize()
-    const along = new THREE.Vector3().crossVectors(across, direction).normalize()
-    across.applyAxisAngle(direction, noise(i, 8, 109) * Math.PI)
-    along.applyAxisAngle(direction, noise(i, 8, 109) * Math.PI)
-    const width = .06 + noise(i, 4, 117) * .035
-    const length = .10 + noise(i, 3, 123) * .065
-    const points = [
-      center.clone().addScaledVector(along, length),
-      center.clone().addScaledVector(across, width).addScaledVector(direction, -.018),
-      center.clone().addScaledVector(along, -length),
-      center.clone().addScaledVector(across, -width).addScaledVector(direction, .025),
+function createFoliageGeometry(shadow = false) {
+  // Five overlapping branch masses leave deep silhouette breaks instead of a
+  // single solid ball. The total stays below the former 336 triangles per crown.
+  const clusters = [
+    { x: 0, y: .38, z: 0, sx: .58, sy: .64, sz: .56 },
+    { x: .46, y: -.10, z: .12, sx: .59, sy: .57, sz: .53 },
+    { x: -.32, y: -.20, z: .38, sx: .57, sy: .51, sz: .58 },
+    { x: -.42, y: .02, z: -.30, sx: .55, sy: .59, sz: .54 },
+    { x: .20, y: -.13, z: -.46, sx: .56, sy: .54, sz: .57 },
+  ]
+  const positions:number[]=[],normals:number[]=[],uvs:number[]=[],tints:number[]=[]
+  const unit = shadow?new THREE.IcosahedronGeometry(1,0):new THREE.SphereGeometry(1,6,4)
+  const point = (direction:THREE.Vector3, cluster:typeof clusters[number], index:number, lift=0) => {
+    const angle=Math.atan2(direction.z,direction.x)
+    const relief=1+Math.sin(angle*3+direction.y*4+index)*.055
+    return new THREE.Vector3(
+      cluster.x+direction.x*(cluster.sx*relief+lift),
+      cluster.y+direction.y*(cluster.sy*relief+lift),
+      cluster.z+direction.z*(cluster.sz*relief+lift),
+    )
+  }
+  for(const [index,cluster] of clusters.entries()){
+    const geometry=unit.clone(),attribute=geometry.getAttribute('position')
+    const colors=new Float32Array(attribute.count*3)
+    for(let i=0;i<attribute.count;i++){
+      const direction=new THREE.Vector3().fromBufferAttribute(attribute,i),p=point(direction,cluster,index)
+      attribute.setXYZ(i,p.x,p.y,p.z)
+      // Shade each branch mass, with lighter new growth on its upper surface.
+      const light=.74+(direction.y+1)*.105+p.y*.035
+      colors.set([light,Math.min(1,light+.025),light*.93],i*3)
+    }
+    geometry.setAttribute('color',new THREE.BufferAttribute(colors,3))
+    geometry.computeVertexNormals()
+    const core=geometry.index?geometry.toNonIndexed():geometry
+    const p=core.getAttribute('position'),n=core.getAttribute('normal'),uv=core.getAttribute('uv'),color=core.getAttribute('color')
+    for(let face=0;face<p.count;face+=3){
+      // Entirely buried faces contribute nothing to the silhouette or lighting.
+      // Keep a conservative inset so cluster joins remain closed as they sway.
+      const buried=clusters.some((other,j)=>j!==index&&[0,1,2].every(offset=>{
+        const i=face+offset
+        return ((p.getX(i)-other.x)/other.sx)**2+((p.getY(i)-other.y)/other.sy)**2+((p.getZ(i)-other.z)/other.sz)**2<.81
+      }))
+      if(buried)continue
+      for(let i=face;i<face+3;i++){
+        positions.push(p.getX(i),p.getY(i),p.getZ(i));normals.push(n.getX(i),n.getY(i),n.getZ(i))
+        uvs.push(uv.getX(i),uv.getY(i));tints.push(color.getX(i),color.getY(i),color.getZ(i))
+      }
+    }
+    geometry.dispose();if(core!==geometry)core.dispose()
+  }
+  unit.dispose()
+  const normal=new THREE.Vector3(),edge=new THREE.Vector3(),up=new THREE.Vector3(0,1,0)
+  // Folded leaves follow the individual masses, including the recesses between
+  // them. No floating outer shell or extra transparent rendering pass.
+  for(let i=0;i<(shadow?0:72);i++){
+    const index=i%clusters.length,j=Math.floor(i/clusters.length),count=Math.ceil((72-index)/clusters.length)
+    const y=1-(j+.5)*2/count,angle=j*2.399963229728653+index*.7,radius=Math.sqrt(1-y*y)
+    const direction=new THREE.Vector3(Math.cos(angle)*radius,y,Math.sin(angle)*radius)
+    const center=point(direction,clusters[index],index,.015)
+    const across=new THREE.Vector3().crossVectors(direction,up).normalize()
+    const along=new THREE.Vector3().crossVectors(across,direction).normalize()
+    across.applyAxisAngle(direction,noise(i,8,109)*Math.PI)
+    along.applyAxisAngle(direction,noise(i,8,109)*Math.PI)
+    const width=.055+noise(i,4,117)*.035,length=.09+noise(i,3,123)*.06
+    const points=[
+      center.clone().addScaledVector(along,length),
+      center.clone().addScaledVector(across,width).addScaledVector(direction,-.018),
+      center.clone().addScaledVector(along,-length),
+      center.clone().addScaledVector(across,-width).addScaledVector(direction,.025),
     ]
-    const light = .78 + noise(i, 2, 131) * .2
-    const coordinates = [[.5, 1], [1, .5], [.5, 0], [0, .5]]
-    for (const face of [[0, 1, 2], [0, 2, 3]]) {
-      normal.subVectors(points[face[1]], points[face[0]])
-      edge.subVectors(points[face[2]], points[face[0]])
+    const light=.78+noise(i,2,131)*.2,coordinates=[[.5,1],[1,.5],[.5,0],[0,.5]]
+    for(const face of [[0,1,2],[0,2,3]]){
+      normal.subVectors(points[face[1]],points[face[0]])
+      edge.subVectors(points[face[2]],points[face[0]])
       normal.cross(edge).normalize()
-      for (const index of face) {
-        const point = points[index]
-        positions.push(point.x, point.y, point.z)
-        normals.push(normal.x, normal.y, normal.z)
-        uvs.push(coordinates[index][0], coordinates[index][1])
-        tints.push(light, Math.min(1, light + .025), light * .92)
+      for(const index of face){
+        const p=points[index];positions.push(p.x,p.y,p.z)
+        normals.push(normal.x,normal.y,normal.z)
+        uvs.push(coordinates[index][0],coordinates[index][1])
+        tints.push(light,Math.min(1,light+.025),light*.92)
       }
     }
   }
-  const crown = new THREE.BufferGeometry()
-  crown.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  crown.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
-  crown.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
-  crown.setAttribute('color', new THREE.Float32BufferAttribute(tints, 3))
+  const crown=new THREE.BufferGeometry()
+  crown.setAttribute('position',new THREE.Float32BufferAttribute(positions,3))
+  crown.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3))
+  crown.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2))
+  crown.setAttribute('color',new THREE.Float32BufferAttribute(tints,3))
   crown.computeBoundingSphere()
-  geometry.dispose()
-  core.dispose()
   return crown
 }
 
@@ -209,13 +319,46 @@ export function createMiniatureMaterials() {
   grassMap.repeat.set(72, 72)
   const parkMap = surface(256, grassPixel)
   parkMap.repeat.set(8, 8)
-  const asphaltMap = surface(128, (x, y) => {
-    const value = 225 + (noise(x, y, 79) - .5) * 24 + (field(x, y, 18, 81) - .5) * 12
+  const asphaltMap = surface(512, (x, y) => {
+    const value = asphaltSample(x,y).tone
     return [value, value, value]
   })
-  asphaltMap.repeat.set(3, 3)
+  const asphaltBump = surface(512,(x,y)=>{const v=asphaltSample(x,y).height;return [v,v,v]},false)
+  const asphaltRoughness = surface(256,(x,y)=>{const v=asphaltSample(x*2,y*2).roughness;return [v,v,v]},false)
   const pavingMap = surface(256, pavingPixel)
   pavingMap.repeat.set(3, 3)
+  const pavingBump = surface(256, (x,y) => {
+    const row=Math.floor(y/32),joint=y%32<1||(x+(row%2)*16)%32<1
+    const value=joint?100:153+noise(x,y,271)*9
+    return [value,value,value]
+  },false)
+  const renderMap = surface(256, (x,y) => {
+    const weather = field(x,y,48,211)-.5, grain=noise(x,y,223)-.5
+    const streak = field(x, Math.floor(y/6), 13, 227)-.5
+    const value=235+weather*10+grain*8+streak*3
+    return [value,value*.992,value*.976]
+  })
+  const renderBump = surface(128,(x,y)=>{const v=145+noise(x,y,229)*65;return [v,v,v]},false)
+  const metalRoofMap = surface(256,(x,y)=>{
+    const seam=x%32, lap=y%128<2
+    const value=seam<2?155:seam<4?252:lap?192:226+(noise(x,y,233)-.5)*13+(field(x,y,31,239)-.5)*19
+    return [value*.979,value*.99,value]
+  })
+  const metalRoofBump = surface(256,(x,y)=>{const v=x%32<3?225:y%128<2?112:145;return [v,v,v]},false)
+  const metalRoofRoughness = surface(256,(x,y)=>{
+    // Raised folds catch light differently from the weathered sheet between them.
+    const v=x%32<4?175:215+field(x,y,41,257)*32
+    return [v,v,v]
+  },false)
+  const membraneMap = surface(256,(x,y)=>{
+    const seam=x%64<1||y%128<1, grain=noise(x,y,241)-.5
+    const value=seam?188:229+grain*18+(field(x,y,37,251)-.5)*24
+    return [value,value*.993,value*.974]
+  })
+  const membraneRoughness = surface(128,(x,y)=>{
+    const v=226+field(x,y,23,263)*27+(noise(x,y,269)-.5)*4
+    return [v,v,v]
+  },false)
   const grassBump = surface(256, (x, y) => {
     const value = 120 + (noise(x, y, 167) - .5) * 65 + field(x, y, 9, 55) * 30
     return [value, value, value]
@@ -263,6 +406,12 @@ export function createMiniatureMaterials() {
   const slate = new THREE.MeshStandardMaterial({
     color: '#9ca7a5', map: slateMap, bumpMap: slateBump, bumpScale: .035, roughness: .86,
   })
+  const stucco = new THREE.MeshStandardMaterial({color:'#d4cebc',map:renderMap,bumpMap:renderBump,bumpScale:.018,roughness:.96})
+  const seamRoof = new THREE.MeshStandardMaterial({color:'#87938b',map:metalRoofMap,bumpMap:metalRoofBump,bumpScale:.055,roughnessMap:metalRoofRoughness,roughness:.8,metalness:.22})
+  const membrane = new THREE.MeshStandardMaterial({color:'#b3b8b2',map:membraneMap,bumpMap:renderBump,bumpScale:.012,roughnessMap:membraneRoughness,roughness:1})
+  architecturalUV(stucco,false);architecturalUV(seamRoof,true);architecturalUV(membrane,true)
+  const glazing = new THREE.MeshStandardMaterial({color:'#456b63',roughness:.25,metalness:.12,envMapIntensity:1.1,emissive:'#f2bf6d',emissiveIntensity:0})
+  architecturalGlass(glazing)
   const grass = new THREE.MeshStandardMaterial({ color: '#8aa777', map: grassMap, bumpMap: grassBump, bumpScale: .025, roughness: 1 })
   const parkGrass = new THREE.MeshStandardMaterial({ color: '#91ad73', map: parkMap, bumpMap: parkBump, bumpScale: .025, roughness: 1 })
   // World-space mottling: broad sunlit and shaded patches plus drier, warmer
@@ -289,8 +438,11 @@ export function createMiniatureMaterials() {
   }
   mottle(grass, 'miniature-lawn-v1')
   mottle(parkGrass, 'miniature-park-lawn-v1')
-  const asphalt = new THREE.MeshStandardMaterial({ color: '#a6a69e', map: asphaltMap, bumpMap: aggregateBump, bumpScale: .012, roughness: .97 })
-  const paving = new THREE.MeshStandardMaterial({ color: '#d8d0bd', map: pavingMap, roughness: .98 })
+  const asphalt = new THREE.MeshStandardMaterial({ color: '#96998f', map: asphaltMap, bumpMap: asphaltBump, bumpScale: .012, roughnessMap:asphaltRoughness, roughness: .97 })
+  const paving = new THREE.MeshStandardMaterial({ color: '#d8d0bd', map: pavingMap, bumpMap:pavingBump, bumpScale:.018, roughness: .98 })
+  // Horizontal materials keep a fixed grain and slab size across long road
+  // strips, short access links and merged ground polygons.
+  architecturalUV(asphalt,true,24);architecturalUV(paving,true)
   const hardCourt = new THREE.MeshStandardMaterial({ color: '#4d939b', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .006, roughness: .91 })
   const timber = new THREE.MeshStandardMaterial({ color: '#94795e', map: woodMap, roughness: .87 })
   const ballast = new THREE.MeshStandardMaterial({ color: '#a4a191', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .065, roughness: 1 })
@@ -327,19 +479,27 @@ export function createMiniatureMaterials() {
   const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide })
   wind(foliageDepth)
   const foliageGeometry = createFoliageGeometry()
-  // Crowns cast shadows through 80-triangle single-sided stand-ins: leaf cards are
+  // Low planting needs a shaded leaf mass, not the full tree-crown silhouette.
+  const shrubGeometry=new THREE.IcosahedronGeometry(1,1)
+  const shrubPositions=shrubGeometry.getAttribute('position'),shrubColors=new Float32Array(shrubPositions.count*3)
+  for(let i=0;i<shrubPositions.count;i++){
+    const light=.8+(shrubPositions.getY(i)+1)*.09
+    shrubColors.set([light,Math.min(1,light+.025),light*.93],i*3)
+  }
+  shrubGeometry.setAttribute('color',new THREE.BufferAttribute(shrubColors,3))
+  // Crowns cast shadows through 100-triangle single-sided stand-ins: leaf cards are
   // invisible at shadow-map resolution, and full crowns made foliage shadows ~4x
   // the GPU cost of drawing the crowns themselves (measured 14ms vs 3ms).
-  const foliageShadowGeometry = new THREE.SphereGeometry(1, 8, 6)
+  const foliageShadowGeometry = createFoliageGeometry(true)
   const foliageShadowDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking })
   wind(foliageShadowDepth)
   const foliageShadowProxy = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
-  const materials = [brick, slate, grass, parkGrass, asphalt, paving, foliage, hardCourt, timber, ballast, net]
-  const textures = [brickMap, brickBump, slateMap, slateBump, grassMap, parkMap, asphaltMap, pavingMap, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha]
+  const materials = [brick, slate, grass, parkGrass, asphalt, paving, foliage, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing]
+  const textures = [brickMap, brickBump, slateMap, slateBump, grassMap, parkMap, asphaltMap, asphaltBump, asphaltRoughness, pavingMap, pavingBump, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha, renderMap, renderBump, metalRoofMap, metalRoofBump, membraneMap, metalRoofRoughness, membraneRoughness]
   let disposed = false
 
   return {
-    brick, slate, grass, parkGrass, asphalt, paving, foliage, foliageGeometry, foliageDepth, hardCourt, timber, ballast, net,
+    brick, slate, grass, parkGrass, asphalt, paving, foliage, foliageGeometry, shrubGeometry, foliageDepth, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing,
     foliageShadowGeometry, foliageShadowDepth, foliageShadowProxy,
     wind,
     setWind(time: number, strength: number) { windTime.value = time; windStrength.value = strength },
@@ -349,6 +509,7 @@ export function createMiniatureMaterials() {
       materials.forEach(material => material.dispose())
       textures.forEach(texture => texture.dispose())
       foliageGeometry.dispose()
+      shrubGeometry.dispose()
       foliageDepth.dispose()
       foliageShadowGeometry.dispose(); foliageShadowDepth.dispose(); foliageShadowProxy.dispose()
     },

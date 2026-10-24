@@ -1,6 +1,9 @@
 import * as THREE from 'three'
+import { connectAccessPaths, connectedWalkRoutes, crossingSegments } from './accessPaths.ts'
+import { streetEdgePieces } from './streetNetwork.ts'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import geography from '../data/iconic-geography.json' with { type: 'json' }
+import { cloneArchitecturalFinish } from './miniatureMaterials.ts'
 import type { createMiniatureMaterials } from './miniatureMaterials'
 import { createFootprintRoof } from './footprintRoof.ts'
 import { clubCourtSurface, type ClubCourtSurface } from './clubSurfaces.ts'
@@ -13,6 +16,7 @@ export type VenuePrimitives = {
   scene: THREE.Scene; finishes: ReturnType<typeof createMiniatureMaterials>; box: Box
   place: (x:number,z:number,angle:number,scale:number,draw:()=>void)=>void
   tree: (x:number,z:number,size:number,shade:string)=>void
+  parkedCar: (colour:string,variation:number)=>void
   court: (x:number,z:number,width?:number,depth?:number,apron?:number,surface?:ClubCourtSurface)=>void
   bowl: (x:number,z:number,tiers:number)=>void
   centreStand: (x:number,z:number,tiers:number)=>void
@@ -28,6 +32,14 @@ export function inside(p:Point, polygon:Point[]) {
     if((a[1]>p[1])!==(b[1]>p[1]) && p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])hit=!hit
   }
   return hit
+}
+/** Roof furniture must fit completely, including its clearance. Corner tests
+ * alone miss a concave notch cutting through the middle of a rectangle. */
+export function roofDetailFits(points:Point[],roof:{x:number;z:number;angle:number},x:number,z:number,width:number,depth:number,clearance=.3) {
+  const c=Math.cos(roof.angle),s=Math.sin(roof.angle),w=width/2+clearance,d=depth/2+clearance
+  const corners=[[-w,-d],[w,-d],[w,d],[-w,d]].map(([dx,dz])=>[roof.x+(x+dx)*c+(z+dz)*s,roof.z-(x+dx)*s+(z+dz)*c])
+  if(!corners.every(p=>inside(p,points)))return false
+  return !corners.some((a,i)=>points.some((b,j)=>j>0&&crossingSegments(a,corners[(i+1)%4],points[j-1],b)))
 }
 export function footprint(points:Point[]) {
   const p=closed(points)?points.slice(0,-1):points
@@ -61,11 +73,11 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   const withinVenue=(p:Point)=>outlines.some(outline=>inside(p,outline))
   const geometryBatches=new Map<THREE.Material,THREE.BufferGeometry[]>()
   const mats=new Map<string,THREE.MeshStandardMaterial>()
-  const mat=(colour:string,kind:'brick'|'roof'|'paving'|'grass'|'plain'='plain')=>{
+  const mat=(colour:string,kind:'brick'|'roof'|'paving'|'grass'|'plain'|'stucco'|'membrane'='plain')=>{
     const key=kind+colour
     if(!mats.has(key)){
-      const m=kind==='plain'?new THREE.MeshStandardMaterial({roughness:.9}):finishes[kind==='roof'?'slate':kind==='grass'?'parkGrass':kind].clone()
-      m.color.set(colour); m.userData.castsShadow = kind === 'brick' || kind === 'roof'; mats.set(key,m)
+      const m=kind==='plain'?new THREE.MeshStandardMaterial({roughness:.9}):cloneArchitecturalFinish(finishes[kind==='roof'?'slate':kind==='grass'?'parkGrass':kind],colour)
+      m.color.set(colour); m.userData.castsShadow = kind === 'brick' || kind === 'roof' || kind === 'stucco'; mats.set(key,m)
     }
     return mats.get(key)!
   }
@@ -75,7 +87,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     if(!geometryBatches.has(m))geometryBatches.set(m,[])
     geometryBatches.get(m)!.push(flat)
   }
-  function shape(points:Point[],y:number,colour:string,kind:'paving'|'grass'|'roof'|'plain'='plain') {
+  function shape(points:Point[],y:number,colour:string,kind:'paving'|'grass'|'roof'|'plain'|'membrane'='plain') {
     if(!closed(points))return
     const g=new THREE.ShapeGeometry(new THREE.Shape(points.map(([x,z])=>new THREE.Vector2(x,-z))))
     g.rotateX(-Math.PI/2);g.translate(0,y,0)
@@ -108,12 +120,40 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
       segment(a,b,width+(path?.3:3.6),.01,'#ccc5b0')
       if(!path)segment(a,b,width,.065,'#85897e')
       roadSegments.push({a,b,width,path})
-      const length=Math.hypot(b[0]-a[0],b[1]-a[1])
-      if(!path && width>=8)for(let d=4;d<length-4;d+=9) {
-        const point=(t:number)=>[a[0]+(b[0]-a[0])*t/length,a[1]+(b[1]-a[1])*t/length]
-        segment(point(d),point(d+2.7),.14,.11,'#e4dfcb',.015)
-      }
     }
+  }
+  const carriageways=roadSegments.filter(s=>!s.path)
+  for(const road of carriageways){
+    const {a,b,width}=road,length=Math.hypot(b[0]-a[0],b[1]-a[1])
+    if(length<.05)continue
+    const ux=(b[0]-a[0])/length,uz=(b[1]-a[1])/length,others=carriageways.filter(s=>s!==road)
+    for(const side of [-1,1]){
+      const offset=side*(width/2+.09)
+      for(const [from,to] of streetEdgePieces([a[0]-uz*offset,a[1]+ux*offset],[b[0]-uz*offset,b[1]+ux*offset],others))segment(from,to,.18,.13,'#c2baa6',.12)
+    }
+    if(width>=8)for(let d=4;d<length-4;d+=9){
+      const point=(distance:number)=>[a[0]+ux*distance,a[1]+uz*distance]
+      for(const [from,to] of streetEdgePieces(point(d),point(d+2.7),others))segment(from,to,.14,.11,'#e4dfcb',.015)
+    }
+  }
+  const accessSource=roads.filter(f=>f.tags.area!=='yes').map(f=>({
+    id:f.id,points:f.points,
+    width:['footway','path','pedestrian','cycleway'].includes(f.tags.highway)?2.4:f.tags.highway==='service'?4.2:['primary','secondary','tertiary'].includes(f.tags.highway)?8:5.5,
+    walkable:['footway','path','pedestrian'].includes(f.tags.highway)&&f.points.every(withinVenue),
+  }))
+  const solids=[...buildings,...pitches,...features.filter(f=>f.tags.leisure==='stadium'&&closed(f.points))]
+  const barriers=features.filter(f=>['wall','retaining_wall','fence','hedge'].includes(f.tags.barrier))
+  const access=connectAccessPaths(accessSource,(a,b)=>{
+    const steps=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.4))
+    for(let i=0;i<=steps;i++){
+      const p=[a[0]+(b[0]-a[0])*i/steps,a[1]+(b[1]-a[1])*i/steps]
+      if(!withinVenue(p)||solids.some(f=>inside(p,f.points)||f.points.some((q,j)=>j>0&&distance(p,f.points[j-1],q)<.4)))return false
+    }
+    return !barriers.some(f=>f.points.some((p,i)=>i>0&&crossingSegments(a,b,f.points[i-1],p)))
+  })
+  for(const link of access.links){
+    segment(link.points[0],link.points[1],link.width,.04,'#ccc5b0')
+    roadSegments.push({a:link.points[0],b:link.points[1],width:link.width,path:true})
   }
   // Mapped garden walls and fences tie the blocks to their actual plots.
   for (const f of features.filter(f=>f.tags.barrier)) {
@@ -149,9 +189,10 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     const g=new THREE.ExtrudeGeometry(sh,{depth:height,bevelEnabled:false,steps:1})
     g.rotateX(-Math.PI/2)
     const uv=g.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/6,uv.getY(i)/6)
-    collect(g,mat(colour,'brick'))
+    const modern = inVenue && !clubhouse && b.area > 500
+    collect(g,mat(colour,modern?'stucco':'brick'))
     const flatRoof=inVenue&&!clubhouse
-    shape(f.points,height+.035,flatRoof?flatRoofs[Math.abs(f.id)%flatRoofs.length]:roofTone,flatRoof?'paving':'roof')
+    shape(f.points,height+.035,flatRoof?flatRoofs[Math.abs(f.id)%flatRoofs.length]:roofTone,flatRoof?'membrane':'roof')
     let polygonArea=0
     for(let i=1;i<f.points.length;i++)polygonArea+=f.points[i-1][0]*f.points[i][1]-f.points[i][0]*f.points[i-1][1]
     const coverage=Math.abs(polygonArea)/2/b.area
@@ -175,6 +216,29 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
             box(bay,3.15,-sign*.7,1.9,.32,.5,'#698454')
           }
         })
+      }
+      if(modern && len>=6) {
+        // Restrained glazed bays and piers, rather than domestic sash windows
+        // on large venue halls. All elevations remain on the mapped outline.
+        const bays=Math.max(2,Math.floor(len/4)),angle=-Math.atan2(dz,dx)
+        for(let j=0;j<bays;j++) {
+          const x=a[0]+dx*(j+.5)/bays+nx*.12,z=a[1]+dz*(j+.5)/bays+nz*.12
+          place(x,z,angle,1,()=>{
+            const bay=len/bays
+            // Continuous piers frame the glazing; the dark surround sits
+            // behind the projecting stone lintel and sill.
+            for(const side of (j===0?[-1,1]:[1]))box(side*(bay/2-.14),height/2,0,.18,height-.4,.4,'#c2baa6',false)
+            for(let level=0;level<floors;level++){
+              const y=(level+.55)*height/floors,windowHeight=Math.min(1.75,height/floors*.55)
+              box(0,y,0,bay-.25,windowHeight+.16,.12,'#344c44',false)
+              box(0,y,0,bay-.4,windowHeight,.16,'#456b63',false)
+              box(0,y-windowHeight/2-.08,0,bay-.2,.12,.3,'#ded6c4',false)
+              box(0,y+windowHeight/2+.09,0,bay-.2,.14,.38,'#ded6c4',false)
+              box(0,y,0,.06,windowHeight,.23,'#c2baa6',false)
+            }
+          })
+        }
+        continue
       }
       if(len<3.2)continue
       const columns=Math.max(1,Math.floor(len/3.0)),angle=-Math.atan2(dz,dx)
@@ -229,6 +293,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     } else {
       // Complex mansion blocks retain their exact outline and get a restrained roof/parapet.
       for(let i=1;i<f.points.length;i++)segment(f.points[i-1],f.points[i],.35,height+.3,roofTone,.65)
+      if(modern)for(let i=1;i<f.points.length;i++)segment(f.points[i-1],f.points[i],.5,height+.66,'#ded6c4',.1)
       // Flat-roofed blocks get chimney stacks and lift housings so no roof reads as a bare slab.
       if(!inVenue&&b.width>6&&b.depth>6)place(b.x,b.z,b.angle,1,()=>{
         const r=random(f.id+7)
@@ -236,9 +301,30 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
         for(const sx of [-1,1]){box(sx*b.width*.3,height+1.1,b.depth*.28,.8,1.9,.9,colour);for(const dx of [-.2,.2])box(sx*b.width*.3+dx,height+2.25,b.depth*.28,.16,.5,.16,'#aa7355')}
       })
       if(inVenue)place(b.x,b.z,b.angle,1,()=>{
+        const occupiedRoof:{x:number;z:number;width:number;depth:number}[]=[]
+        const clear=(x:number,z:number,width:number,depth:number)=>roofDetailFits(f.points,b,x,z,width,depth)&&!occupiedRoof.some(item=>Math.abs(x-item.x)<(width+item.width)/2+.5&&Math.abs(z-item.z)<(depth+item.depth)/2+.5)
         for(let z=-b.depth/2+5;z<b.depth/2-3;z+=9)for(const x of [-b.width*.18,b.width*.18]) {
-          box(x,height+.22,z,1.65,.28,2.65,'#9aa89b')
-          box(x,height+.38,z,1.35,.08,2.35,'#536d68')
+          if(!clear(x,z,1.65,2.65))continue
+          occupiedRoof.push({x,z,width:1.65,depth:2.65})
+          // Low-profile rooflight: a raised curb, inset glazing, edge caps
+          // and a single glazing bar, rather than a solid green roof block.
+          box(x,height+.17,z,1.65,.20,2.65,'#9aa89b',false)
+          box(x,height+.29,z,1.43,.045,2.43,'#456b63',false)
+          for(const side of [-1,1]){
+            box(x+side*.77,height+.32,z,.11,.09,2.65,'#9aa89b',false)
+            box(x,height+.32,z+side*1.27,1.65,.09,.11,'#9aa89b',false)
+          }
+          box(x,height+.32,z,1.43,.055,.055,'#9aa89b',false)
+        }
+        if(modern)for(let unit=0;unit<Math.min(4,Math.floor(b.area/1000));unit++){
+          const x=(random(f.id+unit*13)-.5)*b.width*.55,z=(random(f.id+unit*29+9)-.5)*b.depth*.55
+          if(!clear(x,z,3,2.2))continue
+          occupiedRoof.push({x,z,width:3,depth:2.2})
+          // Illustrative servicing detail, kept within the original roof outline.
+          box(x,height+.16,z,3,.18,2.2,'#53645d')
+          box(x,height+.72,z,2.7,.95,1.9,'#b3b8b0')
+          box(x,height+1.23,z,2.95,.12,2.1,'#d8ddd7')
+          for(let fin=-.65;fin<=.65;fin+=.26)box(x,height+.72,z+fin,2.76,.08,.07,'#66736c',false)
         }
       })
     }
@@ -264,7 +350,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     show(1370859961,1.02,()=>api.smallerStand(0,0,3))
     show(1370859962,1.12,()=>api.smallerStand(0,0,3))
   } else show(225547287,.78,api.queensStand)
-  const distance=(p:Point,a:Point,b:Point)=>{
+  function distance(p:Point,a:Point,b:Point){
     const dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dz)/(dx*dx+dz*dz||1)))
     return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dz)
   }
@@ -295,8 +381,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
       const side=index%2?1:-1,x=s.a[0]+d*dx-dz*(s.width/2+1)*side,z=s.a[1]+d*dz+dx*(s.width/2+1)*side
       box(x,2.5,z,.12,5,.12,'#4b5b50');box(x,5.05,z,.7,.18,.48,'#ded8c3')
       if(length>32)place(s.a[0]+(d+3)*dx-dz*(s.width/2-1)*side,s.a[1]+(d+3)*dz+dx*(s.width/2-1)*side,-Math.atan2(dz,dx),1,()=>{
-        box(0,.65,0,3.8,1.0,1.55,['#767b70','#b5ad96','#4b686c','#92614f'][index%4]);box(0,1.3,0,2.1,.55,1.36,'#50686a')
-        for(const x of [-1.15,1.15])for(const z of [-.78,.78])box(x,.34,z,.48,.48,.18,'#39433c')
+        api.parkedCar(['#767b70','#b5ad96','#4b686c','#92614f'][index%4],index+Math.floor(d/24))
       })
     }
   }
@@ -306,12 +391,9 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     geometries.forEach(g=>g.dispose())
     if(merged){const mesh=new THREE.Mesh(merged,m);mesh.castShadow=Boolean(m.userData.castsShadow);mesh.receiveShadow=true;scene.add(mesh)}
   }
-  const paths=roads.filter(f=>['footway','path','pedestrian'].includes(f.tags.highway)&&f.points.length>1&&f.points.every(p=>withinVenue(p))).sort((a,b)=>b.points.length-a.points.length).slice(0,4).map(f=>{
-    const route=f.points.map(([x,z])=>new THREE.Vector3(x,0,z))
-    // Walk back along the same mapped path instead of cutting across the closing chord.
-    return [...route,...route.slice(1,-1).reverse()]
-  })
-  return {paths}
+  const paths=connectedWalkRoutes([...access.paths,...access.links]).map(route=>route.map(([x,z])=>new THREE.Vector3(x,0,z)))
+
+  return {paths,accessLinkCount:access.links.length}
 }
 
 export function mappedCourtPosition(id:Venue,stop:string) {

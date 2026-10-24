@@ -1,3 +1,4 @@
+import type { ViewSettings } from '../data/viewQuality';
 import { Fragment, Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from './Icon';
 import { AtlasMiniature } from './AtlasMiniature';
@@ -81,7 +82,7 @@ function EventDetails({event,today,onClub}:{event:Tournament;today:string;onClub
   </article>;
 }
 
-export function TennisAtlas({onClose,onHome,today,night,motionRunning,weather,onNight,onMotion,lightingTime,onLightingTime}:{onClose:()=>void;onHome:()=>void;today:string;lightingTime:number|null;onLightingTime:(time:number|null)=>void;night:boolean;motionRunning:boolean;weather:WeatherSceneKind;onNight:()=>void;onMotion:()=>void}) {
+export function TennisAtlas({viewSettings,onViewSettings,onClose,onHome,today,night,motionRunning,weather,onNight,onMotion,lightingTime,onLightingTime}:{viewSettings:ViewSettings;onViewSettings:(settings:ViewSettings)=>void;onClose:()=>void;onHome:()=>void;today:string;lightingTime:number|null;onLightingTime:(time:number|null)=>void;night:boolean;motionRunning:boolean;weather:WeatherSceneKind;onNight:()=>void;onMotion:()=>void}) {
   const dialogRef=useRef<HTMLDialogElement>(null), contentRef=useRef<HTMLDivElement>(null);
   const [view,setView]=useState<AtlasView>('london'),[clubId,setClubId]=useState<IconicClubId>('wimbledon');
   const [courtOpened,setCourtOpened]=useState(false);
@@ -104,7 +105,7 @@ export function TennisAtlas({onClose,onHome,today,night,motionRunning,weather,on
     <div className="atlas-header"><div><span className="atlas-eyebrow">ISLINGTON TENNIS / FURTHER AFIELD</span><h2 id="atlas-heading">A wider world of tennis.</h2></div><button className="icon-button" aria-label="Close tennis atlas" onClick={onClose}><Icon name="close"/></button></div>
     <div className="atlas-navigation"><div className="atlas-view-options" aria-label="Atlas view"><button aria-pressed={view==='london'} onClick={()=>switchView('london')}>London icons</button><button aria-pressed={view==='season'} onClick={()=>switchView('season')}>On tour <span>{upcomingTournaments(today).length}</span></button>{view==='court'&&<button aria-pressed={true} onClick={()=>switchView('court')}>Court view</button>}</div><button className="atlas-return" onClick={onHome}><Icon name="back" size={16}/> Back to Islington</button></div>
     <div className="atlas-content" ref={contentRef}>
-      {courtOpened&&<div className="atlas-court-container" hidden={view!=='court'}><Suspense fallback={<p role="status" className="atlas-court-loading">Opening the courts…</p>}><IconicCourtView active={view==='court'} clubId={clubId} onHome={onHome} lightingTime={lightingTime} onLightingTime={onLightingTime} event={clubEvent} night={night} motionRunning={motionRunning} weather={weather} onNight={onNight} onMotion={onMotion} onBack={()=>switchView('london')} onSwitch={setClubId}/></Suspense></div>}
+      {courtOpened&&<div className="atlas-court-container" hidden={view!=='court'}><Suspense fallback={<p role="status" className="atlas-court-loading">Opening the courts…</p>}><IconicCourtView viewSettings={viewSettings} onViewSettings={onViewSettings} active={view==='court'} clubId={clubId} onHome={onHome} lightingTime={lightingTime} onLightingTime={onLightingTime} event={clubEvent} night={night} motionRunning={motionRunning} weather={weather} onNight={onNight} onMotion={onMotion} onBack={()=>switchView('london')} onSwitch={setClubId}/></Suspense></div>}
       {view==='court'?null:view==='london'?<>
         <div className="atlas-feature"><LondonMap clubId={clubId} onClub={setClubId} onExplore={id=>{setClubId(id);switchView('court');}} onHome={onHome}/><article className="atlas-club-detail" key={clubId}>
           <span className="atlas-eyebrow">LONDON ICON / {club.id==='wimbledon'?'01':'02'}</span><h3>{club.name}</h3><p className="atlas-event-venue">{club.area}</p><p>{club.description}</p>

@@ -19,9 +19,17 @@ test('miniature cars and cyclists remain outside court enclosures and pause', ()
     world.animate(.5,true,true)
     for(const model of traffic)if(model.visible)assert.equal(inCourtArea(model.position.x,model.position.z,areas,2.2),false)
   }
-  const before=traffic.map(model=>model.position.toArray())
+  const pose=()=>traffic.map(model=>{
+    const values:number[]=[]
+    model.traverse(node=>{
+      values.push(...node.position.toArray(),...node.quaternion.toArray())
+      if(node instanceof THREE.InstancedMesh)values.push(...node.instanceMatrix.array)
+    })
+    return values
+  })
+  const before=pose()
   world.animate(10,false,false)
-  assert.deepEqual(traffic.map(model=>model.position.toArray()),before)
+  assert.deepEqual(pose(),before,'pausing freezes wheels and pedalling as well as travel')
 })
 
 test('illustrated road users keep clear of the collection van', () => {
@@ -34,6 +42,17 @@ test('illustrated road users keep clear of the collection van', () => {
     life.animate(.08,true,false)
     for(const model of roadUsers)if(model.visible)assert.ok(model.position.distanceTo(gear.van.position)>3.5,'road user and van should not overlap')
   }
+})
+
+test('moving car and bicycle tyres meet the drawn carriageway surface',()=>{
+  const life=createTownLife([],[],project,courtAreas(venues))
+  life.animate(0,true,false)
+  life.root.traverse(node=>{
+    if(node instanceof THREE.Group&&/^Miniature (car|cyclist)$/.test(node.name)&&node.visible){
+      const bounds=new THREE.Box3().setFromObject(node)
+      assert.ok(bounds.min.y>.10&&bounds.min.y<.12,`${node.name} keeps its tyres on the .11-high road`)
+    }
+  })
 })
 
 test('road users never vanish and turn round smoothly at the ends of their stretch', () => {

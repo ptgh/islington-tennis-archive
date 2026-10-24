@@ -1,7 +1,9 @@
 import * as THREE from 'three'
+import { pedestrianPaths } from './pedestrianPaths'
+import { routeStreetAroundCourts, streetEdgePieces } from './streetNetwork'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
-import { createMiniatureMaterials, SHADOW_PROXY_LAYER } from './miniatureMaterials'
+import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials'
 import { courtAreas, inCourtArea, renderedHighburyCourts, busRouteLine, HIGHBURY_PARK } from './courtGeometry'
 import { createGear } from './createGear'
 import { mappedServices } from '../data/hub'
@@ -13,6 +15,7 @@ import { createTownLife } from './createTownLife'
 import { createStreetLamps } from './createStreetLamps'
 import { busRoutes } from '../data/busRoutes'
 import { gableRoofGeometry } from './gableRoof'
+import { townRoofGeometry, archedOpeningGeometry } from './townArchitecture'
 import { createClubSurfaces, townCourtSurface, cloneCourtFinish, courtFenceGeometry } from './clubSurfaces'
 
 export const geoPosition = (lat: number, lng: number) =>
@@ -21,7 +24,7 @@ export const geoPosition = (lat: number, lng: number) =>
 type Point = [number, number]
 type Road = { points: Point[]; width: number; avenue?: boolean; bus?: boolean; surveyed?: boolean; path?: boolean }
 type Patch = { x: number; z: number; rx: number; rz: number }
-type Instance = { x: number; y: number; z: number; sx: number; sy: number; sz: number; ry?: number; color?: string }
+type Instance = { x: number; y: number; z: number; sx: number; sy: number; sz: number; ry?: number; rz?:number; color?: string }
 
 function random(seed: number) {
   let state = seed
@@ -61,7 +64,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const bodyMaterial = finishes.brick
   const roofMaterial = finishes.slate
   const trimMaterial = standard('#e6ded0')
-  const windowMaterial = standard('#465e65', { roughness: .38, metalness: .15, emissive: '#f2bf6d', emissiveIntensity: 0 })
+  const windowMaterial = cloneArchitecturalFinish(finishes.glazing, '#465e65')
   const doorMaterial = standard('#394e44')
   const trunkMaterial = standard('#6c6950')
   const leafMaterial = finishes.foliage
@@ -73,6 +76,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const box = new THREE.BoxGeometry(1, 1, 1)
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 7)
   const roof = gableRoofGeometry()
+  const hipRoof=townRoofGeometry('hipped'),mansardRoof=townRoofGeometry('mansard')
   const sphere = finishes.foliageGeometry
 
   function mesh(geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1, ry = 0, parent: THREE.Group = root) {
@@ -101,10 +105,12 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     const hasColors = data.some(item => item.color)
     for (const cell of cells.values()) {
       const group = new THREE.InstancedMesh(geometry, material, cell.length)
+      if(geometry===hipRoof)group.name='Town hipped roofs'
+      if(geometry===mansardRoof)group.name='Town mansard roofs'
       cell.forEach((item, i) => {
         transform.position.set(item.x, item.y, item.z)
         transform.scale.set(item.sx, item.sy, item.sz)
-        transform.rotation.set(0, item.ry || 0, 0)
+        transform.rotation.set(0, item.ry || 0, item.rz || 0)
         transform.updateMatrix()
         group.setMatrixAt(i, transform.matrix)
         if (hasColors) group.setColorAt(i, color.set(item.color || '#ffffff'))
@@ -184,6 +190,10 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     roads.push({ points, width: 4.6 })
   }
 
+  for (const road of roads) if (!road.bus && !road.surveyed) {
+    road.points = routeStreetAroundCourts(road.points, exclusions, road.width)
+  }
+
   const nearPark = (x: number, z: number, margin = 0) => parks.some((p) => Math.pow((x - p.x) / (p.rx + margin), 2) + Math.pow((z - p.z) / (p.rz + margin), 2) < 1)
   const roadSegments: { a: Point; b: Point; width: number; avenue: boolean }[] = []
   const roadBodies: Instance[] = []
@@ -195,6 +205,12 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const parkPaths: Instance[] = []
   const kerbMaterial = standard('#cfc8b8', { roughness: .92 })
   const gutterMaterial = standard('#3f4442', { roughness: .7, transparent: true, opacity: .35 })
+  const carriageways=roads.filter(road=>!road.path).flatMap(road=>road.points.slice(1).map((b,index)=>({a:road.points[index],b,width:road.width,road,index:index+1})))
+  const streetDetail=(items:Instance[],x:number,z:number,length:number,width:number,y:number,height:number,ux:number,uz:number,others:typeof carriageways)=>{
+    for(const [a,b] of streetEdgePieces([x-ux*length/2,z-uz*length/2],[x+ux*length/2,z+uz*length/2],others,width/2+.12)){
+      items.push({x:(a[0]+b[0])/2,y,z:(a[1]+b[1])/2,sx:Math.hypot(b[0]-a[0],b[1]-a[1]),sy:height,sz:width,ry:-Math.atan2(uz,ux)})
+    }
+  }
   for (const road of roads) {
     for (let i = 1; i < road.points.length; i++) {
       const a = road.points[i - 1]
@@ -202,6 +218,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       const length = Math.hypot(b[0] - a[0], b[1] - a[1])
       const subdivisions = Math.ceil(length / (road.surveyed||road.bus?1:6))
       const angle = -Math.atan2(b[1] - a[1], b[0] - a[0])
+      const others=carriageways.filter(segment=>segment.road!==road||segment.index!==i)
+      const ux=(b[0]-a[0])/length,uz=(b[1]-a[1])/length
       if(!road.surveyed) roadSegments.push({ a, b, width: road.width, avenue: !!road.avenue })
       for (let j = 0; j < subdivisions; j++) {
         const t = (j + .5) / subdivisions
@@ -221,14 +239,13 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         ;(road.path?surveyedPaths:roadBodies).push({ x, y: .08, z, sx, sy: .06, sz: width, ry: angle })
         if (!road.path) {
           // Raised stone kerbs either side catch the light and give carriageways a real edge.
-          const ux = (b[0] - a[0]) / length, uz = (b[1] - a[1]) / length
           for (const side of [-1, 1]) {
             const off = width / 2 + .09
-            kerbs.push({ x: x - uz * off * side, y: .13, z: z + ux * off * side, sx, sy: .12, sz: .18, ry: angle })
-            if (j % 3 === 0 && !local) gutters.push({ x: x - uz * (width / 2 - .25) * side, y: .113, z: z + ux * (width / 2 - .25) * side, sx: sx * .9, sy: .01, sz: .32, ry: angle })
+            streetDetail(kerbs,x-uz*off*side,z+ux*off*side,sx,.18,.13,.12,ux,uz,others)
+            if (j % 3 === 0 && !local) streetDetail(gutters,x-uz*(width/2-.25)*side,z+ux*(width/2-.25)*side,sx*.9,.32,.113,.01,ux,uz,others)
           }
         }
-        if (road.avenue && j % 2 === 0) laneMarks.push({ x, y: .12, z, sx: local?.45:2.2, sy: .025, sz: local?.035:.15, ry: angle })
+        if (road.avenue && j % 2 === 0) streetDetail(laneMarks,x,z,local?.45:2.2,local?.035:.15,.12,.025,ux,uz,others)
       }
     }
   }
@@ -266,8 +283,13 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     const a = canalPoints[i - 1], b = canalPoints[i]
     const midpoint = a.clone().add(b).multiplyScalar(.5)
     const ry = -Math.atan2(b.z - a.z, b.x - a.x)
-    const item = { x: midpoint.x, y: .15, z: midpoint.z, sx: a.distanceTo(b) + .3, sy: .12, sz: 8, ry }
-    canalBanks.push({ ...item, sz: 11, y: .09 })
+    // Keep water and towpaths below the existing street grade: those same
+    // road strips form the crossing decks instead of being painted over.
+    const item = { x: midpoint.x, y: -.10, z: midpoint.z, sx: a.distanceTo(b) + .3, sy: .06, sz: 8, ry }
+    for(const side of [-1,1])canalBanks.push({ ...item,
+      x:item.x+Math.sin(ry)*4.75*side,z:item.z+Math.cos(ry)*4.75*side,
+      sz:1.5,y:-.04,sy:.12,
+    })
     waterPieces.push(item)
   }
   instances(box, pathMaterial, canalBanks, false)
@@ -275,6 +297,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
 
   const bodies: Instance[] = []
   const roofs: Instance[] = []
+  const hippedRoofs:Instance[]=[],mansardRoofs:Instance[]=[]
   const trims: Instance[] = []
   const windows: Instance[] = []
   const doors: Instance[] = []
@@ -283,6 +306,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const roofDetails: Instance[] = []
   const gardenWalls: Instance[] = []
   const gardenPaving: Instance[] = []
+  const gardenBeds:Instance[]=[],gardenPlanting:Instance[]=[]
   const landmarkPoints=places.filter(p=>p.kind==='landmark').map(p=>({...p,point:geoPosition(p.lat,p.lng)}));
   const nearLandmark=(x:number,z:number)=>mappedServices.some(s=>{const p=geoPosition(s.lat,s.lng);return Math.abs(p.x-x)<12&&Math.abs(p.z-z)<12})||landmarkPoints.some(p=>{const dx=Math.abs(p.point.x-x),dz=z-p.point.z;return p.id==='barbican-centre'?dx<20&&dz<3&&dz> -32:dx<12&&Math.abs(dz)<15;});
   const occupied = new Set<string>()
@@ -301,18 +325,30 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     })
     bodies.push({ x, y: height / 2, z, sx: width, sy: height, sz: depth, ry: angle, color })
     const variation = Math.floor(Math.abs(Math.sin(x * 12.9898 + z * 78.233)) * 10000)
+    const roofStyle=detailedLocal?variation%8:0
+    const mansard=roofStyle===2||roofStyle===3,hipped=roofStyle===1||roofStyle===4
+    const rise=mansard?1.8:1.35+(variation%7)*.07
     const roofTone = roofPalette[variation % roofPalette.length]
     const glassTone = glassPalette[Math.floor(variation / 7) % glassPalette.length]
-    roofs.push({ x, y: height, z, sx: width + .18, sy: 1.6, sz: depth + .25, ry: angle, color: roofTone })
+    const floors=height>=7.15?4:3
+    ;(mansard?mansardRoofs:hipped?hippedRoofs:roofs).push({ x, y: height, z, sx: width + .18, sy: rise, sz: depth + .25, ry: angle, color: roofTone })
     trims.push({ x, y: height - .12, z, sx: width + .18, sy: .25, sz: depth + .2, ry: angle })
     trims.push({ x, y: .18, z, sx: width + .12, sy: .36, sz: depth + .12, ry: angle })
-    roofDetails.push({x,y:height+1.62,z,sx:width+.22,sy:.16,sz:.22,ry:angle})
+    if(!mansard)roofDetails.push({x,y:height+rise+.02,z,sx:hipped?width*.64:width+.22,sy:.12,sz:.17,ry:angle})
     for (const side of [-1, 1]) {
       const garden=coord(0,side*(depth/2+.8));
       gardenPaving.push({...garden,y:.12,sx:width-.1,sy:.08,sz:1.5,ry:angle});
       const wall=coord(-width*.42,side*(depth/2+.8));
       gardenWalls.push({...wall,y:.42,sx:.13,sy:.65,sz:1.5,ry:angle,color});
-      for (let floor = 0; floor < (height >= 7.15 ? 4 : 3); floor++) {
+      if(detailedLocal&&variation%3!==0){
+        const bed=coord(-width*.24,side*(depth/2+1.06))
+        gardenBeds.push({...bed,y:.18,sx:width*.48,sy:.12,sz:.5,ry:angle})
+        for(const along of [-.34,-.14]){
+          const p=coord(width*along,side*(depth/2+1.06))
+          gardenPlanting.push({...p,y:.43,sx:width*.14,sy:.33,sz:.32,ry:angle,color:['#6d844e','#7d9359','#526e49'][variation%3]})
+        }
+      }
+      for (let floor = 0; floor < floors; floor++) {
         for (const col of [-1, 1]) {
           const p = coord(col * width * .24, side * (depth / 2 + .045))
           if (floor === 0 && col === 1) {
@@ -335,31 +371,48 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       }
     }
     for(const side of [-1,1]){
-      const dormer=coord(-width*.2,side*depth*.26),face=coord(-width*.2,side*(depth*.26+.47));
-      trims.push({...dormer,y:height+.92,sx:.95,sy:1.05,sz:1.0,ry:angle})
-      windows.push({...face,y:height+.9,sx:.61,sy:.73,sz:.07,ry:angle})
-      roofs.push({...dormer,y:height+1.44,sx:1.16,sy:.42,sz:1.18,ry:angle+Math.PI/2,color:roofTone})
+      const dormerZ=depth*(mansard?.43:.26),dormerY=height+rise*.57
+      const dormer=coord(-width*.2,side*dormerZ),face=coord(-width*.2,side*(dormerZ+.47));
+      trims.push({...dormer,y:dormerY,sx:.95,sy:1.05,sz:1.0,ry:angle})
+      windows.push({...face,y:dormerY-.02,sx:.61,sy:.73,sz:.07,ry:angle})
+      roofs.push({...dormer,y:dormerY+.52,sx:1.16,sy:.42,sz:1.18,ry:angle+Math.PI/2,color:roofTone})
       const gutter=coord(0,side*(depth/2+.16));
       roofDetails.push({...gutter,y:height-.05,sx:width+.18,sy:.10,sz:.15,ry:angle})
     }
     const p = coord(width * .28, depth * .19)
-    chimneys.push({ ...p, y: height + 1.3, sx: .64, sy: 1.45, sz: .67, ry: angle, color })
-    trims.push({...p,y:height+2.03,sx:.78,sy:.14,sz:.81,ry:angle});
-    for(const dx of [-.17,.17]){const pot=coord(width*.28+dx,depth*.19);pots.push({...pot,y:height+2.31,sx:.13,sy:.49,sz:.13});}
+    const chimneyY=height+rise*.8
+    chimneys.push({ ...p, y: chimneyY, sx: .64, sy: 1.45, sz: .67, ry: angle, color })
+    trims.push({...p,y:chimneyY+.73,sx:.78,sy:.14,sz:.81,ry:angle});
+    for(const dx of [-.17,.17]){const pot=coord(width*.28+dx,depth*.19);pots.push({...pot,y:chimneyY+1.01,sx:.13,sy:.49,sz:.13});}
     if (detailedLocal) {
       // Georgian facade relief is batched with existing town geometry.
       for (const side of [-1, 1]) {
-        for (const y of [2.7, 4.4, height - .5]) {
+        for (const y of Array.from({length:floors-1},(_,i)=>2.1+i*1.7)) {
           const band = coord(0, side * (depth / 2 + .17))
           trims.push({ ...band, y, sx: width + .08, sy: .12, sz: .22, ry: angle })
         }
         const pipe = coord(width * .46, side * (depth / 2 + .22))
         roofDetails.push({ ...pipe, y: height / 2, sx: .08, sy: height, sz: .08, ry: angle })
-        const bay = coord(-width * .24, side * (depth / 2 + .32))
-        trims.push({ ...bay, y: 1.1, sx: 1.13, sy: 1.8, sz: .63, ry: angle })
-        const pane = coord(-width * .24, side * (depth / 2 + .66))
-        windows.push({ ...pane, y: 1.23, sx: .77, sy: 1.15, sz: .06, ry: angle, color: glassTone })
-        trims.push({ ...pane, y: 1.23, sx: .04, sy: 1.17, sz: .08, ry: angle })
+        if(variation%3===0){
+          const levels=variation%2===0?2:1
+          const bay = coord(-width * .24, side * (depth / 2 + .32))
+          trims.push({ ...bay, y: 1.1+(levels-1)*.85, sx: 1.13, sy: 1.8+(levels-1)*1.7, sz: .63, ry: angle })
+          const pane = coord(-width * .24, side * (depth / 2 + .66))
+          for(let level=0;level<levels;level++){
+            windows.push({ ...pane, y: 1.23+level*1.7, sx: .77, sy: 1.15, sz: .06, ry: angle, color: glassTone })
+            trims.push({ ...pane, y: 1.23+level*1.7, sx: .04, sy: 1.17, sz: .08, ry: angle })
+          }
+          trims.push({...bay,y:2.04+(levels-1)*1.7,sx:1.26,sy:.12,sz:.79,ry:angle})
+        }else if(variation%3===1){
+          const hood=coord(width*.24,side*(depth/2+.34))
+          trims.push({...hood,y:2.13,sx:1.26,sy:.14,sz:.66,ry:angle})
+          for(const dx of [-.48,.48]){const bracket=coord(width*.24+dx,side*(depth/2+.24));trims.push({...bracket,y:1.98,sx:.10,sy:.26,sz:.30,ry:angle})}
+        }else{
+          const balcony=coord(-width*.24,side*(depth/2+.43)),rail=coord(-width*.24,side*(depth/2+.78))
+          trims.push({...balcony,y:2.37,sx:1.36,sy:.12,sz:.85,ry:angle})
+          doors.push({...rail,y:2.9,sx:1.36,sy:.05,sz:.05,ry:angle})
+          for(let i=0;i<5;i++){const post=coord(-width*.24+(i-2)*.30,side*(depth/2+.78));doors.push({...post,y:2.66,sx:.035,sy:.50,sz:.035,ry:angle})}
+        }
         const rail = coord(0, side * (depth / 2 + 1.5))
         doors.push({ ...rail, y: .85, sx: width, sy: .055, sz: .055, ry: angle })
         for (let post = 0; post < 9; post++) {
@@ -372,6 +425,11 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
 
   const gardenRnd = random(2718)
   const highburyLoop: Point[] = [[68,-90],[92,-106],[130,-91],[150,-61],[152,-21],[130,20],[108,25],[72,27],[64,3],[64,-38]]
+  const parkWalkLoops: Point[][] = [highburyLoop, ...parks.slice(1,3).map(park =>
+    Array.from({length:32},(_,i): Point => {
+      const angle=i/32*Math.PI*2
+      return [park.x+Math.cos(angle)*(park.rx-7),park.z+Math.sin(angle)*(park.rz-7)]
+    }))]
   const gardenTrees: { x: number; z: number }[] = []
   for (const segment of roadSegments) {
     const dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1]
@@ -406,6 +464,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   }
   instances(box, bodyMaterial, bodies)
   instances(roof, roofMaterial, roofs)
+  instances(hipRoof,roofMaterial,hippedRoofs)
+  instances(mansardRoof,roofMaterial,mansardRoofs)
   instances(box, trimMaterial, trims)
   instances(box, windowMaterial, windows, false)
   instances(box, doorMaterial, doors, false)
@@ -414,6 +474,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   instances(box, roofMaterial, roofDetails)
   instances(box, pathMaterial, gardenPaving, false)
   instances(box, bodyMaterial, gardenWalls)
+  instances(box,standard('#756b51'),gardenBeds,false)
 
   const treeTrunks: Instance[] = []
   const treeCrowns: Instance[] = []
@@ -528,6 +589,19 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   for (const p of gardenTrees) {
     if (!nearPark(p.x, p.z, 2) && plantable(p.x, p.z, 2.5, 4.4)) tree(p.x, p.z, .7 + rnd() * .3, true)
   }
+  // A low understory at selected park trees makes the planting read in layers.
+  // Reuse existing trunk locations; no random-stream changes or new paths.
+  for(let i=0;i<treeTrunks.length;i+=7){
+    const trunk=treeTrunks[i]
+    if(!nearPark(trunk.x,trunk.z,-4)||!detailedNeighbourhood(trunk.x,trunk.z,115))continue
+    for(const side of [-1,1]){
+      const x=trunk.x+side*.7,z=trunk.z+.45
+      if(!plantable(x,z,1.2,3)||parkWalkLoops.some(loop=>loop.some((a,j)=>distanceToSegment(x,z,a,loop[(j+1)%loop.length])<1.3)))continue
+      gardenPlanting.push({x,y:.42,z,sx:.68,sy:.42,sz:.52,ry:i*.7,color:foliageColors[i%foliageColors.length]})
+    }
+  }
+  // Garden shrubs were queued before the park planting was known.
+  instances(finishes.shrubGeometry,leafMaterial,gardenPlanting,false)
   instances(cylinder, trunkMaterial, treeTrunks)
   instances(box, trunkMaterial, treeBranches)
   instances(sphere, leafMaterial, treeCrowns)
@@ -542,6 +616,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
    const benchWood = finishes.timber
   const benches: Instance[] = []
   const benchLegs: Instance[] = []
+  const hallRoofFrames:Instance[]=[],hallRoofGlass:Instance[]=[],hallRoofBars:Instance[]=[]
+  const hallWallTrim:Instance[]=[],hallWallMetal:Instance[]=[],hallBase:Instance[]=[],hallVents:Instance[]=[]
   const lighting=createCourtLighting();root.add(lighting.root);
    const highburyModel=createHighbury(lighting,finishes,courtSurfaces);root.add(highburyModel.root);
   const litCourtMaterials = new Map<string, THREE.MeshStandardMaterial>()
@@ -614,9 +690,69 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     }
     if (/centre/i.test(venue.name)) {
       const shedx = center.x - w / 2 - 12
-      mesh(box, standard('#bcbaa8'), shedx, 4.8, center.z, 17, 9.6, h)
-      mesh(roof, standard('#727f71'), shedx, 9.6, center.z, 18.5, 3.2, h + 1.2)
-      mesh(box, windowMaterial, shedx + 8.55, 5, center.z, .1, 3, h * .82)
+      const hall = mesh(box, finishes.stucco, shedx, 4.8, center.z, 17, 9.6, h)
+      hall.name = 'Tennis centre hall'
+      // Long-axis ridge, with the same footprint as the original hall.
+      mesh(roof, finishes.seamRoof, shedx, 9.6, center.z, h + 1.2, 3.2, 18.5, Math.PI / 2)
+      // Thin ridge and sloping barge caps finish the original roof envelope.
+      hallWallMetal.push({x:shedx,y:12.83,z:center.z,sx:.24,sy:.10,sz:h+1.2})
+      for(const end of [-1,1])for(const side of [-1,1])hallWallMetal.push({
+        x:shedx+side*4.625,y:11.2,z:center.z+end*(h/2+.6),
+        sx:Math.hypot(9.25,3.2),sy:.12,sz:.16,rz:-side*Math.atan(3.2/9.25),
+      })
+      // Rooflights follow the existing roof pitch, leaving the ridge and eaves clear.
+      for(const side of [-1,1])for(let z=-h/2+5;z<h/2-4;z+=9){
+        const x=shedx+side*4.6,y=9.6+3.2*(1-4.6/9.25),rz=-side*Math.atan(3.2/9.25)
+        hallRoofFrames.push({x,y:y+.06,z:center.z+z,sx:2.3,sy:.10,sz:4.7,rz})
+        hallRoofGlass.push({x,y:y+.13,z:center.z+z,sx:2.05,sy:.035,sz:4.45,rz})
+        hallRoofBars.push({x,y:y+.17,z:center.z+z,sx:2.05,sy:.045,sz:.065,rz})
+      }
+      mesh(box, stoneMaterial, shedx, .32, center.z, 17.3, .64, h + .25)
+      for (const side of [-1, 1]) {
+        const wallX=shedx+side*8.58
+        hallBase.push({x:wallX,y:.85,z:center.z,sx:.16,sy:1.05,sz:h-.3})
+        // Sill, projecting lintel and structural bays break up the broad wall;
+        // glazing and door openings retain their existing positions.
+        for(const y of [4.02,6.8])hallWallTrim.push({x:wallX,y,z:center.z,sx:.36,sy:y>6?.18:.14,sz:h*.82+.4})
+        hallWallMetal.push({x:wallX+side*.04,y:5.72,z:center.z,sx:.16,sy:.065,sz:h*.82})
+        const bays=Math.ceil(h/6)
+        for(let bay=1;bay<bays;bay++){
+          const z=center.z-h/2+bay*h/bays
+          for(const [y,height] of [[2.6,2.7],[8.15,2.5]])hallWallTrim.push({x:wallX,y,z,sx:.30,sy:height,sz:.24})
+        }
+        mesh(box, metalMaterial, shedx + side * 8.7, 9.5, center.z, .18, .22, h + 1)
+        mesh(box, windowMaterial, shedx + side * 8.53, 5.4, center.z, .08, 2.65, h * .82)
+        for (let z = -h*.41; z <= h*.41; z += 2.4) {
+          mesh(box, trimMaterial, shedx + side * 8.6, 5.4, center.z + z, .16, 2.85, .11)
+        }
+        for (const end of [-1, 1]) {
+          mesh(box, trimMaterial, shedx + side * 8.35, 4.8, center.z + end * (h / 2 + .05), .25, 9.5, .18)
+          mesh(box, metalMaterial, shedx + side * 8.7, 4.65, center.z + end * (h / 2 - .4), .15, 9.3, .15)
+        }
+      }
+      for (const end of [-1, 1]) {
+        const face = center.z + end * (h / 2 + .1)
+        for(const side of [-1,1])hallBase.push({x:shedx+side*5.3,y:.85,z:face,sx:6.4,sy:1.05,sz:.16})
+        // A recessed gable vent with slim louvres adds scale above the entrance.
+        hallVents.push({x:shedx,y:10.5,z:face+end*.015,sx:2.6,sy:.9,sz:.08})
+        for(const y of [10.12,10.31,10.50,10.69,10.88])hallWallMetal.push({x:shedx,y,z:face+end*.08,sx:2.65,sy:.075,sz:.19})
+        for(const side of [-1,1])hallWallMetal.push({x:shedx+side*1.35,y:10.5,z:face+end*.08,sx:.09,sy:1.0,sz:.19})
+        for(const side of [-1,1]){
+          hallWallTrim.push({x:shedx+side*7.7,y:5.5,z:face,sx:.22,sy:7.8,sz:.24})
+          hallWallTrim.push({x:shedx+side*4.5,y:6.1,z:face+end*.02,sx:3.5,sy:1.75,sz:.18})
+          hallRoofGlass.push({x:shedx+side*4.5,y:6.1,z:face+end*.15,sx:3.2,sy:1.45,sz:.08})
+          hallWallMetal.push({x:shedx+side*4.5,y:6.1,z:face+end*.21,sx:.075,sy:1.45,sz:.05})
+          hallWallTrim.push({x:shedx+side*4.5,y:5.23,z:face+end*.15,sx:3.6,sy:.13,sz:.4})
+        }
+        mesh(box, metalMaterial, shedx, 1.5, face, 3.8, 3, .2)
+        for (const side of [-1, 1]) {
+          mesh(box, windowMaterial, shedx + side * .87, 1.5, face + end * .12, 1.56, 2.65, .08)
+          mesh(box, trimMaterial, shedx + side * .13, 1.35, face + end * .21, .045, .55, .06)
+        }
+        mesh(box, metalMaterial, shedx, 1.5, face + end * .19, .07, 2.8, .08)
+        mesh(box, stoneMaterial, shedx, .12, face + end * .34, 4.2, .24, .8)
+        mesh(box, trimMaterial, shedx, 3.1, face + end * .3, 4.6, .16, .9)
+      }
     }
     if (/highbury fields/i.test(venue.name)) {
       for (let i = 0; i < 25; i++) {
@@ -630,6 +766,13 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   instances(box, courtSurfaces.steel, courtFenceRails, false)
   instances(box, benchWood, benches)
   instances(box, metalMaterial, benchLegs)
+  instances(box,metalMaterial,hallRoofFrames,false)
+  instances(box,windowMaterial,hallRoofGlass,false)
+  instances(box,trimMaterial,hallRoofBars,false)
+  instances(box,trimMaterial,hallWallTrim,false)
+  instances(box,metalMaterial,hallWallMetal,false)
+  instances(box,doorMaterial,hallVents,false)
+  if(hallBase.length)instances(box,cloneWorldArchitecturalFinish(finishes.brick,'#a5967e'),hallBase,false)
   instances(sphere, leafMaterial, shrubs)
   instances(box, courtLine, courtMarkings, false)
 
@@ -656,13 +799,34 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     const points=route.stops.map(name=>stations.find(s=>s.name===name)!.position.clone().setY(.6))
     transit.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineDashedMaterial({color:route.color,dashSize:3,gapSize:2,transparent:true,opacity:.7})).computeLineDistances())
   }
-  const stationBrick = standard('#b27e5d')
+  const stationBrick = cloneWorldArchitecturalFinish(finishes.brick,'#b27e5d')
+  const stationArch=archedOpeningGeometry(),stationFrames:Instance[]=[],stationGlass:Instance[]=[],stationTrim:Instance[]=[],stationDoors:Instance[]=[],stationRoof:Instance[]=[]
   for (const station of stations) {
     const p = station.position
     mesh(box, stationBrick, p.x, 2.5, p.z, 7, 5, 5, 0, transit)
-    mesh(box, trimMaterial, p.x, 5.2, p.z, 7.8, .55, 5.8, 0, transit)
-    mesh(box, doorMaterial, p.x, 1.5, p.z + 2.6, 3.5, 3, .1, 0, transit)
+    stationTrim.push({x:p.x,y:.15,z:p.z,sx:7.3,sy:.3,sz:5.3})
+    stationTrim.push({x:p.x,y:5.05,z:p.z,sx:7.8,sy:.25,sz:5.8})
+    stationRoof.push({x:p.x,y:5.22,z:p.z,sx:7.1,sy:.08,sz:5.1})
+    for(const side of [-1,1]){
+      stationTrim.push({x:p.x+side*3.65,y:5.42,z:p.z,sx:.22,sy:.5,sz:5.5})
+      stationTrim.push({x:p.x,y:5.42,z:p.z+side*2.65,sx:7.5,sy:.5,sz:.22})
+      stationTrim.push({x:p.x+side*3.1,y:2.5,z:p.z+2.6,sx:.25,sy:4.7,sz:.3})
+    }
+    stationFrames.push({x:p.x,y:.10,z:p.z+2.58,sx:3.9,sy:4.0,sz:1})
+    stationGlass.push({x:p.x,y:.26,z:p.z+2.62,sx:3.42,sy:3.54,sz:1})
+    stationDoors.push({x:p.x,y:1.1,z:p.z+2.66,sx:3.24,sy:2,sz:.08})
+    stationTrim.push({x:p.x,y:1.1,z:p.z+2.72,sx:.065,sy:2.05,sz:.065})
+    stationTrim.push({x:p.x,y:2.13,z:p.z+2.72,sx:3.4,sy:.075,sz:.065})
+    for(const x of [-2.4,0,2.4]){
+      stationTrim.push({x:p.x+x,y:4.48,z:p.z+2.56,sx:1.15,sy:.64,sz:.15})
+      stationGlass.push({x:p.x+x,y:4.23,z:p.z+2.65,sx:.9,sy:.50,sz:1})
+    }
   }
+  instances(stationArch,trimMaterial,stationFrames,false,transit)
+  instances(stationArch,windowMaterial,stationGlass,false,transit)
+  instances(box,trimMaterial,stationTrim,true,transit)
+  instances(box,doorMaterial,stationDoors,false,transit)
+  instances(box,finishes.membrane,stationRoof,false,transit)
 
   // An intentionally playful model railway, not a representation of live railway routes.
   const railway = new THREE.Group(); root.add(railway)
@@ -756,17 +920,11 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     if (c === 0) mesh(box, trainGlass, 0, 1.64, 3.84, 2.05, .66, .05, 0, carriage)
   }
   const trackLength = track.getLength()
-  const walkPaths=[
-    highburyLoop.map(([x,z])=>new THREE.Vector3(x,.2,z)),
-    ...parks.slice(1,3).map(park=>Array.from({length:32},(_,i)=>{
-      const angle=i/32*Math.PI*2;
-      return new THREE.Vector3(park.x+Math.cos(angle)*(park.rx-7),.2,park.z+Math.sin(angle)*(park.rz-7));
-    })),
-  ];
+  const walkPaths=parkWalkLoops.map(loop=>loop.map(([x,z])=>new THREE.Vector3(x,.2,z)));
   const walkPieces:Instance[]=[]
-  for(const points of walkPaths)for(let i=0;i<points.length;i++){
-    const a=points[i],b=points[(i+1)%points.length]
-    if(!inCourtArea((a.x+b.x)/2,(a.z+b.z)/2,exclusions,1))walkPieces.push({x:(a.x+b.x)/2,y:.12,z:(a.z+b.z)/2,sx:a.distanceTo(b)+.2,sy:.06,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
+  for(const source of walkPaths)for(const {points} of pedestrianPaths(source,exclusions))for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i]
+    walkPieces.push({x:(a.x+b.x)/2,y:.12,z:(a.z+b.z)/2,sx:a.distanceTo(b)+.2,sy:.06,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
   }
   instances(box,pathMaterial,walkPieces,false)
   const life=createTownLife(animatedCourts,walkPaths,geoPosition,exclusions)

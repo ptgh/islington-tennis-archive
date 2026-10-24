@@ -1,10 +1,55 @@
 import * as THREE from 'three'
+import { QUALITY_PRESETS, type QualityPreset } from '../data/viewQuality.ts'
 
 /** Supersample on capable displays without allocating unbounded retina buffers. */
-export function scenePixelRatio(width: number, height: number, deviceRatio: number) {
+export function scenePixelRatio(width: number, height: number, deviceRatio: number, qualityScale = 1) {
   const compact = width <= 760
-  return Math.min(Math.max(1, deviceRatio), compact ? 2 : 2.5,
+  const scale = Math.min(1.15, Math.max(.7, qualityScale))
+  const nativeRatio = Math.max(1, deviceRatio)
+  const base = Math.min(nativeRatio, compact ? 2 : 2.5,
     Math.sqrt((compact ? 3200000 : 8500000) / Math.max(1, width * height)))
+  return Math.min(nativeRatio, base * scale)
+}
+
+/** Measure only consecutive, requested frames. Wall time includes GPU backpressure
+ * and CPU work; submission time alone cannot measure asynchronous GPU execution.
+ * Slow windows lower resolution promptly; five seconds of headroom raise it.
+ * No timers or redraws are introduced for idle, hidden or reduced-motion views.
+ */
+export function createAdaptiveResolution(targetFrameMs = 1000 / 60, initialPreset: QualityPreset = 'balanced') {
+  let preset = initialPreset
+  let scale: number = QUALITY_PRESETS[preset].initial, previous = 0, elapsed = 0, frames = 0, totalRender = 0
+  let frameMs = 0, renderMs = 0
+  const pause = () => { previous = 0; elapsed = 0; frames = 0; totalRender = 0 }
+  return {
+    get scale() { return scale },
+    get stats() { return { scale, frameMs, renderMs, targetFrameMs, preset } },
+    setPreset(next: QualityPreset) {
+      if (next === preset) return false
+      preset = next; scale = QUALITY_PRESETS[preset].initial
+      pause()
+      return true
+    },
+    pause,
+    sample(time: number, submissionMs: number) {
+      const interval = previous ? time - previous : 0
+      previous = time
+      // A long gap may be tab suspension or a scene build, not sustained load.
+      if (interval <= 0 || interval > 250) { elapsed = 0; frames = 0; totalRender = 0; return false }
+      elapsed += interval; totalRender += submissionMs; frames++
+      if (elapsed < 1000 || frames < 20) return false
+      frameMs = elapsed / frames; renderMs = totalRender / frames
+      const slow = frameMs > targetFrameMs * 1.3 || renderMs > targetFrameMs * .9
+      const headroom = frameMs <= targetFrameMs * 1.2 && renderMs < targetFrameMs * .65
+      if (!slow && elapsed < 5000) return false
+      const bounds = QUALITY_PRESETS[preset]
+      const next = Math.round(Math.min(bounds.max, Math.max(bounds.min, scale + (slow ? -.05 : headroom ? .05 : 0))) * 100) / 100
+      pause()
+      const changed = next !== scale
+      scale = next
+      return changed
+    },
+  }
 }
 
 /** Khronos PBR Neutral keeps painted colours true in bright light. ACES pushed
@@ -57,6 +102,11 @@ export function addSkyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Sc
  * flat computer-graphics fills. Runs once per frame on the final image.
  */
 export const LENS_FINISH = { focus: .5, band: .22, blur: 3.2, vignette: .28, contrast: 1.06, saturation: SCENE_GRADE.day.saturation, grain: .018 }
+
+export function applyViewFocus(lens: Record<string, THREE.IUniform>, sharp: boolean) {
+  lens.band.value = sharp ? .55 : LENS_FINISH.band
+  lens.blur.value = sharp ? .65 : LENS_FINISH.blur
+}
 
 export function createLensFinish() {
   return {

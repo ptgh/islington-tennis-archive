@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { footprint, inside, mappedCourtPosition, venueGeography } from '../scene/mappedVenue.ts'
+import { footprint, inside, roofDetailFits, mappedCourtPosition, venueGeography } from '../scene/mappedVenue.ts'
 
 // A court rotated in world space must keep its real dimensions and orientation.
 test('mapped court rectangles preserve metres, rotation and centre', () => {
@@ -48,4 +48,23 @@ test('bundled geography contains finite map coordinates, unique features and att
       assert.ok(!Object.keys(f.tags).some(k=>k.startsWith('addr:')||['user','uid','changeset'].includes(k)))
     }
   }
+})
+
+test('roof furniture keeps its complete footprint and clearance inside rotated roofs',()=>{
+ for(const angle of [0,.37,1.4,2.8]){
+  const roof={x:27,z:-46,angle},c=Math.cos(angle),s=Math.sin(angle)
+  const points=[[-5,-10],[5,-10],[5,10],[-5,10],[-5,-10]].map(([x,z])=>[roof.x+x*c+z*s,roof.z-x*s+z*c])
+  assert.equal(roofDetailFits(points,roof,0,0,1.65,2.65),true)
+  assert.equal(roofDetailFits(points,roof,4,0,2,2),false,'centre is inside but the frame overhangs')
+  assert.equal(roofDetailFits(points,roof,3.8,0,2,2),false,'a frame needs edge clearance too')
+  assert.equal(roofDetailFits(points,roof,3.6,0,2,2),true)
+ }
+})
+
+test('roof furniture cannot bridge a concave cutout even when all four corners fit',()=>{
+ const points=[[-6,-6],[6,-6],[6,6],[.4,6],[.4,0],[-.4,0],[-.4,6],[-6,6],[-6,-6]]
+ const roof={x:0,z:0,angle:0}
+ assert.ok([[-2,1],[2,1],[2,3],[-2,3]].every(p=>inside(p,points)))
+ assert.equal(roofDetailFits(points,roof,0,2,4,2,0),false)
+ assert.equal(roofDetailFits(points,roof,-3,2,2,2),true)
 })

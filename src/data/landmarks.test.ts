@@ -22,3 +22,17 @@ test('Union Chapel nave has a ridged gable along its length, not a single-apex p
  const top=Math.max(...points.map(p=>p.y)),ridge=points.filter(p=>top-p.y<1e-3).map(p=>p.z);
  assert.ok(Math.max(...ridge)-Math.min(...ridge)>15,'ridge spans the 18-unit nave');
 });
+test('landmark relief is batched, finite and keeps the chapel inside its existing ground envelope',()=>{
+ const root=createLandmarks(()=>new THREE.Vector3()),chapel=root.getObjectByName('union-chapel')!
+ const batches=chapel.children.filter((n):n is THREE.InstancedMesh=>n instanceof THREE.InstancedMesh)
+ assert.ok(batches.reduce((sum,mesh)=>sum+mesh.count,0)>50,'the model contains meaningful architectural relief')
+ assert.ok(batches.length<=16,'detail is instanced rather than one draw per ornament')
+ for(const mesh of batches)assert.ok(Array.from(mesh.instanceMatrix.array).every(Number.isFinite))
+ const bounds=new THREE.Box3().setFromObject(chapel)
+ assert.ok(bounds.min.x>=-6&&bounds.max.x<=9.3,'aisles and buttresses retain the original ground envelope')
+ assert.ok(bounds.min.z>=-10&&bounds.max.z<=10)
+ assert.ok(bounds.max.y<=29,'steeple remains bounded')
+ const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>()
+ root.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m))}})
+ geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())
+});

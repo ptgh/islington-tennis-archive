@@ -1,6 +1,9 @@
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { pedestrianPaths } from './pedestrianPaths.ts'
 import { busRoutes } from '../data/busRoutes.ts'
 import { inCourtArea, busRouteLine, type CourtArea } from './courtGeometry.ts'
+import { createMiniatureCyclist } from './miniatureCyclist.ts'
 
 type Project = (lat: number, lng: number) => THREE.Vector3
 type Part = { node: THREE.Object3D; color: string }
@@ -8,6 +11,8 @@ type Figure = {
   root: THREE.Group
   arms: THREE.Group[]
   legs: THREE.Group[]
+  elbows: THREE.Group[]
+  knees: THREE.Group[]
   phase: number
 }
 
@@ -40,20 +45,25 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     activity.add(body)
     const skin = ['#a66f4c', '#dbaf84', '#815b43', '#c58e68'][figures.length % 4]
     part(body, roundParts, skin, 0, .96, 0, .145, .165, .145)
-    part(body, blockParts, shirt, 0, .67, 0, .34, .39, .21)
-    part(body, blockParts, '#eee7ce', 0, .42, 0, .31, .17, .22)
-    const arms: THREE.Group[] = [], legs: THREE.Group[] = []
+    part(body, roundParts, shirt, 0, .67, 0, .20, .245, .13)
+    const trousers=racket?'#536154':['#536154','#455c69','#736653'][figures.length%3]
+    part(body, blockParts, racket?'#eee7ce':trousers, 0, .42, 0, .31, .17, .22)
+    const arms: THREE.Group[] = [], legs: THREE.Group[] = [], elbows: THREE.Group[] = [], knees: THREE.Group[] = []
     for (const side of [-1, 1]) {
       const arm = new THREE.Group()
       arm.position.set(side * .23, .78, 0)
       body.add(arm)
-      part(arm, blockParts, skin, 0, -.16, 0, .1, .33, .11)
+      part(arm, roundParts, skin, 0, -.09, 0, .06, .11, .065)
+      const elbow=new THREE.Group();elbow.position.y=-.19;arm.add(elbow)
+      part(elbow, roundParts, skin, 0, -.07, 0, .055, .09, .06)
       const leg = new THREE.Group()
       leg.position.set(side * .095, .4, 0)
       body.add(leg)
-      part(leg, blockParts, '#536154', 0, -.15, 0, .11, .29, .12)
-      part(leg, blockParts, '#efecd9', 0, -.33, .045, .135, .09, .23)
-      arms.push(arm); legs.push(leg)
+      part(leg, roundParts, trousers, 0, -.09, 0, .065, .10, .07)
+      const knee=new THREE.Group();knee.position.y=-.18;leg.add(knee)
+      part(knee, roundParts, trousers, 0, -.065, 0, .06, .085, .065)
+      part(knee, blockParts, '#efecd9', 0, -.15, .045, .135, .09, .23)
+      arms.push(arm); legs.push(leg);elbows.push(elbow);knees.push(knee)
     }
     if (racket) {
       const grip = new THREE.Group()
@@ -66,7 +76,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
       part(grip, blockParts, '#e6e5c7', 0, -.42, 0, .018, .38, .018)
       part(grip, blockParts, '#e6e5c7', 0, -.42, 0, .27, .018, .018)
     }
-    const result = { root: body, arms, legs, phase }
+    const result = { root: body, arms, legs, elbows, knees, phase }
     figures.push(result)
     return result
   }
@@ -79,13 +89,17 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   })
 
   // People follow visible park paths, not arbitrary lines through buildings or courts.
-  const walkers = walks.flatMap((points, index) => {
-    const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', .1)
-    return Array.from({ length: index === 0 ? 5 : 2 }, (_, i) => ({
-      figure: figure(['#c88261', '#ede5c9', '#4c747b', '#85975e'][i % 4], i * 1.9),
-      curve, length: curve.getLength(), offset: (i / (index === 0 ? 5 : 2) + index * .23) % 1,
-    }))
+  const walkers = walks.flatMap(points=>pedestrianPaths(points,exclusions)).flatMap(({points,closed}, index) => {
+    const curve = new THREE.CurvePath<THREE.Vector3>()
+    for(let i=1;i<points.length;i++)curve.add(new THREE.LineCurve3(points[i-1],points[i]))
+    const length=curve.getLength(),count=Math.min(index===0?5:2,Math.max(1,Math.floor(length/18)))
+    return Array.from({length:count},(_,i)=>{
+      const person=figure(['#c88261','#ede5c9','#4c747b','#85975e'][i%4],i*1.9)
+      person.root.name='Miniature pedestrian'
+      return {figure:person,curve,length,closed,offset:i/count+index*.23,speed:.8+(i%3)*.16,heading:null as number|null}
+    })
   })
+  let previousActivityTime=0
 
   const batches = [
     { parts: blockParts, geometry: box, material },
@@ -143,17 +157,34 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
         : .52 + .66 * Math.sin((u - bounce) / (1 - bounce) * Math.PI / 2)
       match.ball.position.copy(at(THREE.MathUtils.lerp(hitX(shot), hitX(shot + 1), u),height,fromSide*(match.halfLength-.6)*(1-u*2)))
     }
+    const walkingDelta=Math.min(.08,Math.max(0,time-previousActivityTime))
+    previousActivityTime=time
     for (const walker of walkers) {
-      const t = (walker.offset + time * 1.1 / walker.length) % 1
-      const position = walker.curve.getPointAt(t)
-      const tangent = walker.curve.getTangentAt(t)
-      walker.figure.root.position.copy(position).setY((transport ? .24 : .035) + Math.abs(Math.sin(time * 4.2 + walker.figure.phase)) * .025)
-      walker.figure.root.rotation.y = Math.atan2(tangent.x, tangent.z)
-      const stride = Math.sin(time * 4.2 + walker.figure.phase) * .43
-      walker.figure.legs[0].rotation.x = stride
-      walker.figure.legs[1].rotation.x = -stride
-      walker.figure.arms[0].rotation.x = -stride * .7
-      walker.figure.arms[1].rotation.x = stride * .7
+      const sections=walker.closed?4:2,distance=walker.length/(walker.closed?4:1)
+      const ramp=.45,duration=distance/walker.speed+ramp,section=duration+1.1
+      const elapsed=time+walker.offset*section*sections,leg=Math.floor(elapsed/section),local=elapsed%section
+      const clock=Math.min(local,duration)
+      // Integrate a short acceleration/deceleration ramp. The top speed stays
+      // unchanged and both distance and stride remain continuous through pauses.
+      const travelled=walker.speed*(clock<ramp?clock*clock/(2*ramp):clock>duration-ramp?duration-ramp-(duration-clock)**2/(2*ramp):clock-ramp/2)
+      const pace=Math.max(0,Math.min(1,clock/ramp,(duration-clock)/ramp))
+      const progress=Math.min(1,travelled/distance),direction=walker.closed||leg%2===0?1:-1
+      const t=walker.closed?((leg%4)+progress)/4:direction===1?progress:1-progress
+      const position=walker.curve.getPoint(t)
+      const tangent=walker.curve.getPoint(Math.max(0,Math.min(1,t+direction*.25/walker.length))).sub(position)
+      if(tangent.lengthSq()<1e-8)tangent.copy(walker.curve.getTangent(Math.min(.9999,Math.max(.0001,t)))).multiplyScalar(direction)
+      const phase=(leg*distance+travelled)*Math.PI*2/.95+walker.figure.phase
+      walker.figure.root.position.copy(position).setY((transport?.24:.035)+Math.abs(Math.sin(phase))*.025*pace)
+      const heading=Math.atan2(tangent.x,tangent.z)
+      if(walker.heading===null)walker.heading=heading
+      else walker.heading+=Math.atan2(Math.sin(heading-walker.heading),Math.cos(heading-walker.heading))*Math.min(1,walkingDelta*8)
+      walker.figure.root.rotation.y=walker.heading
+      const stride=Math.sin(phase)*.43*pace
+      walker.figure.legs[0].rotation.x=stride;walker.figure.legs[1].rotation.x=-stride
+      walker.figure.arms[0].rotation.x=-stride*.7;walker.figure.arms[1].rotation.x=stride*.7
+      walker.figure.knees[0].rotation.x=Math.max(0,-Math.sin(phase))*.55*pace
+      walker.figure.knees[1].rotation.x=Math.max(0,Math.sin(phase))*.55*pace
+      for(const elbow of walker.figure.elbows)elbow.rotation.x=-.12-.12*pace
     }
     activity.updateMatrixWorld(true)
     for (const { mesh, parts } of batches) {
@@ -219,6 +250,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     ribbon.computeBoundingSphere()
     group.add(ribbon)
     const bus = new THREE.Group()
+    bus.name = 'Miniature bus'
     group.add(bus)
     busPart(bus, busRed, 0, 1.35, 0, 1.48, 2.14, 4.8)
     busPart(bus, busCream, 0, 2.48, 0, 1.48, .14, 4.72)
@@ -239,6 +271,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     for (const side of [-1, 1]) busPart(bus, busCream, side * .5, .51, 2.42, .2, .14, .035)
     const otherBus = bus.clone(true)
     group.add(otherBus)
+    otherBus.traverse(node=>{if(node instanceof THREE.Mesh&&node.geometry===wheelGeometry)busWheels.push(node)})
     return { id: route.id, group, vehicles: [bus, otherBus], curve, length, material: routeMaterial, offset: .25 + index * .18 }
   })
 
@@ -267,43 +300,71 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     if(start!==null&&length-start>65)spans.push({start:start+3,end:length-3})
     return spans
   }
-  const traffic: {model:THREE.Group;curve:THREE.CurvePath<THREE.Vector3>;length:number;speed:number;distance:number;start:number;end:number;wheels:THREE.Object3D[];cycling:boolean;direction:number;turn:number;heading:number|null}[]=[]
+  const traffic: {model:THREE.Group;curve:THREE.CurvePath<THREE.Vector3>;length:number;speed:number;distance:number;start:number;end:number;wheels:THREE.Object3D[];pedal?: (distance:number)=>void;cycling:boolean;direction:number;turn:number;heading:number|null}[]=[]
   const carPaint=['#b86753','#e3d9bd','#506c70']
+  const carShell=new RoundedBoxGeometry(1,1,1,2,.09)
+  const carCabin=box.clone(),cabinPositions=carCabin.getAttribute('position')
+  for(let v=0;v<cabinPositions.count;v++)if(cabinPositions.getY(v)>0){
+    cabinPositions.setX(v,cabinPositions.getX(v)*.80);cabinPositions.setZ(v,cabinPositions.getZ(v)*.76)
+  }
+  carCabin.computeVertexNormals()
+  const carTrimMaterial=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.65,metalness:.1})
+  const carWheelGeometry=new THREE.CylinderGeometry(.27,.27,.13,12)
+  const carHubGeometry=new THREE.CylinderGeometry(.135,.135,.145,8)
   for(let i=0;i<5;i++){
     const cycling=i>=3, route=routes.find(r=>r.id===(i===0?'30':i===1?'43':i===2?'393':i===3?'43':'393'))??routes[0]
     const model=new THREE.Group();model.name=cycling?'Miniature cyclist':'Miniature car';activity.add(model)
     const wheels:THREE.Object3D[]=[]
+    let pedal:((distance:number)=>void)|undefined
     if(cycling){
-      const tyre=new THREE.MeshStandardMaterial({color:'#303e3b',roughness:1})
-      for(const z of [-.6,.6]){
-        const wheel=new THREE.Mesh(new THREE.TorusGeometry(.28,.045,5,12),tyre)
-        wheel.rotation.y=Math.PI/2;wheel.position.set(0,.34,z);model.add(wheel);wheels.push(wheel)
-      }
-      const metal=new THREE.MeshStandardMaterial({color:'#cfad75',roughness:.7})
-      const frame=new THREE.Mesh(box,metal);frame.position.set(0,.63,0);frame.scale.set(.06,.55,1.2);model.add(frame)
-      const rider=new THREE.Mesh(sphere,new THREE.MeshStandardMaterial({color:'#d69d76',roughness:.9}));rider.position.set(0,1.7,0);rider.scale.setScalar(.16);model.add(rider)
-      const shirt=new THREE.Mesh(box,new THREE.MeshStandardMaterial({color:i===3?'#547d77':'#d9b767',roughness:.9}));shirt.position.set(0,1.27,-.08);shirt.rotation.x=-.24;shirt.scale.set(.38,.6,.28);model.add(shirt)
+      const cyclist=createMiniatureCyclist(i===3?'#547d77':'#d9b767',i)
+      // The outer group retains the route's heading and exact safe position.
+      cyclist.root.name='Bicycle and rider';model.add(cyclist.root)
+      wheels.push(...cyclist.wheels);pedal=cyclist.advance
     }else{
-      const paint=new THREE.MeshStandardMaterial({color:carPaint[i],roughness:.75})
-      const glass=new THREE.MeshStandardMaterial({color:'#44616a',roughness:.35})
-      const carBody=new THREE.Mesh(box,paint);carBody.position.y=.72;carBody.scale.set(1.42,.67,2.8);carBody.castShadow=true;model.add(carBody)
-      const cabin=new THREE.Mesh(box,glass);cabin.position.set(0,1.22,-.18);cabin.scale.set(1.2,.53,1.44);cabin.castShadow=true;model.add(cabin)
+      const paint=new THREE.MeshStandardMaterial({color:carPaint[i],roughness:.48,metalness:.1,envMapIntensity:.8})
+      const glass=new THREE.MeshStandardMaterial({color:'#44616a',roughness:.22,metalness:.1,envMapIntensity:1.1})
+      const carBody=new THREE.Mesh(carShell,paint);carBody.position.y=.72;carBody.scale.set(1.42,.67,2.8);carBody.castShadow=true;model.add(carBody)
+      const cabin=new THREE.Mesh(carCabin,glass);cabin.position.set(0,1.22,-.18);cabin.scale.set(1.2,.53,1.44);cabin.castShadow=true;model.add(cabin)
+      const roof=new THREE.Mesh(carShell,paint);roof.position.set(0,1.51,-.18);roof.scale.set(.99,.075,1.12);model.add(roof)
+      const details:{x:number;y:number;z:number;sx:number;sy:number;sz:number;color:string;rz?:number}[]=[]
+      for(const end of [-1,1]){
+        details.push({x:0,y:.54,z:end*1.405,sx:1.25,sy:.105,sz:.07,color:'#36423f'})
+        details.push({x:0,y:.72,z:end*1.421,sx:.34,sy:.1,sz:.015,color:end===1?'#eee7ce':'#d8ba65'})
+        for(const side of [-1,1]){
+          details.push({x:side*.48,y:.75,z:end*1.408,sx:.27,sy:.15,sz:.035,color:end===1?'#eee7ce':'#c45442'})
+        }
+      }
+      for(const side of [-1,1]){
+        details.push({x:side*.54,y:1.22,z:-.18,sx:.055,sy:.545,sz:.075,rz:side*.223,color:carPaint[i]})
+        for(const z of [-.52,.38])details.push({x:side*.71,y:.95,z,sx:.025,sy:.035,sz:.18,color:'#d2d1c4'})
+      }
+      const trim=new THREE.InstancedMesh(box,carTrimMaterial,details.length),matrix=new THREE.Object3D(),tone=new THREE.Color()
+      trim.name='Moving car trim'
+      details.forEach((d,index)=>{
+        matrix.position.set(d.x,d.y,d.z);matrix.rotation.set(0,0,d.rz||0);matrix.scale.set(d.sx,d.sy,d.sz);matrix.updateMatrix()
+        trim.setMatrixAt(index,matrix.matrix);trim.setColorAt(index,tone.set(d.color))
+      })
+      trim.computeBoundingSphere();model.add(trim)
       for(const x of [-.69,.69])for(const z of [-.84,.88]){
-        const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.27,.27,.13,8),busRubber)
+        const wheel=new THREE.Mesh(carWheelGeometry,busRubber)
         wheel.rotation.z=Math.PI/2;wheel.position.set(x,.36,z);model.add(wheel);wheels.push(wheel)
+        wheel.add(new THREE.Mesh(carHubGeometry,busCream))
       }
     }
     const spans=safeStretches(route.curve,route.length,cycling)
     const span=spans[i>=3?spans.length-1:0]
     if(!span){model.visible=false;continue}
-    traffic.push({model,curve:route.curve,length:route.length,speed:cycling?3.9:8.8,distance:span.start+(span.end-span.start)*((.12+i*.21)%1),start:span.start,end:span.end,wheels,cycling,direction:i%2?-1:1,turn:1,heading:null})
+    traffic.push({model,curve:route.curve,length:route.length,speed:cycling?3.5+i*.1:7.8+i*.55,distance:span.start+(span.end-span.start)*((.12+i*.21)%1),start:span.start,end:span.end,wheels,pedal,cycling,direction:i%2?-1:1,turn:1,heading:null})
   }
 
   // Riders shuttle along their stretch. At each end they turn round, swinging across
   // into the opposite lane over a few metres, instead of shrinking away and respawning.
   function updateTraffic(delta:number){
     for(const rider of traffic){
-      const step=delta*rider.speed
+      const remaining=rider.direction>0?rider.end-rider.distance:rider.distance-rider.start
+      const braking=.38+.62*THREE.MathUtils.smoothstep(remaining,0,9)
+      const step=delta*rider.speed*braking
       let next=rider.distance+step*rider.direction
       if(next>rider.end){next=rider.end-(next-rider.end);rider.direction=-1;rider.turn=0}
       else if(next<rider.start){next=rider.start+(rider.start-next);rider.direction=1;rider.turn=0}
@@ -318,23 +379,29 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
         const turnBy=Math.atan2(Math.sin(target-rider.heading),Math.cos(target-rider.heading))
         rider.heading+=turnBy*Math.min(1,delta*6)
       }
-      rider.model.position.copy(p).setY(.11)
+      // Tyre bottoms meet the .11-high carriageway instead of hovering over it.
+      rider.model.position.copy(p).setY(rider.cycling?.085:.02)
       rider.model.rotation.y=rider.heading
       for(const wheel of rider.wheels)wheel.rotation.x+=step/.28
+      rider.pedal?.(step)
     }
   }
 
+  let previousBusTime=0
   function updateBuses(time: number) {
+    const delta=Math.min(.1,Math.max(0,time-previousBusTime));previousBusTime=time
     for (const route of routes) {
       route.vehicles.forEach((bus, index) => {
-        const t = (route.offset + index / route.vehicles.length + time * 7.2 / route.length) % 1
-        const p = route.curve.getPointAt(t)
-        const tangent = route.curve.getTangentAt(Math.min(.99999, Math.max(.00001, t)))
-        bus.position.copy(p)
-        bus.rotation.y = Math.atan2(tangent.x, tangent.z)
-        // The stored route is outbound only; each model fades at the ends before looping.
-        bus.scale.setScalar(.3*Math.min(1, t * 100, (1 - t) * 100))
-        bus.visible=!inCourtArea(p.x,p.z,exclusions,.85)
+        const phase=(route.offset*2+index+time*7.2/route.length)%2
+        const direction=phase<1?1:-1,t=phase<1?phase:2-phase
+        const p=route.curve.getPoint(t),tangent=route.curve.getTangentAt(Math.min(.99999,Math.max(.00001,t)))
+        // A continuous lane swing at either end replaces the old shrink/respawn.
+        const lane=.72*Math.tanh(Math.sin(phase*Math.PI)*30)
+        p.x+=tangent.z*lane;p.z-=tangent.x*lane
+        const dx=p.x-bus.position.x,dz=p.z-bus.position.z
+        const heading=dx*dx+dz*dz>1e-8&&delta>0?Math.atan2(dx,dz):Math.atan2(tangent.x*direction,tangent.z*direction)
+        bus.rotation.y+=Math.atan2(Math.sin(heading-bus.rotation.y),Math.cos(heading-bus.rotation.y))*(delta>0?Math.min(1,delta*7):1)
+        bus.position.copy(p);bus.scale.setScalar(.3)
       })
     }
     for (const wheel of busWheels) wheel.rotation.x = time * 7.2 / .28

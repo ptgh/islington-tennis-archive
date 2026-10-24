@@ -1,3 +1,4 @@
+import type { ViewSettings } from '../data/viewQuality'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
@@ -17,8 +18,9 @@ import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import { SHADOW_PROXY_LAYER } from '../scene/miniatureMaterials'
+import { createViewShadowFitter } from '../scene/viewShadows'
 import { freeLabel, type NextFree } from '../data/freeCourts'
-import { addSkyEnvironment, scenePixelRatio, createLensFinish, resizeLensFinish, applySceneGrade, SCENE_TONE_MAPPING } from '../scene/renderQuality'
+import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING } from '../scene/renderQuality'
 import '../scene/TownMap.css'
 
 export interface TownMapHandle {
@@ -33,6 +35,7 @@ export interface TownMapHandle {
 }
 
 interface TownMapProps {
+  viewSettings: ViewSettings
   suspended?: boolean
   venues: MapVenue[]
   selectedId: string | null
@@ -79,16 +82,16 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
   const stationRefs = useRef(new Map<string, HTMLDivElement>())
   const vanRef=useRef<HTMLButtonElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtimeRef.current = { suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady,
+  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
@@ -245,6 +248,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const projection = new THREE.Vector3()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+    const fitShadows=createViewShadowFitter()
     const raycaster = new THREE.Raycaster()
     let journey: {start:number;fromPosition:THREE.Vector3;toPosition:THREE.Vector3;fromTarget:THREE.Vector3;toTarget:THREE.Vector3;fromZoom:number;toZoom:number}|null=null
     const cancelTravel=()=>{journey=null}
@@ -340,6 +344,20 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const showcase=highbury.clone().add(new THREE.Vector3(0,0,0))
       travel(showcase,mobile?1.9:3.1,true)
     }
+    const quality = createAdaptiveResolution(1000 / 60, runtimeRef.current.viewSettings.preset)
+    let resolutionDirty = false
+    const applyResolution = () => {
+      const ratio = scenePixelRatio(width, height, window.devicePixelRatio || 1, quality.scale)
+      renderer.setPixelRatio(ratio)
+      renderer.setSize(width, height)
+      composer.setPixelRatio(ratio); composer.setSize(width, height)
+      // Retina already resolves fine edges; avoid softening brickwork twice.
+      antialias.enabled = ratio < 1.75
+      antialias.uniforms.resolution.value.set(1 / (width * ratio), 1 / (height * ratio))
+      resizeLensFinish(lens.uniforms, width, height, ratio)
+      resolutionDirty = false
+      quality.pause()
+    }
     const resize = () => {
       const wasMobile = width <= 760
       const changed=width!==host.clientWidth||height!==host.clientHeight
@@ -352,13 +370,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       camera.top = halfHeight
       camera.bottom = -halfHeight
       camera.updateProjectionMatrix()
-      renderer.setPixelRatio(scenePixelRatio(width,height,window.devicePixelRatio||1))
-      renderer.setSize(width, height)
-      composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(width,height)
-      // Retina already resolves fine edges; avoid softening brickwork twice.
-      antialias.enabled=renderer.getPixelRatio()<1.75
-      antialias.uniforms.resolution.value.set(1/(width*renderer.getPixelRatio()),1/(height*renderer.getPixelRatio()))
-      resizeLensFinish(lens.uniforms,width,height,renderer.getPixelRatio())
+      applyResolution()
       if(changed&&runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
       else if(wasMobile!==(width<=760))reset()
       frame()
@@ -378,12 +390,15 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       if(runtimeRef.current.selectedServiceId==='sweet-spot-stringer'&&!journey){const delta=world.vanPosition.clone().sub(previousVan);camera.position.add(delta);controls.target.add(delta);}
       previousVan.copy(world.vanPosition)
       if (destroyed || !onScreen || runtimeRef.current.suspended) return
+      if (quality.setPreset(runtimeRef.current.viewSettings.preset)) applyResolution()
+      applyViewFocus(lens.uniforms, runtimeRef.current.viewSettings.sharp)
       weatherWorld.setKind(runtimeRef.current.weather)
       weatherWorld.setView(camera,camera.zoom,weatherClearance)
-      // Concentrate shadow texels around the visible neighbourhood when zoomed in.
-      const span=Math.max(32,520/Math.sqrt(camera.zoom));
       updateSceneLight(sunlight, ambient, controls.target, 425, runtimeRef.current.lightingTime === null ? lightClock : new Date(runtimeRef.current.lightingTime), runtimeRef.current.night, runtimeRef.current.weather);
-      sunlight.shadow.camera.left=-span;sunlight.shadow.camera.right=span;sunlight.shadow.camera.top=span;sunlight.shadow.camera.bottom=-span;sunlight.shadow.camera.updateProjectionMatrix();
+      if(!fitShadows(sunlight,camera)){
+        const span=Math.max(32,520/Math.sqrt(camera.zoom))
+        sunlight.shadow.camera.left=-span;sunlight.shadow.camera.right=span;sunlight.shadow.camera.top=span;sunlight.shadow.camera.bottom=-span;sunlight.shadow.camera.updateProjectionMatrix()
+      }
       occlusion.blendIntensity=runtimeRef.current.night?.16:.44
       applySceneGrade(renderer,lens.uniforms,runtimeRef.current.night)
       renderer.shadowMap.needsUpdate=true
@@ -397,14 +412,14 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const engine: SceneHandle = { camera, controls, world, scene, sunlight, ambient, renderer, reset, resize, frame, focus, travel, cancelTravel, visitCourt }
     engineRef.current = engine
     // Dev-only handle for pinned-camera render comparisons; stripped from production builds.
-    if (import.meta.env.DEV) Object.assign(window, { __town: { engine, runtime: runtimeRef, composer } })
+    if (import.meta.env.DEV) Object.assign(window, { __town: { engine, runtime: runtimeRef, composer, quality } })
     resize()
     if(runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
     else reset()
     const tick = (time: number) => {
       if (destroyed) return
       animation = requestAnimationFrame(tick)
-      if (document.hidden || !onScreen || runtimeRef.current.suspended) return
+      if (document.hidden || !onScreen || runtimeRef.current.suspended) { quality.pause(); return }
       if(journey){
         const progress=Math.min(1,(time-journey.start)/1100)
         const eased=progress*progress*(3-2*progress)
@@ -423,7 +438,13 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const animateTrain = runtimeRef.current.trainRunning
       world.animate(time / 1000, animateTrain, runtimeRef.current.activityRunning, runtimeRef.current.showBuses&&animateTrain)
       // OrbitControls reports damping changes. A still map needs no GPU redraws.
-      if (needsFrame || animateTrain || runtimeRef.current.activityRunning) { frame(); needsFrame = false }
+      if (needsFrame || animateTrain || runtimeRef.current.activityRunning) {
+        // Resizing clears the canvas: do it immediately before the next draw.
+        if (resolutionDirty) applyResolution()
+        const started = performance.now()
+        frame(); needsFrame = false
+        if (quality.sample(time, performance.now() - started)) { resolutionDirty = true; needsFrame = true }
+      } else quality.pause()
     }
     animation = requestAnimationFrame(tick)
     const observer = new ResizeObserver(resize)
@@ -488,6 +509,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     }
     // The venue dataset is static; changes recreate the scene cleanly.
   }, [venues])
+
+  useEffect(() => { engineRef.current?.frame() }, [viewSettings, suspended])
 
   useEffect(() => {
     const engine = engineRef.current
