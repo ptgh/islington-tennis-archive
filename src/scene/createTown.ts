@@ -75,6 +75,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const stoneMaterial = standard('#c5bda2')
   const box = new THREE.BoxGeometry(1, 1, 1)
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 7)
+  const branchGeometry = new THREE.CylinderGeometry(.65, 1, 1, 6)
+  branchGeometry.rotateZ(-Math.PI / 2)
   const roof = gableRoofGeometry()
   const hipRoof=townRoofGeometry('hipped'),mansardRoof=townRoofGeometry('mansard')
   const sphere = finishes.foliageGeometry
@@ -264,7 +266,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       parkPaths.push({ x, y: .07, z, sx: Math.hypot(x1 - x0, z1 - z0) + .25, sy: .05, sz: 1.3, ry: -Math.atan2(z1 - z0, x1 - x0) })
     }
   }
-  instances(box, pathMaterial, parkPaths, false)
+  instances(box, finishes.parkPath, parkPaths, false)
   instances(box, kerbMaterial, kerbs)
   instances(box, gutterMaterial, gutters, false)
   instances(box, lane, laneMarks, false)
@@ -352,14 +354,20 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         for (const col of [-1, 1]) {
           const p = coord(col * width * .24, side * (depth / 2 + .045))
           if (floor === 0 && col === 1) {
-            trims.push({ ...p,y: .98,sx: .96,sy: 2.02,sz: .23,ry:angle })
-            const doorway=coord(col*width*.24,side*(depth/2+.19));
+            if(detailedLocal){
+              for(const dx of [-.43,.43]){const jamb=coord(col*width*.24+dx,side*(depth/2+.23));trims.push({...jamb,y:.98,sx:.12,sy:2.02,sz:.34,ry:angle})}
+              const lintel=coord(col*width*.24,side*(depth/2+.23));trims.push({...lintel,y:1.95,sx:.98,sy:.16,sz:.36,ry:angle})
+            }else trims.push({ ...p,y: .98,sx: .96,sy: 2.02,sz: .23,ry:angle })
+            const doorway=coord(col*width*.24,side*(depth/2+(detailedLocal?.10:.19)));
             doors.push({ ...doorway, y: .81, sx: .67, sy: 1.6, sz: .08, ry: angle })
             windows.push({...doorway,y:1.75,sx:.67,sy:.25,sz:.085,ry:angle})
             const step=coord(col*width*.24,side*(depth/2+.45));
             trims.push({...step,y:.09,sx:1.1,sy:.18,sz:.75,ry:angle})
           } else {
-            trims.push({ ...p, y: 1.2 + floor * 1.7, sx: .85, sy: 1.18, sz: .12, ry: angle })
+            if(detailedLocal){
+              for(const dx of [-.37,.37]){const jamb=coord(col*width*.24+dx,side*(depth/2+.19));trims.push({...jamb,y:1.2+floor*1.7,sx:.11,sy:1.18,sz:.25,ry:angle})}
+              const lintel=coord(col*width*.24,side*(depth/2+.19));trims.push({...lintel,y:1.76+floor*1.7,sx:.85,sy:.12,sz:.27,ry:angle})
+            }else trims.push({ ...p, y: 1.2 + floor * 1.7, sx: .85, sy: 1.18, sz: .12, ry: angle })
             const front = coord(col * width * .24, side * (depth / 2 + .13))
             windows.push({ ...front, y: 1.23 + floor * 1.7, sx: .60, sy: .91, sz: .055, ry: angle, color: glassTone })
             const sash=coord(col*width*.24,side*(depth/2+.175));
@@ -501,11 +509,15 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         color: lobe > 0 && (lobe + species) % 5 === 0 ? foliageColors[(species + 1) % foliageColors.length] : color});
     }
     if (detailedLocal && !compact) {
+      const limb=(a:THREE.Vector3,b:THREE.Vector3,thickness:number)=>{
+        const d=b.clone().sub(a),mid=a.clone().add(b).multiplyScalar(.5)
+        treeBranches.push({x:mid.x,y:mid.y,z:mid.z,sx:d.length(),sy:thickness,sz:thickness,ry:-Math.atan2(d.z,d.x),rz:Math.atan2(d.y,Math.hypot(d.x,d.z))})
+      }
       for (let branch = 0; branch < 4; branch++) {
         const angle = branch * Math.PI / 2 + height
-        treeBranches.push({ x: x + Math.cos(angle) * height * .1, y: height * .55,
-          z: z + Math.sin(angle) * height * .1, sx: height * .36, sy: .09 * size,
-          sz: .1 * size, ry: -angle })
+        const fork=new THREE.Vector3(x+Math.cos(angle)*height*.25,height*.62,z+Math.sin(angle)*height*.25)
+        limb(new THREE.Vector3(x,height*.34,z),fork,.085*size)
+        limb(fork,new THREE.Vector3(x+Math.cos(angle+.35)*height*.39,height*.76,z+Math.sin(angle+.35)*height*.39),.045*size)
       }
       // Small outer clusters break up the crown rather than increasing every tree's cost.
       for (let tip = 0; tip < 5; tip++) {
@@ -603,7 +615,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   // Garden shrubs were queued before the park planting was known.
   instances(finishes.shrubGeometry,leafMaterial,gardenPlanting,false)
   instances(cylinder, trunkMaterial, treeTrunks)
-  instances(box, trunkMaterial, treeBranches)
+  instances(branchGeometry, trunkMaterial, treeBranches)
   instances(sphere, leafMaterial, treeCrowns)
 
   // A low, open mesh fence and individually marked courts make every venue tangible.
@@ -926,7 +938,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     const a=points[i-1],b=points[i]
     walkPieces.push({x:(a.x+b.x)/2,y:.12,z:(a.z+b.z)/2,sx:a.distanceTo(b)+.2,sy:.06,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
   }
-  instances(box,pathMaterial,walkPieces,false)
+  instances(box,finishes.parkPath,walkPieces,false)
   const life=createTownLife(animatedCourts,walkPaths,geoPosition,exclusions)
   root.add(life.root)
   let trainDistance = .4

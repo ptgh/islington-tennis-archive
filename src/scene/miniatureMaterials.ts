@@ -472,6 +472,22 @@ export function createMiniatureMaterials() {
     }
     material.customProgramCacheKey = () => `${cacheKey}-rain-ground-v1`
   }
+  const parkPath = cloneArchitecturalFinish(paving, '#d0c8b4')
+  const preparePath = parkPath.onBeforeCompile, pathKey = parkPath.customProgramCacheKey()
+  parkPath.onBeforeCompile = (shader, renderer) => {
+    preparePath.call(parkPath, shader, renderer)
+    shader.vertexShader = 'varying vec2 pathMargin;\n' + shader.vertexShader.replace('#include <project_vertex>', `
+      float pathWidth = length(architectureModel[2].xyz);
+      pathMargin = vec2(position.z * pathWidth, pathWidth * .5);
+      #include <project_vertex>`)
+    shader.fragmentShader = 'varying vec2 pathMargin;\n' + shader.fragmentShader.replace('#include <color_fragment>', `
+      #include <color_fragment>
+      float marginNoise = groundWetNoise(wetGroundWorld * 3.0);
+      float wornMargin = smoothstep(pathMargin.y - .30, pathMargin.y - .02, abs(pathMargin.x) + (marginNoise-.5)*.13);
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.22,.28,.12), wornMargin*.45);
+    `)
+  }
+  parkPath.customProgramCacheKey = () => `${pathKey}-soft-path-margin-v1`
   const hardCourt = new THREE.MeshStandardMaterial({ color: '#4d939b', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .006, roughness: .91 })
   const timber = new THREE.MeshStandardMaterial({ color: '#94795e', map: woodMap, roughness: .87 })
   const ballast = new THREE.MeshStandardMaterial({ color: '#a4a191', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .065, roughness: 1 })
@@ -496,13 +512,19 @@ export function createMiniatureMaterials() {
         #endif
         float windPhase = windOrigin.x * .021 + windOrigin.z * .017;
         float crownWeight = clamp((position.y + 1.0) * .5, 0.0, 1.0);
+        // Stable asymmetric masses add variety without moving trees, consuming
+        // random numbers, expanding bounds or adding crown/shadow triangles.
+        float crownShape = fract(dot(windOrigin.xz, vec2(.1031,.11369)));
+        transformed.x *= mix(.78,1.0,crownShape) * mix(1.0,.83,crownWeight*crownShape);
+        transformed.z *= mix(1.0,.81,crownShape);
+        transformed.y *= mix(.88,1.0,crownShape);
         float gust = .72 + .28 * sin(miniatureWindTime * .19 + windPhase * .35);
         float flutter = sin(miniatureWindTime * 2.4 + windPhase * 1.7) * .12;
         transformed.x += (sin(miniatureWindTime * .85 + windPhase) + flutter) * miniatureWindStrength * gust * crownWeight;
         transformed.z += cos(miniatureWindTime * .63 + windPhase) * miniatureWindStrength * .55 * gust * crownWeight;
       `)
     }
-    material.customProgramCacheKey = () => 'miniature-crown-wind-v2'
+    material.customProgramCacheKey = () => 'miniature-crown-wind-v3'
   }
   wind(foliage)
   const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide })
@@ -523,12 +545,12 @@ export function createMiniatureMaterials() {
   const foliageShadowDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking })
   wind(foliageShadowDepth)
   const foliageShadowProxy = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
-  const materials = [brick, slate, grass, parkGrass, asphalt, paving, foliage, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing]
+  const materials = [brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing]
   const textures = [brickMap, brickBump, slateMap, slateBump, grassMap, parkMap, asphaltMap, asphaltBump, asphaltRoughness, pavingMap, pavingBump, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha, renderMap, renderBump, metalRoofMap, metalRoofBump, membraneMap, metalRoofRoughness, membraneRoughness]
   let disposed = false
 
   return {
-    brick, slate, grass, parkGrass, asphalt, paving, foliage, foliageGeometry, shrubGeometry, foliageDepth, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing,
+    brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, foliageGeometry, shrubGeometry, foliageDepth, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing,
     foliageShadowGeometry, foliageShadowDepth, foliageShadowProxy,
     wind,
     setWind(time: number, strength: number) { windTime.value = time; windStrength.value = strength },

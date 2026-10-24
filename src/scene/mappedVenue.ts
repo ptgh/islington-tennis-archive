@@ -117,7 +117,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     const width=path?2.4:f.tags.highway==='service'?4.2:['primary','secondary','tertiary'].includes(f.tags.highway)?8:5.5
     for(let i=1;i<f.points.length;i++) {
       const a=f.points[i-1],b=f.points[i]
-      segment(a,b,width+(path?.3:3.6),.01,'#ccc5b0')
+      segment(a,b,width+(path?.3:3.6),.01,path?'#c9c2ad':'#ccc5b0')
       if(!path)segment(a,b,width,.065,'#85897e')
       roadSegments.push({a,b,width,path})
     }
@@ -152,7 +152,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     return !barriers.some(f=>f.points.some((p,i)=>i>0&&crossingSegments(a,b,f.points[i-1],p)))
   })
   for(const link of access.links){
-    segment(link.points[0],link.points[1],link.width,.04,'#ccc5b0')
+    segment(link.points[0],link.points[1],link.width,.04,'#c9c2ad')
     roadSegments.push({a:link.points[0],b:link.points[1],width:link.width,path:true})
   }
   // Mapped garden walls and fences tie the blocks to their actual plots.
@@ -256,7 +256,15 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
             box(.58,y,0,.09,1.68,.30,'#ded6c4',false)
             box(0,y+.84,0,1.3,.14,.32,'#ded6c4',false)
           }
-          if(j%3===0){box(0,1.05,0,.86,2.1,.29,'#344c44');box(0,.12,0,1.4,.24,.9,'#ded6c4')}
+          if(j%3===0){
+            box(0,1.05,0,.86,2.1,.29,'#344c44')
+            // Projected jambs and a deep lintel recess the original doorway;
+            // keep the threshold and footprint fixed on this mapped elevation.
+            for(const side of [-1,1])box(side*.51,1.05,0,.12,2.2,.55,'#ded6c4',false)
+            box(0,2.18,0,1.14,.15,.58,'#ded6c4',false)
+            box(0,1.73,0,.61,.30,.32,'#456b63',false)
+            box(0,.12,0,1.4,.24,.9,'#ded6c4')
+          }
         })
       }
     }

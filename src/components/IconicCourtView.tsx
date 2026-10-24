@@ -86,8 +86,8 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   const material = (colour: string) => {
     let value = materials.get(colour)
     if (!value) {
-      const base = grassColours.has(colour) ? finishes.parkGrass : colour === '#ccc5b0' ? finishes.paving : [...pavingColours, '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? surfaces.concrete : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#746b51' ? finishes.timber : colour === '#3f5b49' ? surfaces.steel : null
-      value = colour === '#456b63' ? cloneArchitecturalFinish(finishes.glazing, colour) : base ? (base === finishes.paving || base === finishes.asphalt ? cloneArchitecturalFinish(base, colour) : base.clone()) : new THREE.MeshStandardMaterial({ roughness: .9 })
+      const base = grassColours.has(colour) ? finishes.parkGrass : colour === '#c9c2ad' ? finishes.parkPath : colour === '#ccc5b0' ? finishes.paving : [...pavingColours, '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? surfaces.concrete : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#746b51' ? finishes.timber : colour === '#3f5b49' ? surfaces.steel : null
+      value = colour === '#456b63' ? cloneArchitecturalFinish(finishes.glazing, colour) : base ? (base === finishes.paving || base === finishes.asphalt || base === finishes.parkPath ? cloneArchitecturalFinish(base, colour) : base.clone()) : new THREE.MeshStandardMaterial({ roughness: .9 })
       value.color.set(colour)
       if (colour === '#50686a') { value.roughness = .3; value.metalness = .08; value.envMapIntensity = .8 }
       if (colour === '#f5f2df') { value.emissive.set('#f5f2df'); value.emissiveIntensity = .12 }
@@ -152,6 +152,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   }
   const canopy = finishes.foliageGeometry
   const foliageBatches = new Map<string, THREE.Matrix4[]>()
+  const treeDetailCentres = COURTS[id].map(stop => mappedCourtPosition(id, stop.id))
   const tree = (x: number, z: number, size: number, shade: string) => {
     cylinder(x, size * .58, z, size * .12, size * 1.15, '#746b51')
     if (!foliageBatches.has(shade)) foliageBatches.set(shade, [])
@@ -165,7 +166,11 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
       transform.scale.setScalar(size * (lobe === 0 ? .65 : .46))
       transform.updateMatrix()
       foliageBatches.get(shade)?.push(placement.clone().multiply(transform.matrix))
-      if(lobe>0)beam(new THREE.Vector3(x,size*.8,z),new THREE.Vector3(x+Math.cos(angle)*radius,size*1.5,z+Math.sin(angle)*radius),size*.055,'#746b51')
+      if(lobe>0){
+        const fork=new THREE.Vector3(x+Math.cos(angle)*radius,size*1.5,z+Math.sin(angle)*radius)
+        beam(new THREE.Vector3(x,size*.8,z),fork,size*.055,'#746b51')
+        if(treeDetailCentres.some(p=>Math.hypot(x-p.x,z-p.z)<115))beam(fork,new THREE.Vector3(x+Math.cos(angle+.3)*radius*1.12,size*1.77,z+Math.sin(angle+.3)*radius*1.12),size*.028,'#746b51')
+      }
     }
   }
   // Parked vehicles share geometry and instanced parts, like the façades.

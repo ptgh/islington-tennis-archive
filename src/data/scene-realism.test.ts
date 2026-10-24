@@ -113,7 +113,7 @@ test('buses retain their size through a complete outbound and return trip',()=>{
 
 test('building and ground finishes preserve shared relief and release owned textures once',()=>{
  const finishes=createMiniatureMaterials()
- for(const material of [finishes.stucco,finishes.seamRoof,finishes.membrane,finishes.asphalt,finishes.paving]){
+ for(const material of [finishes.stucco,finishes.seamRoof,finishes.membrane,finishes.asphalt,finishes.paving,finishes.parkPath]){
   assert.ok(material.map&&material.bumpMap)
   const bytes=material.map.image.data
   assert.ok(new Set(bytes).size>10,'surface is not a uniform fill')
@@ -147,9 +147,10 @@ test('rain updates shared ground clones and restores dry finishes without recomp
    material.onBeforeCompile(shader as Parameters<typeof material.onBeforeCompile>[0],{} as THREE.WebGLRenderer);
    return shader as typeof shader & {uniforms:Record<string,{value:number}>};
   };
-  const road=compile(finishes.asphalt),clone=compile(copy),paving=compile(finishes.paving);
+  const road=compile(finishes.asphalt),clone=compile(copy),paving=compile(finishes.paving),path=compile(finishes.parkPath);
   assert.equal(road.uniforms.miniatureRainWetness,clone.uniforms.miniatureRainWetness);
   assert.equal(road.uniforms.miniatureRainWetness,paving.uniforms.miniatureRainWetness);
+  assert.equal(road.uniforms.miniatureRainWetness,path.uniforms.miniatureRainWetness);
   const key=copy.customProgramCacheKey();
   finishes.setRain(true);assert.equal(clone.uniforms.miniatureRainWetness.value,1);
   finishes.setRain(false);assert.equal(clone.uniforms.miniatureRainWetness.value,0);
