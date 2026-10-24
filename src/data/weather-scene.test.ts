@@ -39,3 +39,21 @@ test('cloud footprints stay fixed while rain animates and pausing freezes drops'
   weather.setKind('clear');assert.equal(weather.root.visible,false);
  }finally{weather.dispose();}
 });
+
+test('wind steepens rain trajectories without moving their ground anchors',()=>{
+ const weather=createWeather();
+ try{
+  const rain=weather.root.children.find(c=>c instanceof THREE.LineSegments) as THREE.LineSegments;
+  const ripples=weather.root.children.find(c=>c instanceof THREE.InstancedMesh) as THREE.InstancedMesh;
+  weather.animate(1,false,.02);
+  const calm=Array.from(rain.geometry.attributes.position.array),anchors=Array.from(ripples.instanceMatrix.array);
+  weather.animate(2,false,.3);
+  const windy=Array.from(rain.geometry.attributes.position.array);
+  assert.ok(Math.abs(windy[3]-windy[0])>Math.abs(calm[3]-calm[0])*3,'strong wind visibly slants each streak');
+  assert.equal(windy[1],calm[1],'changing wind while paused does not advance falling drops');
+  assert.deepEqual(Array.from(ripples.instanceMatrix.array),anchors,'ripples retain their ground contact points');
+  assert.ok(windy.every(Number.isFinite));
+  weather.animate(3,false,NaN);
+  assert.ok(Array.from(rain.geometry.attributes.position.array).every(Number.isFinite));
+ }finally{weather.dispose();}
+});

@@ -17,7 +17,7 @@ import { cloneArchitecturalFinish, createMiniatureMaterials, SHADOW_PROXY_LAYER 
 import { createTownLife } from '../scene/createTownLife'
 import { createVenueLighting } from '../scene/createVenueLighting'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
-import type { WeatherSceneKind } from '../scene/createWeather'
+import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
 import { createMappedVenue, mappedCourtPosition } from '../scene/mappedVenue'
 import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING } from '../scene/renderQuality'
 import { createClubSurfaces, type ClubCourtSurface } from '../scene/clubSurfaces'
@@ -401,7 +401,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   scene.add(sun, sun.target, ambient)
   let windTime = 0, clock = new Date(), lastNight: boolean | undefined
   const lightTarget = new THREE.Vector3(0, 0, id === 'wimbledon' ? 15 : 0)
-  return { scene,
+  return { scene, weatherClearance: matches.map(match => match.center),
     animate(delta: number, running: boolean, night: boolean, weather: WeatherSceneKind, lightingTime: number | null, windMph?:number) {
       life.setNight(night)
       life.animate(delta, running, false)
@@ -458,6 +458,9 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     let textureDirty = false
     let activeId = clubId
     let world = buildScene(activeId, () => { textureDirty = true })
+    // One weather system follows the shared renderer between cached club worlds.
+    const weatherWorld = createWeather()
+    world.scene.add(weatherWorld.root)
     const worlds = new Map<IconicClubId, ReturnType<typeof buildScene>>([[activeId, world]])
     const disposeEnvironment = addSkyEnvironment(renderer, world.scene)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
@@ -483,6 +486,13 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     const composer = new EffectComposer(renderer)
     const beauty = createAntialiasedBeauty(world.scene, camera)
     const occlusion = new GTAOPass(world.scene, camera, 1, 1)
+    const drawOcclusion = occlusion.render.bind(occlusion)
+    occlusion.render = (renderer, writeBuffer, readBuffer) => {
+      const visible = weatherWorld.root.visible
+      weatherWorld.root.visible = false
+      try { drawOcclusion(renderer, writeBuffer, readBuffer, 0, false) }
+      finally { weatherWorld.root.visible = visible }
+    }
     occlusion.updateGtaoMaterial({ radius: 1.2, distanceExponent: 1.5, thickness: 1, distanceFallOff: 1, scale: 1, samples: element.clientWidth > 760 ? 16 : 8, screenSpaceRadius: false })
     occlusion.updatePdMaterial({ lumaPhi: 5, depthPhi: 1, normalPhi: 3, radius: 4, samples: 8 })
     const sizeOcclusion = occlusion.setSize.bind(occlusion)
@@ -527,6 +537,8 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       if (quality.setPreset(state.viewSettings.preset)) applyResolution()
       applyViewFocus(lens.uniforms, state.viewSettings.sharp)
       world.animate(0, false, state.night, state.weather, state.lightingTime, state.windMph)
+      weatherWorld.setKind(state.weather)
+      weatherWorld.setView(camera, camera.zoom, world.weatherClearance)
       applySceneGrade(renderer, lens.uniforms, state.night, ICONIC_DAY_LIFT)
       occlusion.blendIntensity = state.night ? .16 : .30
       renderer.shadowMap.needsUpdate = true
@@ -592,6 +604,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
         }
         quality.pause()
         activeId = id; world = next
+        world.scene.add(weatherWorld.root)
         beauty.scene = world.scene; occlusion.scene = world.scene
         renderer.domElement.setAttribute('aria-label', `Illustrated interactive courts at ${iconicClubs.find(item => item.id === id)?.name}.`)
         overview.set(compact ? 0 : -85, 0, compact ? 0 : 35)
@@ -631,6 +644,8 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
         const delta = previous ? Math.min(.08, (time - previous) / 1000) : 0
         previous = time
         world.animate(delta, state.motionRunning, state.night, state.weather, state.lightingTime, state.windMph)
+        weatherWorld.setKind(state.weather)
+        weatherWorld.animate(time / 1000, state.motionRunning, weatherWind(state.weather, state.windMph))
         // Keep the previous image until the new buffers can be drawn immediately.
         if (resolutionDirty) applyResolution()
         const started = performance.now()
@@ -652,6 +667,8 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       controls.dispose()
       beauty.dispose(); occlusion.dispose(); output.dispose(); antialias.dispose(); lens.dispose(); composer.dispose(); disposeEnvironment()
       occlusion.gtaoMaterial.dispose(); occlusion.blendMaterial.dispose()
+      weatherWorld.root.removeFromParent()
+      weatherWorld.dispose()
       worlds.forEach(cached => cached.dispose())
       renderer.dispose()
       renderer.domElement.remove()

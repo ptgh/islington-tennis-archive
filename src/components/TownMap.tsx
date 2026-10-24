@@ -432,7 +432,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       }
       controls.update()
       weatherWorld.setKind(runtimeRef.current.weather)
-      weatherWorld.animate(time / 1000, runtimeRef.current.activityRunning)
+      weatherWorld.animate(time / 1000, runtimeRef.current.activityRunning, weatherWind(runtimeRef.current.weather,runtimeRef.current.windMph))
       world.setWind(weatherWind(runtimeRef.current.weather,runtimeRef.current.windMph))
       if (runtimeRef.current.activityRunning) lightClock = new Date()
       // The parent defaults to paused for reduced motion; an explicit Run is respected.

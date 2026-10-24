@@ -80,18 +80,22 @@ export function createWeather() {
     }
     rainMaterial.opacity=THREE.MathUtils.lerp(.48,.22,THREE.MathUtils.smoothstep(zoom,2,8));
   }
-  function animate(seconds:number,running:boolean){
+  function animate(seconds:number,running:boolean,windStrength=.18){
     const dt=previous===undefined?0:Math.min(.05,Math.max(0,seconds-previous));previous=seconds;
     if(running)elapsed+=dt;
     if(kind==='clear'||kind==='cloud')return;
+    // A stable illustrative wind axis, with measured strength and slow gusts.
+    // Anchor each trajectory at its landing point so gusts do not slide ripples.
+    const wind=THREE.MathUtils.clamp(Number.isFinite(windStrength)?windStrength:.18,0,.34);
+    const drift=(.3+wind*32)*(.86+.14*Math.sin(elapsed*.7));
     const snowPositions=snowGeometry.attributes.position.array as Float32Array;
     drops.forEach((drop,i)=>{
       const phase=(drop.phase+elapsed*drop.speed*(kind==='snow'?.07:.4))%1;
       const y=65*(1-phase)+.4;
-      const x=drop.x+phase*4;
-      positions.set([x,y,drop.z,x-.17,y+drop.length,drop.z],i*6);
-      snowPositions.set([drop.x+Math.sin(elapsed+drop.phase*20)*2,y,drop.z],i*3);
-      if(i<100){const scale=.15+phase*1.1;dummy.position.set(drop.x+4,.4,drop.z);dummy.rotation.x=-Math.PI/2;dummy.scale.setScalar(scale);dummy.updateMatrix();ripples.setMatrixAt(i,dummy.matrix);}
+      const x=drop.x-(1-phase)*drift,z=drop.z-(1-phase)*drift*.35;
+      positions.set([x,y,z,x-drift*drop.length/65,y+drop.length,z-drift*.35*drop.length/65],i*6);
+      snowPositions.set([x+Math.sin(elapsed+drop.phase*20)*2,y,z],i*3);
+      if(i<100){const scale=.15+phase*1.1;dummy.position.set(drop.x,.4,drop.z);dummy.rotation.x=-Math.PI/2;dummy.scale.setScalar(scale);dummy.updateMatrix();ripples.setMatrixAt(i,dummy.matrix);}
     });
     rainGeometry.attributes.position.needsUpdate=true;snowGeometry.attributes.position.needsUpdate=true;ripples.instanceMatrix.needsUpdate=true;
   }
