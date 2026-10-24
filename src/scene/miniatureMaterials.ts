@@ -443,6 +443,35 @@ export function createMiniatureMaterials() {
   // Horizontal materials keep a fixed grain and slab size across long road
   // strips, short access links and merged ground polygons.
   architecturalUV(asphalt,true,24);architecturalUV(paving,true)
+  // Shared by world-UV clones in both scenes. Rain darkens porous ground and
+  // reveals a restrained, uneven sky sheen without adding reflection passes.
+  const rainWetness = { value: 0 }
+  for (const material of [asphalt, paving]) {
+    const prepare = material.onBeforeCompile, cacheKey = material.customProgramCacheKey()
+    material.onBeforeCompile = (shader, renderer) => {
+      prepare.call(material, shader, renderer)
+      shader.uniforms.miniatureRainWetness = rainWetness
+      shader.vertexShader = 'varying vec2 wetGroundWorld;\n' + shader.vertexShader.replace('#include <project_vertex>', `
+        wetGroundWorld = architectureWorld.xz;
+        #include <project_vertex>`)
+      shader.fragmentShader = `uniform float miniatureRainWetness;
+        varying vec2 wetGroundWorld;
+        float groundWetHash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+        float groundWetNoise(vec2 p) {
+          vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+          return mix(mix(groundWetHash(i),groundWetHash(i+vec2(1,0)),f.x),mix(groundWetHash(i+vec2(0,1)),groundWetHash(i+vec2(1,1)),f.x),f.y);
+        }
+        ` + shader.fragmentShader.replace('#include <color_fragment>', `
+        #include <color_fragment>
+        float groundWetAmount = miniatureRainWetness * mix(.55,1.0,smoothstep(.2,.8,groundWetNoise(wetGroundWorld / 5.0)));
+        diffuseColor.rgb *= mix(1.0, ${material === asphalt ? '.72' : '.82'}, groundWetAmount);
+        `).replace('#include <roughnessmap_fragment>', `
+        #include <roughnessmap_fragment>
+        roughnessFactor = mix(roughnessFactor,max(.32,roughnessFactor*.48),groundWetAmount);
+        `)
+    }
+    material.customProgramCacheKey = () => `${cacheKey}-rain-ground-v1`
+  }
   const hardCourt = new THREE.MeshStandardMaterial({ color: '#4d939b', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .006, roughness: .91 })
   const timber = new THREE.MeshStandardMaterial({ color: '#94795e', map: woodMap, roughness: .87 })
   const ballast = new THREE.MeshStandardMaterial({ color: '#a4a191', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .065, roughness: 1 })
@@ -503,6 +532,7 @@ export function createMiniatureMaterials() {
     foliageShadowGeometry, foliageShadowDepth, foliageShadowProxy,
     wind,
     setWind(time: number, strength: number) { windTime.value = time; windStrength.value = strength },
+    setRain(raining: boolean) { rainWetness.value = raining ? 1 : 0 },
     dispose() {
       if (disposed) return
       disposed = true

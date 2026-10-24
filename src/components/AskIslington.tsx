@@ -35,7 +35,7 @@ function Conversation({ thread, onSave, input, setInput, visible }: { thread: As
   });
   const busy = status === 'submitted' || status === 'streaming';
   useEffect(() => { if (status === 'ready' || status === 'error') onSave(thread.id, messages); }, [status, messages, thread.id, onSave]);
-  useEffect(() => { if (visible) end.current?.scrollIntoView({ block: 'end' }); }, [messages, status, visible]);
+  useEffect(() => { if (visible && messages.length) end.current?.scrollIntoView({ block: 'end' }); }, [messages, status, visible]);
   useEffect(() => { if (visible) box.current?.focus({ preventScroll: true }); }, [visible]);
   function send(text: string) { const t = text.trim(); if (!t || busy) return; setError(null); setInput(''); sendMessage({ text: t }); }
   return <div className="ask-conversation">

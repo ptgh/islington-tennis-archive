@@ -24,6 +24,7 @@ export interface TownWorld {
   anchors: Map<string, THREE.Vector3>
   courtFocusAnchors: Map<string, THREE.Vector3>
   setWind: (strength: number) => void
+  setRain: (raining: boolean) => void
   setNight: (night: boolean) => void
   setTransit: (visible: boolean) => void
   setActivity: (visible: boolean) => void

@@ -9,5 +9,5 @@ export function boundGuideWindow(rect: GuideWindow, viewportWidth: number, viewp
 }
 
 export function initialGuideWindow(width: number, height: number): GuideWindow {
-  return boundGuideWindow({ x: width - 970, y: Math.max(72, (height - 640) / 2), width: 860, height: 640 }, width, height);
+  return boundGuideWindow({ x: width - 710, y: height - 540, width: 600, height: 470 }, width, height);
 }

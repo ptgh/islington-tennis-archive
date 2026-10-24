@@ -395,6 +395,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       applyViewFocus(lens.uniforms, runtimeRef.current.viewSettings.sharp)
       weatherWorld.setKind(runtimeRef.current.weather)
       weatherWorld.setView(camera,camera.zoom,weatherClearance)
+      world.setRain(runtimeRef.current.weather==='rain')
       updateSceneLight(sunlight, ambient, controls.target, 425, runtimeRef.current.lightingTime === null ? lightClock : new Date(runtimeRef.current.lightingTime), runtimeRef.current.night, runtimeRef.current.weather);
       if(!fitShadows(sunlight,camera)){
         const span=Math.max(32,520/Math.sqrt(camera.zoom))

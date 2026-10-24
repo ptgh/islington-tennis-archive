@@ -138,3 +138,21 @@ test('building and ground finishes preserve shared relief and release owned text
  finishes.dispose();finishes.dispose()
  assert.equal(released,5)
 })
+
+test('rain updates shared ground clones and restores dry finishes without recompiling',()=>{
+ const finishes=createMiniatureMaterials(),copy=cloneArchitecturalFinish(finishes.asphalt,'#85897e');
+ try{
+  const compile=(material:THREE.MeshStandardMaterial)=>{
+   const shader={vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader,uniforms:{}};
+   material.onBeforeCompile(shader as Parameters<typeof material.onBeforeCompile>[0],{} as THREE.WebGLRenderer);
+   return shader as typeof shader & {uniforms:Record<string,{value:number}>};
+  };
+  const road=compile(finishes.asphalt),clone=compile(copy),paving=compile(finishes.paving);
+  assert.equal(road.uniforms.miniatureRainWetness,clone.uniforms.miniatureRainWetness);
+  assert.equal(road.uniforms.miniatureRainWetness,paving.uniforms.miniatureRainWetness);
+  const key=copy.customProgramCacheKey();
+  finishes.setRain(true);assert.equal(clone.uniforms.miniatureRainWetness.value,1);
+  finishes.setRain(false);assert.equal(clone.uniforms.miniatureRainWetness.value,0);
+  assert.equal(copy.customProgramCacheKey(),key);
+ }finally{copy.dispose();finishes.dispose();}
+})

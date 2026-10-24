@@ -957,6 +957,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     vanPosition:gear.van.position,
     setActivity:life.setActivity,
     setWind(strength: number) { windStrength = strength },
+    setRain:finishes.setRain,
     setBuses:life.setBuses,
     setBusRoute:life.setBusRoute,
     setNight(night) {

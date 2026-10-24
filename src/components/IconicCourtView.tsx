@@ -407,6 +407,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
       life.animate(delta, running, false)
       if (running) { windTime += delta; clock = new Date() }
       finishes.setWind(windTime, weatherWind(weather,windMph))
+      finishes.setRain(weather==='rain')
       updateSceneLight(sun, ambient, lightTarget, 850, lightingTime === null ? clock : new Date(lightingTime), night, weather)
       if (night !== lastNight) {
         courtLighting.setNight(night)
