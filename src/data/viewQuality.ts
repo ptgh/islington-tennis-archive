@@ -1,6 +1,6 @@
 export type QualityPreset = 'balanced' | 'high' | 'battery'
 export type ViewSettings = { preset: QualityPreset; sharp: boolean }
-export const DEFAULT_VIEW_SETTINGS: ViewSettings = { preset: 'balanced', sharp: false }
+export const DEFAULT_VIEW_SETTINGS: ViewSettings = { preset: 'high', sharp: false }
 
 export const QUALITY_PRESETS = {
   balanced: { label: 'Balanced', description: 'Adapts detail for smooth exploration.', min: .7, max: 1.15, initial: 1 },

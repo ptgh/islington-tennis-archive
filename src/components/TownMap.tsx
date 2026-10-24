@@ -48,6 +48,7 @@ interface TownMapProps {
   night: boolean
   lightingTime: number | null
   weather: WeatherSceneKind
+  windMph?: number
   showTransit: boolean
   trainRunning: boolean
   activityRunning: boolean
@@ -82,16 +83,16 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
   const stationRefs = useRef(new Map<string, HTMLDivElement>())
   const vanRef=useRef<HTMLButtonElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, weather, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady,
+  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, selectedId, activeVisitId, visibleIds, onReset, onReady,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
@@ -432,7 +433,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       controls.update()
       weatherWorld.setKind(runtimeRef.current.weather)
       weatherWorld.animate(time / 1000, runtimeRef.current.activityRunning)
-      world.setWind(weatherWind(runtimeRef.current.weather))
+      world.setWind(weatherWind(runtimeRef.current.weather,runtimeRef.current.windMph))
       if (runtimeRef.current.activityRunning) lightClock = new Date()
       // The parent defaults to paused for reduced motion; an explicit Run is respected.
       const animateTrain = runtimeRef.current.trainRunning
@@ -532,7 +533,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engineRef.current?.world.setBuses(showBuses)
     engineRef.current?.world.setBusRoute(busRouteId)
     engineRef.current?.frame()
-  }, [showTransit, showBuses, busRouteId, showShops, visibleIds, weather, ready])
+  }, [showTransit, showBuses, busRouteId, showShops, visibleIds, weather, windMph, ready])
 
   useEffect(() => {
     if (!selectedId) return

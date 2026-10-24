@@ -5,8 +5,9 @@ const RAD = Math.PI / 180
 const DAY = 86400000
 const LONDON = { lat: 51.51, lng: -.14 }
 
-export function weatherWind(weather: WeatherSceneKind) {
-  return weather === 'rain' ? .10 : weather === 'snow' ? .06 : weather === 'cloud' ? .065 : .045
+export function weatherWind(weather: WeatherSceneKind, windMph?:number) {
+  if(windMph!==undefined&&Number.isFinite(windMph))return THREE.MathUtils.clamp(windMph*.012,.012,.34)
+  return weather === 'rain' ? .18 : weather === 'snow' ? .10 : weather === 'cloud' ? .11 : .055
 }
 
 // Low-order orbital elements: https://stjarnhimlen.se/comp/ppcomp.html
@@ -69,7 +70,7 @@ export function lightCycle(date: Date, night: boolean, weather: WeatherSceneKind
   direction.normalize()
   return {
     direction,
-    direct: night ? 1.05 * moonlight : (1.7 + Math.sqrt(elevation) * 1.1) * (1 - cloud * .65),
+    direct: night ? 1.05 * moonlight : (1.7 + Math.sqrt(elevation) * 1.1) * (weather === 'clear' ? 1 : weather === 'cloud' ? .33 : .12),
     ambient: night ? .48 + moonlight * .35 : .88 + cloud * .22,
     warmth: night ? 0 : Math.pow(1 - elevation, 3),
     illumination: sky.illumination,
@@ -84,7 +85,7 @@ export function updateSceneLight(sun: THREE.DirectionalLight, ambient: THREE.Hem
   sun.target.position.copy(target)
   sun.intensity = cycle.direct
   sun.color.set(night ? '#b7cde4' : '#fff0dc')
-  if (!night) sun.color.lerp(new THREE.Color('#f2a566'), cycle.warmth * .85)
+  if (!night) sun.color.lerp(new THREE.Color('#f2a566'), cycle.warmth * (weather === 'clear' ? .85 : .2))
   // Long low-sun shadows soften at their edges, as real penumbrae do.
   sun.shadow.radius = 1.5 + cycle.warmth * 3
   ambient.intensity = cycle.ambient

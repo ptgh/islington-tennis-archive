@@ -7,25 +7,44 @@ export function createWeather() {
   root.name = 'Neighbourhood weather';
   const clouds = new THREE.Group();
   root.add(clouds);
-  const geometry = new THREE.IcosahedronGeometry(1, 2);
-  const cloudMaterial = new THREE.MeshStandardMaterial({color:'#dce3d9',roughness:1,transparent:true,opacity:.48,depthWrite:false});
-  const underside = new THREE.MeshStandardMaterial({color:'#839897',roughness:1,transparent:true,opacity:.24,depthWrite:false});
-  // Low rain banks, rounded cumulus crowns and smaller wisps share the town's modelled style.
+  // Soft, shaded density maps replace overlapping transparent solid spheres.
+  // One owned texture is shared by all cloud layers; no downloads or new passes.
+  const size=256,pixels=new Uint8Array(size*size*4);
+  const hash=(x:number,y:number)=>{let n=Math.imul(x,374761393)+Math.imul(y,668265263);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295;};
+  const field=(x:number,y:number,scale:number)=>{
+    const a=Math.floor(x/scale),b=Math.floor(y/scale),u=x/scale-a,v=y/scale-b;
+    const sx=u*u*(3-2*u),sy=v*v*(3-2*v);
+    return THREE.MathUtils.lerp(THREE.MathUtils.lerp(hash(a,b),hash(a+1,b),sx),THREE.MathUtils.lerp(hash(a,b+1),hash(a+1,b+1),sx),sy);
+  };
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const u=x/size-.5,v=y/size-.5;
+    let density=0;
+    for(const [cx,cy,rx,ry] of [[-.28,-.08,.24,.17],[-.13,.12,.20,.27],[.08,.05,.25,.24],[.30,-.10,.18,.15],[.02,-.17,.34,.13]])density+=Math.exp(-(((u-cx)/rx)**2+((v-cy)/ry)**2)*2);
+    const texture=field(x,y,31)*.55+field(x,y,12)*.3+field(x,y,5)*.15;
+    const alpha=THREE.MathUtils.smoothstep(density+(texture-.5)*.7,.16,.95);
+    const shade=190+y/size*47+(texture-.5)*20,offset=(y*size+x)*4;
+    pixels.set([shade,shade+2,shade+3,alpha*235],offset);
+  }
+  const cloudMap=new THREE.DataTexture(pixels,size,size,THREE.RGBAFormat);
+  cloudMap.colorSpace=THREE.SRGBColorSpace;cloudMap.magFilter=THREE.LinearFilter;cloudMap.minFilter=THREE.LinearMipmapLinearFilter;cloudMap.generateMipmaps=true;cloudMap.needsUpdate=true;
+  const cloudMaterial = new THREE.SpriteMaterial({map:cloudMap,color:'#eef0ee',transparent:true,opacity:.64,depthWrite:false,fog:true});
+  const underside = cloudMaterial.clone();underside.color.set('#8c9a9f');
   const cells = [{x:90,z:-120,s:1},{x:-140,z:60,s:.9},{x:190,z:180,s:.85},{x:-70,z:-300,s:1.1},{x:35,z:340,s:.85}];
-  const lobes = [[-26,0,0,25,8,15],[-8,8,-5,22,16,17],[16,5,1,24,12,17],[35,0,1,17,7,12],[-10,-5,0,38,5,16],[-12,1,12,19,9,11],[13,0,-13,17,7,12]];
-  const banks:{group:THREE.Group;top:THREE.MeshStandardMaterial;bottom:THREE.MeshStandardMaterial}[]=[];
-  for(const cell of cells){
+  const banks:{group:THREE.Group;top:THREE.SpriteMaterial;bottom:THREE.SpriteMaterial}[]=[];
+  for(const [index,cell] of cells.entries()){
     const group=new THREE.Group();group.position.set(cell.x,74,cell.z);group.scale.setScalar(cell.s);
-    const top=cloudMaterial.clone(),bottom=underside.clone();banks.push({group,top,bottom});
-    lobes.forEach(([x,y,z,sx,sy,sz],i)=>{const mesh=new THREE.Mesh(geometry,i===4?bottom:top);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);group.add(mesh);});
+    const top=cloudMaterial.clone(),bottom=underside.clone();top.rotation=(index-2)*.035;banks.push({group,top,bottom});
+    for(const [x,y,z,width,height,dark] of [[0,-5,0,100,25,1],[-16,7,2,76,42,0],[22,1,-3,68,32,0]]){
+      const cloud=new THREE.Sprite(dark?bottom:top);cloud.position.set(x,y,z);cloud.scale.set(width,height,1);group.add(cloud);
+    }
     clouds.add(group);
   }
   let seed=72;
   const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
-  const drops=Array.from({length:1600},(_,i)=>{const c=cells[i%cells.length];return {x:c.x+(random()-.5)*88*c.s,z:c.z+(random()-.5)*43*c.s,phase:random(),speed:.65+random()*.5,length:3.5+random()*3};});
+  const drops=Array.from({length:1600},(_,i)=>{const c=cells[i%cells.length];return {x:i<100?c.x+(random()-.5)*88*c.s:(random()-.5)*940,z:i<100?c.z+(random()-.5)*43*c.s:(random()-.5)*940,phase:random(),speed:.65+random()*.5,length:3.5+random()*3};});
   const positions=new Float32Array(drops.length*6);
   const rainGeometry=new THREE.BufferGeometry();rainGeometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));
-  const rainMaterial=new THREE.LineBasicMaterial({color:'#6d99ac',transparent:true,opacity:.48,depthWrite:false});
+  const rainMaterial=new THREE.LineBasicMaterial({color:'#b0c1c9',transparent:true,opacity:.48,depthWrite:false});
   const rain=new THREE.LineSegments(rainGeometry,rainMaterial);rain.frustumCulled=false;root.add(rain);
   const rippleGeometry=new THREE.RingGeometry(.7,1,12);
   const rippleMaterial=new THREE.MeshBasicMaterial({color:'#c1d6cb',transparent:true,opacity:.35,side:THREE.DoubleSide,depthWrite:false});
@@ -56,7 +75,7 @@ export function createWeather() {
       }
       const acrossCourt=visibleCourts.some(p=>p.x>left-.07&&p.x<right+.07&&p.y>top-.1&&p.y<bottom+.1&&p.z>-1&&p.z<1);
       const clearance=acrossCourt?.14:1;
-      bank.top.opacity=.48*distanceFade*clearance;
+      bank.top.opacity=.64*distanceFade*clearance;
       bank.bottom.opacity=(kind==='rain'?.24:.12)*distanceFade*clearance;
     }
     rainMaterial.opacity=THREE.MathUtils.lerp(.48,.22,THREE.MathUtils.smoothstep(zoom,2,8));
@@ -77,5 +96,5 @@ export function createWeather() {
     rainGeometry.attributes.position.needsUpdate=true;snowGeometry.attributes.position.needsUpdate=true;ripples.instanceMatrix.needsUpdate=true;
   }
   root.visible=false;setKind('rain');animate(0,false);
-  return {root,setKind,setView,animate,dispose(){banks.forEach(bank=>{bank.top.dispose();bank.bottom.dispose();});geometry.dispose();cloudMaterial.dispose();underside.dispose();rainGeometry.dispose();rainMaterial.dispose();rippleGeometry.dispose();rippleMaterial.dispose();snowGeometry.dispose();snowMaterial.dispose();}};
+  return {root,setKind,setView,animate,dispose(){banks.forEach(bank=>{bank.top.dispose();bank.bottom.dispose();});cloudMap.dispose();cloudMaterial.dispose();underside.dispose();rainGeometry.dispose();rainMaterial.dispose();rippleGeometry.dispose();rippleMaterial.dispose();snowGeometry.dispose();snowMaterial.dispose();}};
 }
