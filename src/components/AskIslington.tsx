@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { Icon } from './Icon';
 import { ASK_THREADS_KEY, parseThreads, threadTitle, type AskThread } from '../data/askThreads';
+import { boundGuideWindow, initialGuideWindow, type GuideWindow } from '../data/guideWindow';
 import './AskIslington.css';
 
 const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ask-islington`;
@@ -24,8 +25,8 @@ function Markdown({ text }: { text: string }) {
   return <>{text.split(/\n+/).map(l => l.replace(/^\s*(?:[-*•]|\d+[.)]|#+)\s+/, '').trim()).filter(Boolean).map((l, i) => <p key={i}>{inline(l)}</p>)}</>;
 }
 
-function Conversation({ thread, onSave }: { thread: AskThread; onSave: (id: string, messages: UIMessage[]) => void }) {
-  const [input, setInput] = useState(''); const [error, setError] = useState<string | null>(null);
+function Conversation({ thread, onSave, input, setInput, visible }: { thread: AskThread; onSave: (id: string, messages: UIMessage[]) => void; input: string; setInput: (text: string) => void; visible: boolean }) {
+  const [error, setError] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement>(null); const end = useRef<HTMLDivElement>(null);
   const { messages, sendMessage, status, stop } = useChat({
     id: thread.id, messages: thread.messages as UIMessage[],
@@ -34,8 +35,8 @@ function Conversation({ thread, onSave }: { thread: AskThread; onSave: (id: stri
   });
   const busy = status === 'submitted' || status === 'streaming';
   useEffect(() => { if (status === 'ready' || status === 'error') onSave(thread.id, messages); }, [status, messages, thread.id, onSave]);
-  useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [messages, status]);
-  useEffect(() => { if (!busy) box.current?.focus({ preventScroll: true }); }, [busy]);
+  useEffect(() => { if (visible) end.current?.scrollIntoView({ block: 'end' }); }, [messages, status, visible]);
+  useEffect(() => { if (visible) box.current?.focus({ preventScroll: true }); }, [visible]);
   function send(text: string) { const t = text.trim(); if (!t || busy) return; setError(null); setInput(''); sendMessage({ text: t }); }
   return <div className="ask-conversation">
     <div className="ask-transcript" aria-live="polite">
@@ -46,14 +47,46 @@ function Conversation({ thread, onSave }: { thread: AskThread; onSave: (id: stri
       <div ref={end} />
     </div>
     <form className="ask-composer" onSubmit={e => { e.preventDefault(); send(input); }}>
-      <textarea ref={box} value={input} rows={2} maxLength={600} placeholder="Ask about a court, park or landmark…" aria-label="Your question" onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }} />
-      <div className="ask-composer-foot"><span/>{busy ? <button type="button" className="ask-send" onClick={() => stop()} aria-label="Stop answer"><Icon name="pause" size={14} /></button> : <button type="submit" className="ask-send" disabled={!input.trim()} aria-label="Send question"><Icon name="plus" size={14} /></button>}</div>
+      <textarea ref={box} value={input} rows={2} maxLength={600} placeholder="Ask about a court, park or landmark…" aria-label="Your question" onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(input); } }} />
+      <div className="ask-composer-foot"><span>Saved on this browser · Shift + Enter for a new line</span>{busy ? <button type="button" className="ask-send" onClick={() => stop()} aria-label="Stop answer"><Icon name="pause" size={14} /></button> : <button type="submit" className="ask-send" disabled={!input.trim()} aria-label="Send question"><Icon name="arrow" size={16} /></button>}</div>
     </form>
   </div>;
 }
 
-export function AskIslington({ threadId, onNavigate, onClose }: { threadId: string | null; onNavigate: (id: string) => void; onClose: () => void }) {
+export function AskIslington({ threadId, onNavigate, onClose, minimized, onMinimizedChange }: { threadId: string | null; onNavigate: (id: string) => void; onClose: () => void; minimized: boolean; onMinimizedChange: (minimized: boolean) => void }) {
   const backdrop = useRef<HTMLDivElement>(null);
+  const restore = useRef<HTMLButtonElement>(null);
+  const [geometry, setGeometry] = useState(() => initialGuideWindow(window.innerWidth, window.innerHeight));
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const gesture = useRef<{ id: number; x: number; y: number; rect: GuideWindow; resize: boolean } | null>(null);
+  const constrain = (rect: GuideWindow) => boundGuideWindow(rect, window.innerWidth, window.innerHeight);
+  useEffect(() => {
+    const resize = () => setGeometry(rect => boundGuideWindow(rect, window.innerWidth, window.innerHeight));
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+  function startGesture(event: PointerEvent<HTMLElement>, resize = false) {
+    if (event.button !== 0 || window.innerWidth <= 760) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    gesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY, rect: geometry, resize };
+  }
+  function moveGesture(event: PointerEvent<HTMLElement>) {
+    const start = gesture.current;
+    if (!start || start.id !== event.pointerId) return;
+    const dx = event.clientX - start.x, dy = event.clientY - start.y;
+    setGeometry(constrain(start.resize ? { ...start.rect, width: start.rect.width + dx, height: start.rect.height + dy } : { ...start.rect, x: start.rect.x + dx, y: start.rect.y + dy }));
+  }
+  function endGesture() { gesture.current = null; }
+  function adjust(event: React.KeyboardEvent<HTMLElement>, resize = false) {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    const step = event.shiftKey ? 40 : 16;
+    const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
+    const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
+    setGeometry(rect => constrain(resize ? { ...rect, width: rect.width + dx, height: rect.height + dy } : { ...rect, x: rect.x + dx, y: rect.y + dy }));
+  }
+  useEffect(() => { if (minimized) restore.current?.focus({ preventScroll: true }); }, [minimized]);
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
@@ -81,21 +114,22 @@ export function AskIslington({ threadId, onNavigate, onClose }: { threadId: stri
   }, []);
   function remove(id: string) { update(prev => prev.filter(t => t.id !== id)); if (id === threadId) { const other = threads.find(t => t.id !== id); onNavigate(other?.id ?? newId()); } }
   const active = threads.find(t => t.id === threadId);
-  useEffect(() => { const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key); }, [onClose]);
-  return <div ref={backdrop} className="ask-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <section className="ask-dialog" role="dialog" aria-modal="true" aria-label="Ask the Islington guide">
+  return <div ref={backdrop} className="ask-backdrop">
+    {minimized && <div className="ask-minimized"><button ref={restore} className="ask-restore" onClick={() => onMinimizedChange(false)} aria-label="Restore guide"><Icon name="ball" size={22}/><span><strong>Ask the guide</strong><small>{active?.title ?? 'Your conversation is still here'}</small></span><Icon name="plus" size={16}/></button><button className="ask-window-button" onClick={onClose} aria-label="Close guide"><Icon name="close" size={17}/></button></div>}
+    <section id="ask-guide" hidden={minimized} className="ask-dialog" role="dialog" aria-label="Ask the Islington guide" style={{ '--ask-x': `${geometry.x}px`, '--ask-y': `${geometry.y}px`, '--ask-width': `${geometry.width}px`, '--ask-height': `${geometry.height}px` } as CSSProperties} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onMinimizedChange(true); } }}>
       <aside className="ask-threads" aria-label="Your conversations">
-        <button className="ask-new" aria-label="New conversation" title="New conversation" onClick={() => onNavigate(threads.find(t => t.messages.length === 0)?.id ?? newId())}><Icon name="plus" size={14} /> New conversation</button>
-        <ul>{threads.filter(t => t.messages.length || t.id === threadId).map(t => <li key={t.id} className={t.id === threadId ? 'active' : ''}>
-          <button className="ask-thread-open" aria-current={t.id === threadId ? 'page' : undefined} onClick={() => onNavigate(t.id)}>{t.title}</button>
+        <button className="ask-new" aria-label="New conversation" title="New conversation" onClick={() => onNavigate(threads.find(t => t.messages.length === 0 && !drafts[t.id]?.trim())?.id ?? newId())}><Icon name="plus" size={14} /> New conversation</button>
+        <ul>{threads.filter(t => t.messages.length || drafts[t.id]?.trim() || t.id === threadId).map(t => <li key={t.id} className={t.id === threadId ? 'active' : ''}>
+          <button className="ask-thread-open" aria-current={t.id === threadId ? 'page' : undefined} onClick={() => onNavigate(t.id)}>{!t.messages.length && drafts[t.id]?.trim() ? `Draft · ${threadTitle(drafts[t.id])}` : t.title}</button>
           {t.messages.length > 0 && <button className="ask-thread-delete" aria-label={`Delete “${t.title}”`} onClick={() => remove(t.id)}>×</button>}
         </li>)}</ul>
         <p className="ask-threads-note">Saved in this browser only.</p>
       </aside>
       <div className="ask-main">
-        <header className="ask-header"><div><h2>Ask the guide</h2><p>Courts, coaching, landmarks &amp; getting there</p></div><button className="ask-close" onClick={onClose} aria-label="Close guide">×</button></header>
-        {active ? <Conversation key={active.id} thread={active} onSave={onSave} /> : <div className="ask-conversation" />}
+        <header className="ask-header"><div className="ask-title" onPointerDown={startGesture} onPointerMove={moveGesture} onPointerUp={endGesture} onPointerCancel={endGesture} onLostPointerCapture={endGesture}><div className="ask-eyebrow"><Icon name="ball" size={16}/> YOUR NEIGHBOURHOOD GUIDE</div><h2>Ask the guide</h2><p>Keep exploring. I’ll stay here.</p></div><div className="ask-window-actions"><button className="ask-window-button ask-move" aria-label="Move guide" title="Drag to move, or use arrow keys" onPointerDown={e => startGesture(e)} onPointerMove={moveGesture} onPointerUp={endGesture} onPointerCancel={endGesture} onLostPointerCapture={endGesture} onKeyDown={e => adjust(e)}><Icon name="layers" size={16}/></button><button className="ask-window-button" onClick={() => onMinimizedChange(true)} aria-label="Minimize guide" title="Minimize guide"><Icon name="minus" size={17}/></button><button className="ask-window-button" onClick={onClose} aria-label="Close guide" title="Close guide"><Icon name="close" size={17}/></button></div></header>
+        {active ? <Conversation key={active.id} thread={active} onSave={onSave} input={drafts[active.id] ?? ''} setInput={text => setDrafts(prev => ({ ...prev, [active.id]: text }))} visible={!minimized} /> : <div className="ask-conversation" />}
       </div>
+      <button className="ask-resize" aria-label="Resize guide" title="Drag to resize, or use arrow keys" onPointerDown={e => startGesture(e, true)} onPointerMove={moveGesture} onPointerUp={endGesture} onPointerCancel={endGesture} onLostPointerCapture={endGesture} onKeyDown={e => adjust(e, true)}><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M4 11 11 4M8 11l3-3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg></button>
     </section>
   </div>;
 }
