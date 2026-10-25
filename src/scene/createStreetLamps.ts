@@ -36,7 +36,9 @@ export function createStreetLamps(streets: Street[], exclusions: CourtArea[]) {
       // lens some depth while keeping the original bulb and light positions.
       parts.push({x,y:.22,z,sx:.25,sy:.44,sz:.25,angle,material:'post'})
       parts.push({x,y:.46,z,sx:.19,sy:.09,sz:.19,angle,material:'post'})
-      parts.push({x:x-dz*.43*side,y:3.84,z:z+dx*.43*side,sx:.9,sy:.1,sz:.12,angle,material:'post'})
+      // The arm reaches across the pavement, along the same normal used to
+      // place the lens. Aligning it with the road leaves the fitting floating.
+      parts.push({x:x-dz*.43*side,y:3.84,z:z+dx*.43*side,sx:.9,sy:.1,sz:.12,angle:angle+Math.PI/2,material:'post'})
       parts.push({x:x-dz*.83*side,y:3.75,z:z+dx*.83*side,sx:.39,sy:.13,sz:.32,angle,material:'bulb'})
       parts.push({x:x-dz*.83*side,y:3.84,z:z+dx*.83*side,sx:.47,sy:.07,sz:.38,angle,material:'post'})
     }
