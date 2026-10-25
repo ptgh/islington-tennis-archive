@@ -20,7 +20,7 @@ import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import { SHADOW_PROXY_LAYER } from '../scene/miniatureMaterials'
 import { createViewShadowFitter } from '../scene/viewShadows'
 import { freeLabel, type NextFree } from '../data/freeCourts'
-import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING } from '../scene/renderQuality'
+import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, collectOcclusionExclusions } from '../scene/renderQuality'
 import '../scene/TownMap.css'
 
 export interface TownMapHandle {
@@ -225,11 +225,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const ratio=Math.min(host.clientWidth>760?.8:.55,Math.sqrt(1800000/(w*h)))
       sizeOcclusion(Math.max(1,Math.ceil(w*ratio)),Math.max(1,Math.ceil(h*ratio)))
     }
-    const transparentObjects:THREE.Object3D[]=[]
-    world.root.traverse(object=>{
-      const mesh=object as THREE.Mesh
-      if(mesh.isMesh&&[mesh.material].flat().some(material=>material.transparent)||object instanceof THREE.Sprite)transparentObjects.push(object)
-    })
+    const transparentObjects=collectOcclusionExclusions(world.root)
     const drawOcclusion=occlusion.render.bind(occlusion)
     occlusion.render=(renderer,writeBuffer,readBuffer)=>{
       const weatherVisible=weatherWorld.root.visible

@@ -1,7 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {scenePixelRatio,createAdaptiveResolution,createLensFinish,applyViewFocus,LENS_FINISH} from '../scene/renderQuality.ts';
+import {scenePixelRatio,createAdaptiveResolution,createLensFinish,applyViewFocus,LENS_FINISH,collectOcclusionExclusions} from '../scene/renderQuality.ts';
 import {createMiniatureMaterials} from '../scene/miniatureMaterials.ts';
+import * as THREE from 'three';
+
+test('solid contact shading excludes blended, cutout and sprite surfaces without changing visibility',()=>{
+ const scene=new THREE.Scene(),geometry=new THREE.BoxGeometry(),solid=new THREE.MeshBasicMaterial(),blend=new THREE.MeshBasicMaterial({transparent:true}),cutout=new THREE.MeshBasicMaterial({alphaTest:.4}),spriteMaterial=new THREE.SpriteMaterial();
+ const wall=new THREE.Mesh(geometry,solid),fence=new THREE.Mesh(geometry,blend),net=new THREE.Mesh(geometry,cutout),mixed=new THREE.Mesh(geometry,[solid,blend]),sprite=new THREE.Sprite(spriteMaterial);
+ fence.visible=false;scene.add(wall,fence,net,mixed,sprite);
+ try{
+  assert.deepEqual(collectOcclusionExclusions(scene),[fence,net,mixed,sprite]);
+  assert.equal(fence.visible,false);assert.equal(wall.visible,true);
+ }finally{geometry.dispose();solid.dispose();blend.dispose();cutout.dispose();spriteMaterial.dispose();}
+});
 
 test('render resolution respects phone and desktop pixel budgets',()=>{
  for(const [width,height,device] of [[390,844,3],[1280,900,2],[3840,2160,3],[760,1800,2]]){

@@ -1,6 +1,18 @@
 import * as THREE from 'three'
 import { QUALITY_PRESETS, type QualityPreset } from '../data/viewQuality.ts'
 
+/** GTAO replaces surface materials with solid normals. Keep open mesh, sprites
+ * and blended surfaces out of that pass so they do not become opaque walls.
+ * Collect once per built world; visibility is restored after each AO draw. */
+export function collectOcclusionExclusions(root: THREE.Object3D) {
+  const objects: THREE.Object3D[] = []
+  root.traverse(object => {
+    const mesh = object as THREE.Mesh
+    if (object instanceof THREE.Sprite || mesh.isMesh && [mesh.material].flat().some(material => material.transparent || material.alphaTest > 0)) objects.push(object)
+  })
+  return objects
+}
+
 /** Supersample on capable displays without allocating unbounded retina buffers. */
 export function scenePixelRatio(width: number, height: number, deviceRatio: number, qualityScale = 1) {
   const compact = width <= 760

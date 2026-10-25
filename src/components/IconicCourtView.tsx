@@ -19,7 +19,7 @@ import { createVenueLighting } from '../scene/createVenueLighting'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
 import { createMappedVenue, mappedCourtPosition } from '../scene/mappedVenue'
-import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING } from '../scene/renderQuality'
+import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, collectOcclusionExclusions } from '../scene/renderQuality'
 import { createClubSurfaces, type ClubCourtSurface } from '../scene/clubSurfaces'
 import { createAntialiasedBeauty } from '../scene/antialiasedBeauty'
 import './IconicCourtView.css'
@@ -406,7 +406,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   scene.add(sun, sun.target, ambient)
   let windTime = 0, clock = new Date(), lastNight: boolean | undefined
   const lightTarget = new THREE.Vector3(0, 0, id === 'wimbledon' ? 15 : 0)
-  return { scene, weatherClearance: matches.map(match => match.center),
+  return { scene, occlusionExclusions: collectOcclusionExclusions(scene), weatherClearance: matches.map(match => match.center),
     animate(delta: number, running: boolean, night: boolean, weather: WeatherSceneKind, lightingTime: number | null, windMph?:number) {
       life.setNight(night)
       life.animate(delta, running, false)
@@ -495,9 +495,11 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     const drawOcclusion = occlusion.render.bind(occlusion)
     occlusion.render = (renderer, writeBuffer, readBuffer) => {
       const visible = weatherWorld.root.visible
+      const surfaces = world.occlusionExclusions.filter(object => object.visible)
       weatherWorld.root.visible = false
+      surfaces.forEach(object => { object.visible = false })
       try { drawOcclusion(renderer, writeBuffer, readBuffer, 0, false) }
-      finally { weatherWorld.root.visible = visible }
+      finally { weatherWorld.root.visible = visible; surfaces.forEach(object => { object.visible = true }) }
     }
     occlusion.updateGtaoMaterial({ radius: 1.2, distanceExponent: 1.5, thickness: 1, distanceFallOff: 1, scale: 1, samples: element.clientWidth > 760 ? 16 : 8, screenSpaceRadius: false })
     occlusion.updatePdMaterial({ lumaPhi: 5, depthPhi: 1, normalPhi: 3, radius: 4, samples: 8 })
