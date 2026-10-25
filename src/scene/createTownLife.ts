@@ -44,7 +44,14 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const body = new THREE.Group()
     activity.add(body)
     const skin = ['#a66f4c', '#dbaf84', '#815b43', '#c58e68'][figures.length % 4]
-    part(body, roundParts, skin, 0, .96, 0, .145, .165, .145)
+    const hair = ['#493e34', '#75634b', '#c2ae85', '#393d37', '#b1ada1'][figures.length % 5]
+    part(body, roundParts, skin, 0, .935, 0, .052, .045, .052)
+    part(body, roundParts, skin, 0, 1.035, 0, .105, .105, .105)
+    // Opaque hair masses share the existing batch; no face textures or extra
+    // draw calls. Different cuts break up the repeated bare-head silhouette.
+    part(body, roundParts, hair, -.006, 1.105, -.010, .106, .055, .103)
+    if(figures.length%3!==1)part(body, roundParts, hair, 0, 1.04, -.075, .090, .080, .040)
+    if(figures.length%3===2)part(body, roundParts, hair, 0, 1.015, -.125, .045, .065, .050)
     part(body, roundParts, shirt, 0, .67, 0, .20, .245, .13)
     const trousers=racket?'#536154':['#536154','#455c69','#736653'][figures.length%3]
     part(body, blockParts, racket?'#eee7ce':trousers, 0, .42, 0, .31, .17, .22)
@@ -53,9 +60,11 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
       const arm = new THREE.Group()
       arm.position.set(side * .23, .78, 0)
       body.add(arm)
-      part(arm, roundParts, skin, 0, -.09, 0, .06, .11, .065)
+      part(arm, roundParts, shirt, 0, -.065, 0, .075, .085, .075)
+      part(arm, roundParts, skin, 0, -.14, 0, .058, .065, .062)
       const elbow=new THREE.Group();elbow.position.y=-.19;arm.add(elbow)
       part(elbow, roundParts, skin, 0, -.07, 0, .055, .09, .06)
+      part(elbow, roundParts, skin, 0, -.16, .005, .050, .055, .055)
       const leg = new THREE.Group()
       leg.position.set(side * .095, .4, 0)
       body.add(leg)
@@ -96,6 +105,11 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     return Array.from({length:count},(_,i)=>{
       const person=figure(['#c88261','#ede5c9','#4c747b','#85975e'][i%4],i*1.9)
       person.root.name='Miniature pedestrian'
+      person.root.scale.setScalar(.94+(index+i)%4*.045)
+      if((index+i)%3===0){
+        part(person.root,roundParts,'#786e55',0,.65,-.15,.13,.16,.075)
+        for(const side of [-1,1])part(person.root,blockParts,'#4b5448',side*.105,.70,.125,.025,.25,.025)
+      }
       return {figure:person,curve,length,closed,offset:i/count+index*.23,speed:.8+(i%3)*.16,heading:null as number|null}
     })
   })
