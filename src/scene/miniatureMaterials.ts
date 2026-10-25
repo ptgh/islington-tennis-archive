@@ -516,7 +516,9 @@ export function createMiniatureMaterials() {
   const hardCourt = new THREE.MeshStandardMaterial({ color: '#4d939b', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .006, roughness: .91 })
   const timber = new THREE.MeshStandardMaterial({ color: '#94795e', map: woodMap, roughness: .87 })
   const ballast = new THREE.MeshStandardMaterial({ color: '#a4a191', map: aggregateMap, bumpMap: aggregateBump, bumpScale: .065, roughness: 1 })
-  const net = new THREE.MeshStandardMaterial({ color: '#506d61', alphaMap: netAlpha, alphaTest: .45, side: THREE.DoubleSide, roughness: .95 })
+  // Preserve averaged wire coverage when the mesh becomes smaller than a pixel.
+  // A high cutout threshold erases it at distance; one blended plane suffices.
+  const net = new THREE.MeshStandardMaterial({ color: '#506d61', alphaMap: netAlpha, alphaTest: .02, transparent:true,opacity:.85,depthWrite:false,forceSinglePass:true,side: THREE.DoubleSide, roughness: .95 })
   const foliage = new THREE.MeshStandardMaterial({
     color: '#ffffff', map: foliageMap, bumpMap: foliageBump, bumpScale: .075,
     roughness: .94, vertexColors: true, side: THREE.DoubleSide,

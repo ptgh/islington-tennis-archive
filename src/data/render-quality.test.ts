@@ -110,6 +110,10 @@ test('miniature surfaces include repeatable relief and see-through netting',()=>
  assert.ok(finishes.grass.bumpMap&&finishes.ballast.bumpMap);
  assert.ok(finishes.timber.map);
  assert.ok(finishes.net.alphaMap&&finishes.net.alphaTest>0);
+ const netBytes=finishes.net.alphaMap!.image.data;
+ let coverage=0;for(let i=1;i<netBytes.length;i+=4)coverage+=netBytes[i]/255;
+ coverage/=netBytes.length/4;
+ assert.ok(finishes.net.transparent&&coverage*finishes.net.opacity>finishes.net.alphaTest,'averaged distant net wires remain visible and translucent');
  const data=finishes.net.alphaMap.image.data;
  assert.ok(data.includes(0)&&data.includes(255));
  finishes.dispose();finishes.dispose();

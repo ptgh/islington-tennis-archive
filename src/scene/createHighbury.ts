@@ -3,13 +3,15 @@ import { renderedHighburyCourts } from './courtGeometry';
 import type { createCourtLighting } from './createCourtLighting';
 import type { createMiniatureMaterials } from './miniatureMaterials';
 import { cloneCourtFinish, courtFenceGeometry, type createClubSurfaces } from './clubSurfaces';
+import { createCourtNetGeometries } from './courtNet';
 
 /** The eleven mapped courts, enlarged to the same miniature scale as the other venues. */
 export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, finishes:ReturnType<typeof createMiniatureMaterials>, surfaces:ReturnType<typeof createClubSurfaces>){
  const root=new THREE.Group(),box=new THREE.BoxGeometry(1,1,1);
  const material=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.92});
  const green=cloneCourtFinish(surfaces.synthetic);green.color.set('#42787a');
- const playing=surfaces.synthetic,white=material('#f5f2e7'),metal=surfaces.steel,net=material('#506d61');
+ const playing=surfaces.synthetic,white=material('#f5f2e7'),metal=surfaces.steel;
+ const courtNets=createCourtNetGeometries(.67,.065),tapeMatrices:THREE.Matrix4[]=[];
  const litPlaying=cloneCourtFinish(playing);litPlaying.emissive.set('#a4c9b2');litPlaying.emissiveIntensity=0;
  const paving=surfaces.concrete,wood=finishes.timber,bag=material('#315c50'),ball=material('#dce985'),frame=material('#a3654a'),strings=material('#e8e5d2');
  const batches=new Map<THREE.Material,THREE.Matrix4[]>(),transform=new THREE.Object3D();
@@ -25,14 +27,15 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, 
   const line=(x:number,z:number,lw:number,ld:number)=>part(g,white,x,.375,z,lw,.012,ld);
   for(const sign of [-1,1]){line(0,sign*d/2,w,.09);line(sign*w/2,0,.09,d);line(sign*w*.375,0,.08,d);line(0,sign*d*.27,w*.75,.08);}
   line(0,0,.08,d*.54);
-  // Fine net strands keep the surface visible through the centre of each court.
-  for(let i=0;i<=20;i++)part(g,net,(i/20-.5)*w*1.12,.72,0,.025,.67,.025);
-  for(const y of [.49,.7,.91])part(g,net,0,y,0,w*1.12,.02,.02);
-  part(g,white,0,1.08,0,w*1.13,.065,.07);
-   const meshNet=new THREE.Mesh(box,finishes.net);
+  // One open mesh replaces the duplicate solid wire layer.
+  const strapTop=1.08-courtNets.sag;
+  part(g,white,0,(.36+strapTop)/2,0,.045,strapTop-.36,.065);
+   const meshNet=new THREE.Mesh(courtNets.net,finishes.net);
    g.updateMatrixWorld(true);
    meshNet.position.set(0,.72,0);meshNet.scale.set(w*1.12,.67,.015);
    meshNet.updateMatrix();meshNet.applyMatrix4(g.matrixWorld);root.add(meshNet);
+   transform.position.set(0,1.08,0);transform.scale.set(w*1.13,.065,.07);transform.rotation.set(0,0,0);transform.updateMatrix();
+   tapeMatrices.push(g.matrixWorld.clone().multiply(transform.matrix));
   for(const sign of [-1,1]){
    for(const side of [false,true]){
     const fence=new THREE.Mesh(courtFenceGeometry(side?od:ow,2.3),surfaces.fence);
@@ -67,6 +70,7 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, 
   part(g,strings,2.55,1.2,.12,.55,.04,.04);
   for(const offset of [-.2,.1,.32])part(g,ball,1.7+offset,.13,.48,.16,.16,.16);
  }
+ const tapes=new THREE.InstancedMesh(courtNets.tape,white,tapeMatrices.length);tapeMatrices.forEach((matrix,i)=>tapes.setMatrixAt(i,matrix));tapes.receiveShadow=true;tapes.computeBoundingSphere();root.add(tapes);
  for(const [mat,matrices] of batches){const mesh=new THREE.InstancedMesh(box,mat,matrices.length);matrices.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));mesh.castShadow=mat!==white;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);}
  return {root,setNight(night:boolean){litPlaying.emissiveIntensity=night?.22:0;}};
 }

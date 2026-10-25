@@ -13,6 +13,7 @@ import { mapStations, tubeConnections } from '../data/transit'
 import type { MapVenue, Station, TownWorld } from './types'
 import { createTownLife } from './createTownLife'
 import { createStreetLamps } from './createStreetLamps'
+import { createCourtNetGeometries } from './courtNet'
 import { busRoutes } from '../data/busRoutes'
 import { gableRoofGeometry } from './gableRoof'
 import { townRoofGeometry, archedOpeningGeometry } from './townArchitecture'
@@ -47,6 +48,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const anchors = new Map<string, THREE.Vector3>()
   const courtFocusAnchors = new Map<string, THREE.Vector3>()
   const animatedCourts: {center:THREE.Vector3;rotation:number;scale:number}[] = []
+  const courtNets = createCourtNetGeometries(.8,.08)
   const exclusions=courtAreas(venues)
   const standard = (color: string, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) =>
     new THREE.MeshStandardMaterial({ color, roughness: 1, ...extra })
@@ -681,8 +683,10 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       line(-2, -5.4, -2, 5.4); line(2, -5.4, 2, 5.4)
       line(-2, -2.9, 2, -2.9); line(-2, 2.9, 2, 2.9)
       line(0, -2.9, 0, 2.9)
-      mesh(box, netMaterial, x, .73, z, 6, .8, .055)
-      mesh(box, courtLine, x, 1.14, z, 6.05, .08, .065)
+      mesh(courtNets.net, netMaterial, x, .73, z, 6, .8, 1).castShadow=false
+      mesh(courtNets.tape, courtLine, x, 1.14, z, 6.05, .08, .065)
+      const strapTop=1.14-courtNets.sag
+      courtMarkings.push({x,y:(.36+strapTop)/2,z,sx:.045,sy:strapTop-.36,sz:.065})
       for (const sign of [-1, 1]) courtFencePosts.push({ x: x + sign * 3.05, y: .79, z, sx: .095, sy: 1.12, sz: .095 })
     }
     for (const sign of [-1, 1]) {
@@ -989,7 +993,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     animate,
     dispose() {
       lighting.dispose();streetLamps.dispose();finishes.dispose();courtSurfaces.dispose();
-      const geometries = new Set<THREE.BufferGeometry>()
+      const geometries = new Set<THREE.BufferGeometry>([courtNets.net,courtNets.tape])
       const materials = new Set<THREE.Material>()
       root.traverse((object) => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Sprite) {

@@ -22,6 +22,7 @@ import { createMappedVenue, mappedCourtPosition } from '../scene/mappedVenue'
 import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, collectOcclusionExclusions } from '../scene/renderQuality'
 import { createClubSurfaces, type ClubCourtSurface } from '../scene/clubSurfaces'
 import { createAntialiasedBeauty } from '../scene/antialiasedBeauty'
+import { createCourtNetGeometries } from '../scene/courtNet'
 import './IconicCourtView.css'
 
 // Club scenes were authored brighter than the town (1.18 vs 1.0 under ACES).
@@ -71,6 +72,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   const finishes = createMiniatureMaterials()
   const surfaces = createClubSurfaces(finishes.parkGrass, invalidate)
   const unitPlane = new THREE.PlaneGeometry(1, 1)
+  const courtNets = createCourtNetGeometries(.65,.045)
   const materials = new Map<string, THREE.MeshStandardMaterial>()
   const batches = new Map<string, { material: THREE.Material; geometry: THREE.BufferGeometry; castShadow: boolean; matrices: THREE.Matrix4[] }>()
   const transform = new THREE.Object3D()
@@ -218,8 +220,11 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
       line(0, side * service / 2, .16, service)
     }
     transform.position.set(cx,.61,cz);transform.rotation.set(0,0,0);transform.scale.set(doubles*2,.65,.015)
-    instance(finishes.net,true)
-    box(cx, .96, cz, doubles * 2 + .5, .045, .07, '#fcf8e9', false)
+    instance(finishes.net,false,courtNets.net)
+    transform.position.set(cx,.96,cz);transform.scale.set(doubles*2+.5,.045,.07)
+    instance(material('#fcf8e9'),false,courtNets.tape)
+    const strapTop=.96-courtNets.sag
+    box(cx,(.24+strapTop)/2,cz,.045,strapTop-.24,.065,'#f5f2df',false)
     for (const side of [-1, 1]) cylinder(cx + side * (doubles + .25), .54, cz, .055, 1.08, '#3f5b49')
     // Court-side furniture and fine perimeter fencing use the main map's miniature scale.
     const fenceX = width / 2 + apron - .2, fenceZ = depth / 2 + apron - .2
@@ -423,7 +428,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
       }
     },
     dispose() {
-      const geometries = new Set<THREE.BufferGeometry>(), usedMaterials = new Set<THREE.Material>()
+      const geometries = new Set<THREE.BufferGeometry>([courtNets.net,courtNets.tape]), usedMaterials = new Set<THREE.Material>()
       scene.traverse(object => {
         if (object instanceof THREE.Mesh) {
           geometries.add(object.geometry)
