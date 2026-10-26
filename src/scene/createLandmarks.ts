@@ -16,10 +16,11 @@ export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,f
  const materials=new Map<string,THREE.MeshStandardMaterial>();
  const mat=(color:string)=>{
   if(!materials.has(color)){
-   const surface=finishes&&['#a77d59','#b49b7d'].includes(color)?cloneWorldArchitecturalFinish(finishes.brick,color):finishes&&['#46534a','#7d8885'].includes(color)?cloneWorldArchitecturalFinish(finishes.slate,color,true):finishes&&color==='#c9c4ac'?cloneArchitecturalFinish(finishes.stucco,color):finishes&&color==='#617d77'?cloneArchitecturalFinish(finishes.glazing,color):new THREE.MeshStandardMaterial({roughness:.9});
+   const surface=finishes&&['#a77d59','#b49b7d'].includes(color)?cloneWorldArchitecturalFinish(finishes.brick,color):finishes&&['#46534a','#7d8885'].includes(color)?cloneWorldArchitecturalFinish(finishes.slate,color,true):finishes&&['#c9c4ac','#9b9d8d','#aaa998','#929888'].includes(color)?cloneArchitecturalFinish(finishes.stucco,color):finishes&&color==='#617d77'?cloneArchitecturalFinish(finishes.glazing,color):new THREE.MeshStandardMaterial({roughness:.9});
    surface.color.set(color);materials.set(color,surface);
   }return materials.get(color)!;
  };
+ if(finishes)materials.set('#96998b',cloneArchitecturalFinish(finishes.membrane,'#96998b'));
  function part(parent:THREE.Group,color:string,x:number,y:number,z:number,w:number,h:number,d:number,geometry:THREE.BufferGeometry=box){const m=new THREE.Mesh(geometry,mat(color));m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
  function detail(parent:THREE.Group,color:string,x:number,y:number,z:number,w:number,h:number,d:number,geometry:THREE.BufferGeometry=box,ry=0,rz=0,shadow=true){
   if(!detailBatches.has(parent))detailBatches.set(parent,new Map());const batches=detailBatches.get(parent)!,key=geometry.uuid+color+shadow;
@@ -110,6 +111,32 @@ export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,f
    for(const x of [-12,12]){part(g,'#9b9d8d',x,5,-14,6,10,23);for(let y=2;y<10;y+=2)part(g,stone,x,y,-14,6.6,.45,23.6);}
    part(g,'#aaa998',0,7,-23,22,14,7);for(let y=3;y<14;y+=2)part(g,stone,0,y,-19.3,22,.5,.7);
    part(g,'#929888',12,18,-24,7,36,7);for(let y=3;y<36;y+=3)part(g,stone,12,y,-24,7.8,.6,7.8);
+   // Thin weathered caps sit within the four original flat roof footprints.
+   for(const x of [-12,12])detail(g,'#96998b',x,10.005,-14,5.98,.01,22.98,box,0,0,false);
+   detail(g,'#96998b',0,14.005,-23,21.98,.01,6.98,box,0,0,false);
+   detail(g,'#96998b',12,36.005,-24,6.98,.01,6.98,box,0,0,false);
+   // Glazing sits behind the existing floor bands; slim concrete piers give
+   // these illustrative volumes a building scale without changing their outline.
+   for(const x of [-12,12])for(const y of [2.9,4.9,6.9,8.9]){
+    for(const side of [-1,1]){
+     detail(g,glass,x+side*3.025,y,-14,.04,1.1,20,box,0,0,false);
+     for(let z=-23.5;z<-3;z+=2.7)detail(g,stone,x+side*3.06,y,z,.12,1.15,.12);
+    }
+    detail(g,glass,x,y,-2.475,4.8,1.1,.04,box,0,0,false);
+    for(const offset of [-1.6,0,1.6])detail(g,stone,x+offset,y,-2.44,.12,1.15,.12);
+   }
+   for(const y of [4,6,8,10,12]){
+    detail(g,glass,0,y,-19.475,19.6,1.15,.04,box,0,0,false);
+    for(let x=-9.1;x<10;x+=2.6)detail(g,stone,x,y,-19.44,.14,1.2,.12);
+   }
+   for(let y=10.5;y<35;y+=3)for(const side of [-1,1]){
+    detail(g,glass,12+side*3.525,y,-24,.04,1.65,5.8,box,0,0,false);
+    detail(g,glass,12,y,-24+side*3.525,5.8,1.65,.04,box,0,0,false);
+    for(const offset of [-1.45,0,1.45]){
+     detail(g,stone,12+side*3.56,y,-24+offset,.12,1.7,.10);
+     detail(g,stone,12+offset,y,-24+side*3.56,.10,1.7,.12);
+    }
+   }
    part(g,stone,0,3,-1,25,.7,2);for(const x of [-10,10])part(g,stone,x,1.5,-1,.7,3,.7);
   }
  }
