@@ -111,6 +111,35 @@ test('buses retain their size through a complete outbound and return trip',()=>{
  assert.deepEqual(buses.map(p=>p.position.toArray()),before)
 })
 
+test('bus lamps update cloned vehicles at night without moving or rebuilding them',()=>{
+ const life=createTownLife([],[],(lat,lng)=>new THREE.Vector3((lng+.115)*6900,0,-(lat-51.549)*11100),courtAreas(venues));
+ const buses:THREE.Object3D[]=[],heads:THREE.InstancedMesh[]=[],tails:THREE.InstancedMesh[]=[];
+ life.root.traverse(node=>{
+  if(node.name==='Miniature bus')buses.push(node);
+  if(node instanceof THREE.InstancedMesh&&node.name==='Bus headlamps')heads.push(node);
+  if(node instanceof THREE.InstancedMesh&&node.name==='Bus tail lamps')tails.push(node);
+ });
+ assert.equal(heads.length,buses.length);assert.equal(tails.length,buses.length);assert.ok(buses.length>=2);
+ const lamps=[...heads,...tails],positions=buses.map(bus=>bus.position.toArray());
+ const materials=lamps.map(mesh=>mesh.material as THREE.MeshStandardMaterial),versions=materials.map(m=>m.version);
+ assert.ok(heads.every(mesh=>mesh.material===heads[0].material),'cloned buses share the lamp material');
+ try{
+  for(let cycle=0;cycle<3;cycle++){
+   life.setNight(true);
+   heads.forEach(mesh=>assert.equal((mesh.material as THREE.MeshStandardMaterial).emissiveIntensity,1));
+   tails.forEach(mesh=>assert.equal((mesh.material as THREE.MeshStandardMaterial).emissiveIntensity,.65));
+   life.setNight(false);
+   heads.forEach(mesh=>assert.equal((mesh.material as THREE.MeshStandardMaterial).emissiveIntensity,.03));
+   tails.forEach(mesh=>assert.equal((mesh.material as THREE.MeshStandardMaterial).emissiveIntensity,.02));
+   assert.deepEqual(buses.map(bus=>bus.position.toArray()),positions);assert.deepEqual(materials.map(m=>m.version),versions);
+  }
+ }finally{
+  const geometries=new Set<THREE.BufferGeometry>(),ownedMaterials=new Set<THREE.Material>();
+  life.root.traverse(node=>{if(node instanceof THREE.Mesh){geometries.add(node.geometry);(Array.isArray(node.material)?node.material:[node.material]).forEach(m=>ownedMaterials.add(m));}});
+  geometries.forEach(g=>g.dispose());ownedMaterials.forEach(m=>m.dispose());
+ }
+})
+
 test('building and ground finishes preserve shared relief and release owned textures once',()=>{
  const finishes=createMiniatureMaterials()
  for(const material of [finishes.stucco,finishes.seamRoof,finishes.membrane,finishes.asphalt,finishes.paving,finishes.parkPath]){

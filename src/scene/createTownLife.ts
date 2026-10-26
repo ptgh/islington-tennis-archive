@@ -233,14 +233,20 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   const busGlass = new THREE.MeshStandardMaterial({ color: '#40616a', roughness: .6, emissive: '#d0b57c', emissiveIntensity: .08 })
   const busCream = new THREE.MeshStandardMaterial({ color: '#eee7ce', roughness: .8 })
   const busRubber = new THREE.MeshStandardMaterial({ color: '#36423f', roughness: 1 })
-  const wheelGeometry = new THREE.CylinderGeometry(.28, .28, .15, 8)
+  const busHeadlamp=new THREE.MeshStandardMaterial({color:'#fff0c7',roughness:.3,emissive:'#ffe3a1',emissiveIntensity:.03})
+  const busTailLamp=new THREE.MeshStandardMaterial({color:'#b94732',roughness:.35,emissive:'#fb522e',emissiveIntensity:.02})
+  const busShell=new RoundedBoxGeometry(1,1,1,2,.04)
+  const wheelGeometry = new THREE.CylinderGeometry(.28, .28, .15, 12)
+  const busHubGeometry=new THREE.CylinderGeometry(.12,.12,.165,8)
   const busWheels: THREE.Mesh[] = []
-  function busPart(parent: THREE.Group, material: THREE.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number) {
-    const mesh = new THREE.Mesh(box, material)
-    mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz)
-    mesh.castShadow = true
-    parent.add(mesh)
-    return mesh
+  const busParts=new Map<THREE.Group,Map<string,{geometry:THREE.BufferGeometry;material:THREE.Material;matrices:THREE.Matrix4[]}>>()
+  const busTransform=new THREE.Object3D()
+  function busPart(parent: THREE.Group, material: THREE.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number,geometry:THREE.BufferGeometry=box) {
+    if(!busParts.has(parent))busParts.set(parent,new Map())
+    const batches=busParts.get(parent)!,key=geometry.uuid+material.uuid
+    if(!batches.has(key))batches.set(key,{geometry,material,matrices:[]})
+    busTransform.position.set(x,y,z);busTransform.scale.set(sx,sy,sz);busTransform.updateMatrix()
+    batches.get(key)!.matrices.push(busTransform.matrix.clone())
   }
   const routes = busRoutes.map((route, index) => {
     const group = new THREE.Group()
@@ -266,8 +272,8 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const bus = new THREE.Group()
     bus.name = 'Miniature bus'
     group.add(bus)
-    busPart(bus, busRed, 0, 1.35, 0, 1.48, 2.14, 4.8)
-    busPart(bus, busCream, 0, 2.48, 0, 1.48, .14, 4.72)
+    busPart(bus, busRed, 0, 1.35, 0, 1.48, 2.14, 4.8,busShell)
+    busPart(bus, busCream, 0, 2.48, 0, 1.48, .14, 4.72,busShell)
     // Two storeys of glazing, a pale destination blind, and four little wheels.
     for (const side of [-1, 1]) {
       for (const level of [.93, 1.91]) {
@@ -277,12 +283,30 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
         const wheel = new THREE.Mesh(wheelGeometry, busRubber)
         wheel.rotation.z = Math.PI / 2
         wheel.position.set(side * .76, .3, z)
+        wheel.add(new THREE.Mesh(busHubGeometry,busCream))
         bus.add(wheel); busWheels.push(wheel)
       }
     }
     for (const y of [.95, 1.94]) busPart(bus, busGlass, 0, y, 2.413, 1.2, .56, .025)
     busPart(bus, busCream, 0, 1.43, 2.417, .8, .2, .03)
-    for (const side of [-1, 1]) busPart(bus, busCream, side * .5, .51, 2.42, .2, .14, .035)
+    for(const end of [-1,1]){
+      busPart(bus,busRubber,0,.41,end*2.425,1.32,.1,.06)
+      for(const side of [-1,1])busPart(bus,end===1?busHeadlamp:busTailLamp,side*.5,.59,end*2.435,.2,.13,.035)
+    }
+    for(const y of [.95,1.94])busPart(bus,busGlass,0,y,-2.413,1.15,.52,.025)
+    // Glazed passenger doors and slim rails retain the same body dimensions.
+    busPart(bus,busGlass,-.765,.99,1.62,.03,1.38,.68)
+    busPart(bus,busRed,-.79,.99,1.62,.025,1.43,.055)
+    busPart(bus,busRubber,-.79,.28,1.62,.04,.06,.72)
+    for(const side of [-1,1])busPart(bus,busCream,side*.765,1.45,0,.025,.045,4.45)
+    for(const side of [-1,1])busPart(bus,busRubber,side*.28,.96,2.439,.025,.42,.02)
+    // Fixed panels share a few batches; the separate wheels retain their spin.
+    for(const batch of busParts.get(bus)!.values()){
+      const mesh=new THREE.InstancedMesh(batch.geometry,batch.material,batch.matrices.length)
+      mesh.name=batch.material===busHeadlamp?'Bus headlamps':batch.material===busTailLamp?'Bus tail lamps':'Bus fixed detail'
+      batch.matrices.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();bus.add(mesh)
+    }
+    busParts.delete(bus)
     const otherBus = bus.clone(true)
     group.add(otherBus)
     otherBus.traverse(node=>{if(node instanceof THREE.Mesh&&node.geometry===wheelGeometry)busWheels.push(node)})
@@ -434,7 +458,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
         route.material.opacity = id === route.id ? .95 : .66
       }
     },
-    setNight(night: boolean) { busGlass.emissiveIntensity = night ? .55 : .08 },
+    setNight(night: boolean) { busGlass.emissiveIntensity = night ? .55 : .08;busHeadlamp.emissiveIntensity=night?1:.03;busTailLamp.emissiveIntensity=night?.65:.02 },
     animate(delta: number, runActivity: boolean, runBuses: boolean) {
       if (runActivity && activity.visible) { activityTime += delta; updateActivity(activityTime);updateTraffic(delta) }
       if (runBuses && buses.visible) { busTime += delta; updateBuses(busTime) }
