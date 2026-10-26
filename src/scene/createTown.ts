@@ -699,10 +699,16 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         courtFenceRails.push({ x: center.x, y, z: center.z + sign * h / 2, sx: w, sy: .045, sz: .045 })
         courtFenceRails.push({ x: center.x + sign * w / 2, y, z: center.z, sx: .045, sy: .045, sz: h })
       }
-      benches.push({ x: center.x + sign * (w / 2 + 1.4), y: .7, z: center.z, sx: .7, sy: .15, sz: 2.6 })
-      benches.push({ x: center.x + sign * (w / 2 + 1.65), y: 1.12, z: center.z, sx: .13, sy: .75, sz: 2.6 })
+      for(let slat=0;slat<4;slat++)benches.push({ x: center.x + sign * (w / 2 + 1.4) + (slat-1.5)*.175, y: .7, z: center.z, sx: .15, sy: .15, sz: 2.6 })
+      for(let slat=0;slat<3;slat++)benches.push({ x: center.x + sign * (w / 2 + 1.65), y: 1.12+(slat-1)*.25, z: center.z, sx: .13, sy: .21, sz: 2.6 })
       benchLegs.push({ x: center.x + sign * (w / 2 + 1.4), y: .35, z: center.z - .95, sx: .5, sy: .7, sz: .18 })
       benchLegs.push({ x: center.x + sign * (w / 2 + 1.4), y: .35, z: center.z + .95, sx: .5, sy: .7, sz: .18 })
+      for(const end of [-1,1]){
+        const z=center.z+end*.95
+        benchLegs.push({x:center.x+sign*(w/2+1.65),y:.94,z,sx:.09,sy:1.1,sz:.09})
+        benchLegs.push({x:center.x+sign*(w/2+1.4),y:1.03,z,sx:.6,sy:.06,sz:.09})
+        benchLegs.push({x:center.x+sign*(w/2+1.15),y:.84,z,sx:.09,sy:.4,sz:.09})
+      }
     }
     if (/centre/i.test(venue.name)) {
       const shedx = center.x - w / 2 - 12

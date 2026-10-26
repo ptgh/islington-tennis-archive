@@ -242,7 +242,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
         }
       }
     }
-    box(cx - fenceX + .8, .55, cz - 3, .65, .15, 2.4, '#e8e5d2')
+    for(let slat=0;slat<4;slat++)box(cx - fenceX + .8 + (slat-1.5)*.1625, .55, cz - 3, .1375, .15, 2.4, '#e8e5d2')
     for (const dz of [-.8, .8]) box(cx - fenceX + .8, .3, cz - 3 + dz, .5, .5, .1, '#3f5b49')
     box(cx + fenceX - .8, 1.3, cz, .8, .18, .8, '#e8e5d2')
     for (const dz of [-.3, .3]) beam(new THREE.Vector3(cx + fenceX - 1.2, .2, cz + dz), new THREE.Vector3(cx + fenceX - .8, 1.3, cz + dz), .075, '#3f5b49')
