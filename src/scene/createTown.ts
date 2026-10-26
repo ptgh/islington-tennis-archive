@@ -919,12 +919,32 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       }
     }
   }
-   const railwayBrick=finishes.brick.clone();railwayBrick.color.set('#b27e5d');
+  const railwayBrick=cloneWorldArchitecturalFinish(finishes.brick,'#b27e5d')
+  const archStone=cloneArchitecturalFinish(finishes.stucco,'#d6c9af')
+  const prepareArchStone=archStone.onBeforeCompile,archStoneKey=archStone.customProgramCacheKey()
+  // Radial mortar divides the existing half-ring into voussoirs. It shades the
+  // stone rather than cutting gaps or adding more arch/shadow geometry.
+  archStone.onBeforeCompile=(shader,renderer)=>{
+    prepareArchStone.call(archStone,shader,renderer)
+    shader.vertexShader='varying float archCourse;\n'+shader.vertexShader.replace('#include <begin_vertex>',`
+      #include <begin_vertex>
+      archCourse=atan(position.y-2.0,position.x)*28.0/3.14159265359;
+    `)
+    shader.fragmentShader='varying float archCourse;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
+      #include <color_fragment>
+      float archPixel=max(fwidth(archCourse),.001);
+      float archJointDistance=abs(fract(archCourse+.5)-.5);
+      float archJoint=1.0-smoothstep(.022,.022+archPixel*.5,archJointDistance);
+      archJoint=mix(archJoint,.044,smoothstep(.15,.6,archPixel));
+      diffuseColor.rgb*=1.0-archJoint*.3;
+    `)
+  }
+  archStone.customProgramCacheKey=()=>`${archStoneKey}-viaduct-joints-v1`
    instances(archGeometry,railwayBrick,arches,true,railway);
-  instances(archRing,trimMaterial,archFaces,false,railway);
-  instances(box,bodyMaterial,parapets,true,railway)
+  instances(archRing,archStone,archFaces,false,railway);
+  instances(box,railwayBrick,parapets,true,railway)
   instances(box,trimMaterial,copings,true,railway)
-  instances(box,bodyMaterial,piers,true,railway)
+  instances(box,railwayBrick,piers,true,railway)
   instances(sphere,leafMaterial,tracksideShrubs,true,railway)
   const sleepers: Instance[] = []
   const ballast: Instance[] = []
