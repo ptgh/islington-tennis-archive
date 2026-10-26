@@ -14,7 +14,9 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, 
  const courtNets=createCourtNetGeometries(.67,.065),tapeMatrices:THREE.Matrix4[]=[];
  const practiceBalls:THREE.Matrix4[]=[];
  const litPlaying=cloneCourtFinish(playing);litPlaying.emissive.set('#a4c9b2');litPlaying.emissiveIntensity=0;
- const paving=surfaces.concrete,wood=finishes.timber,bag=material('#315c50'),ball=material('#dce985'),frame=material('#a3654a'),strings=material('#e8e5d2');
+ const paving=surfaces.concrete,wood=finishes.timber,bag=material('#315c50'),ball=material('#dce985'),frame=material('#a3654a');
+ frame.roughness=.46;
+ const racquetHead=new THREE.TorusGeometry(1,.065,6,24),stringPoints:THREE.Vector3[]=[];
  const batches=new Map<THREE.Material,THREE.Matrix4[]>(),transform=new THREE.Object3D();
  function part(parent:THREE.Group,mat:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number){
   transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,0,0);transform.updateMatrix();parent.updateMatrixWorld(true);
@@ -70,16 +72,30 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, 
   }
   // A bag, spare frame and practice balls reward a closer look beside each bench.
   part(g,bag,2.05,.68,0,.68,1.24,.43);part(g,wood,2.05,1.35,0,.44,.1,.26);
-  part(g,frame,2.55,.6,.12,.09,.78,.08);
-  const head=new THREE.Mesh(new THREE.TorusGeometry(.43,.065,6,18),frame);
-  head.position.set(x+2.55,1.2,z+.12);head.rotation.set(-.18,.22,-.18);head.castShadow=true;root.add(head);
-  part(g,strings,2.55,1.2,.12,.04,.62,.04);
-  part(g,strings,2.55,1.2,.12,.55,.04,.04);
+  part(g,bag,2.55,.245,.12,.075,.44,.065);
+  for(const y of [.12,.25,.38])part(g,metal,2.55,y,.12,.078,.012,.07);
+  part(g,frame,2.55,.64,.12,.045,.44,.035);
+  const headMatrix=new THREE.Matrix4().compose(new THREE.Vector3(2.55,1.2,.12),new THREE.Quaternion().setFromEuler(new THREE.Euler(-.18,.22,-.18)),new THREE.Vector3(.28,.36,.28));
+  const worldHead=g.matrixWorld.clone().multiply(headMatrix);
+  const head=new THREE.Mesh(racquetHead,frame);head.name='Highbury spare racquet';head.applyMatrix4(worldHead);head.castShadow=true;root.add(head);
+  // Throat branches meet the tilted oval, and all strings share its transform.
+  for(const side of [-1,1]){
+    const a=new THREE.Vector3(2.55,.82,.12),b=new THREE.Vector3(side*.55,-Math.sqrt(1-.55**2),0).applyMatrix4(headMatrix),direction=b.clone().sub(a);
+    transform.position.copy(a).add(b).multiplyScalar(.5);transform.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.clone().normalize());transform.scale.set(.03,direction.length(),.03);transform.updateMatrix();
+    const batch=batches.get(frame)??[];batch.push(g.matrixWorld.clone().multiply(transform.matrix));batches.set(frame,batch);
+  }
+  for(let i=-3;i<=3;i++){
+    const offset=i*.24,chord=Math.sqrt(.91**2-offset**2);
+    for(const [a,b] of [[[-chord,offset],[chord,offset]],[[offset,-chord],[offset,chord]]]){
+      stringPoints.push(new THREE.Vector3(a[0],a[1],0).applyMatrix4(worldHead),new THREE.Vector3(b[0],b[1],0).applyMatrix4(worldHead));
+    }
+  }
   for(const offset of [-.2,.1,.32]){
     transform.position.set(1.7+offset,.095,.48);transform.scale.setScalar(.08);transform.rotation.set(0,0,0);transform.updateMatrix();
     practiceBalls.push(g.matrixWorld.clone().multiply(transform.matrix));
   }
  }
+ const strings=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(stringPoints),new THREE.LineBasicMaterial({color:'#e8e5d2',transparent:true,opacity:.65,depthWrite:false}));strings.name='Highbury racquet strings';root.add(strings);
  const balls=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,2),ball,practiceBalls.length);balls.name='Highbury practice balls';practiceBalls.forEach((matrix,i)=>balls.setMatrixAt(i,matrix));balls.castShadow=true;balls.receiveShadow=true;balls.computeBoundingSphere();root.add(balls);
  const tapes=new THREE.InstancedMesh(courtNets.tape,white,tapeMatrices.length);tapeMatrices.forEach((matrix,i)=>tapes.setMatrixAt(i,matrix));tapes.receiveShadow=true;tapes.computeBoundingSphere();root.add(tapes);
  for(const [mat,matrices] of batches){const mesh=new THREE.InstancedMesh(box,mat,matrices.length);matrices.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));mesh.castShadow=mat!==white;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);}
