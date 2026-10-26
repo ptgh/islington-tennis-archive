@@ -154,7 +154,7 @@ test('building and ground finishes preserve shared relief and release owned text
  let released=0
  finishes.seamRoof.map!.addEventListener('dispose',()=>released++)
  finishes.paving.bumpMap!.addEventListener('dispose',()=>released++)
- for(const material of [finishes.seamRoof,finishes.membrane,finishes.asphalt]){
+ for(const material of [finishes.slate,finishes.seamRoof,finishes.membrane,finishes.asphalt]){
   const roughness=material.roughnessMap!
   assert.ok(roughness,'surface sheen varies independently of its colour')
   assert.equal(roughness.colorSpace,THREE.NoColorSpace)
@@ -165,7 +165,7 @@ test('building and ground finishes preserve shared relief and release owned text
   roughness.addEventListener('dispose',()=>released++)
  }
  finishes.dispose();finishes.dispose()
- assert.equal(released,5)
+ assert.equal(released,6)
 })
 
 test('rain updates shared ground clones and restores dry finishes without recompiling',()=>{

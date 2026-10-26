@@ -22,7 +22,11 @@ export function townRoofGeometry(kind:'hipped'|'mansard') {
       const normal=triangle[1].clone().sub(triangle[0]).cross(triangle[2].clone().sub(triangle[0]))
       const centre=triangle.reduce((v,p)=>v.add(p),new THREE.Vector3()).multiplyScalar(1/3).sub(new THREE.Vector3(0,.35,0))
       if(normal.dot(centre)<0)[triangle[1],triangle[2]]=[triangle[2],triangle[1]]
-      for(const p of triangle){positions.push(p.x,p.y,p.z);uvs.push(p.x+.5,p.z+.5+p.y*.5)}
+      // Each sloping face needs two independent texture axes; the flat mansard
+      // cap uses X/Z while side and end slopes run from their eaves upwards.
+      const flat=Math.abs(normal.x)<1e-6&&Math.abs(normal.z)<1e-6
+      const acrossX=Math.abs(normal.z)>=Math.abs(normal.x)
+      for(const p of triangle){positions.push(p.x,p.y,p.z);uvs.push((flat||acrossX?p.x:p.z)+.5,flat?p.z+.5:p.y)}
     }
   }
   const ring=(x:number,y:number,z:number):Point[]=>[[-x,y,-z],[x,y,-z],[x,y,z],[-x,y,z]]

@@ -145,18 +145,25 @@ function brickPixel(x: number, y: number, relief: boolean): Pixel {
   return [value, value * .994, value * .977]
 }
 
-function slatePixel(x: number, y: number, relief: boolean): Pixel {
+function slatePixel(x: number, y: number, relief: boolean, roughness = false): Pixel {
   const row = Math.floor(y / 16), bx = (x + (row % 2) * 16) % 32, by = y % 16
   const joint = bx < 1.2 || by < 1.2
   const variation = noise(Math.floor((x + (row % 2) * 16) / 32), row, 25)
   const grain = noise(x, y, 37) - .5
+  const weather=field(x,y,53,41)-.5
+  if(roughness){
+    const value=joint?252:218+variation*25+weather*17+grain*5
+    return [value,value,value]
+  }
   if (relief) {
     const height = joint ? 85 : 185 + by * 2
     return [height, height, height]
   }
   // A light leading edge makes the overlapping courses readable in sunlight.
-  const value = joint ? 124 : 201 + variation * 35 + grain * 9 + (by > 14 ? 11 : 0)
-  return [value * .965, value * .989, value]
+  const value = joint ? 124 : 201 + variation * 35 + grain * 9 + weather*13 + (by > 14 ? 11 : 0)
+  // A few warmer, weathered leading edges interrupt identical grey courses.
+  const wear=!joint&&variation>.84?THREE.MathUtils.smoothstep(by,10,16)*.18:0
+  return [value * (.965+wear*.10), value * (.989+wear*.06), value*(1-wear*.14)]
 }
 
 function grassPixel(x: number, y: number): Pixel {
@@ -333,6 +340,7 @@ export function createMiniatureMaterials() {
   const brickBump = surface(512, (x, y) => brickPixel(x, y, true), false)
   const slateMap = surface(256, (x, y) => slatePixel(x, y, false))
   const slateBump = surface(256, (x, y) => slatePixel(x, y, true), false)
+  const slateRoughness = surface(256, (x,y) => slatePixel(x,y,false,true), false)
   const grassMap = surface(256, grassPixel)
   grassMap.repeat.set(72, 72)
   const parkMap = surface(256, grassPixel)
@@ -422,7 +430,7 @@ export function createMiniatureMaterials() {
     color: '#ffffff', map: brickMap, bumpMap: brickBump, bumpScale: .022, roughness: .92,
   })
   const slate = new THREE.MeshStandardMaterial({
-    color: '#9ca7a5', map: slateMap, bumpMap: slateBump, bumpScale: .035, roughness: .86,
+    color: '#9ca7a5', map: slateMap, bumpMap: slateBump, bumpScale: .035, roughnessMap:slateRoughness, roughness: .98,
   })
   const stucco = new THREE.MeshStandardMaterial({color:'#d4cebc',map:renderMap,bumpMap:renderBump,bumpScale:.018,roughness:.96})
   const seamRoof = new THREE.MeshStandardMaterial({color:'#87938b',map:metalRoofMap,bumpMap:metalRoofBump,bumpScale:.055,roughnessMap:metalRoofRoughness,roughness:.8,metalness:.22})
@@ -595,7 +603,7 @@ export function createMiniatureMaterials() {
   wind(foliageShadowDepth)
   const foliageShadowProxy = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
   const materials = [brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing]
-  const textures = [brickMap, brickBump, slateMap, slateBump, grassMap, parkMap, asphaltMap, asphaltBump, asphaltRoughness, pavingMap, pavingBump, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha, renderMap, renderBump, metalRoofMap, metalRoofBump, membraneMap, metalRoofRoughness, membraneRoughness]
+  const textures = [brickMap, brickBump, slateMap, slateBump, slateRoughness, grassMap, parkMap, asphaltMap, asphaltBump, asphaltRoughness, pavingMap, pavingBump, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha, renderMap, renderBump, metalRoofMap, metalRoofBump, membraneMap, metalRoofRoughness, membraneRoughness]
   let disposed = false
 
   return {

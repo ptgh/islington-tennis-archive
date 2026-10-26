@@ -1,6 +1,20 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {townRoofGeometry,archedOpeningGeometry} from '../scene/townArchitecture.ts'
+import {gableRoofGeometry} from '../scene/gableRoof.ts'
+
+test('every gable, hip and mansard triangle retains a two-dimensional texture area',()=>{
+ for(const geometry of [gableRoofGeometry(),townRoofGeometry('hipped'),townRoofGeometry('mansard')]){
+  try{
+   const uv=geometry.getAttribute('uv');
+   for(let i=0;i<uv.count;i+=3){
+    const ax=uv.getX(i+1)-uv.getX(i),ay=uv.getY(i+1)-uv.getY(i);
+    const bx=uv.getX(i+2)-uv.getX(i),by=uv.getY(i+2)-uv.getY(i);
+    assert.ok(Math.abs(ax*by-ay*bx)>1e-6,`texture collapses on triangle ${i/3}`);
+   }
+  }finally{geometry.dispose()}
+ }
+})
 
 test('varied terrace roofs retain unit footprints, eaves and outward-facing slopes',()=>{
  for(const kind of ['hipped','mansard'] as const){

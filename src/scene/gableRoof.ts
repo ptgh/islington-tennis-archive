@@ -19,7 +19,14 @@ export function gableRoofGeometry() {
     }
   }
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3))
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(points.flatMap((_, i) => i % 3 === 0 ? [points[i] + .5, points[i + 2] + .5 + points[i + 1] * .5] : []), 2))
+  // Height runs up both slopes. Adding Z to height collapses the second slope
+  // into a single UV row, stretching the slates into long stripes.
+  const uvs:number[]=[]
+  for(let triangle=0;triangle<points.length;triangle+=9){
+    const end=points[triangle]===points[triangle+3]&&points[triangle]===points[triangle+6]
+    for(let vertex=triangle;vertex<triangle+9;vertex+=3)uvs.push(points[vertex+(end?2:0)]+.5,points[vertex+1])
+  }
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   geometry.computeVertexNormals()
   return geometry
 }
