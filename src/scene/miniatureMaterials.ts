@@ -207,6 +207,7 @@ function createFoliageGeometry(shadow = false) {
     { x: .20, y: -.13, z: -.46, sx: .56, sy: .54, sz: .57 },
   ]
   const positions:number[]=[],normals:number[]=[],uvs:number[]=[],tints:number[]=[]
+  const crownSurfaces:THREE.Triangle[][]=[]
   const unit = shadow?new THREE.IcosahedronGeometry(1,0):new THREE.SphereGeometry(1,6,4)
   const point = (direction:THREE.Vector3, cluster:typeof clusters[number], index:number, lift=0) => {
     const angle=Math.atan2(direction.z,direction.x)
@@ -231,7 +232,9 @@ function createFoliageGeometry(shadow = false) {
     geometry.computeVertexNormals()
     const core=geometry.index?geometry.toNonIndexed():geometry
     const p=core.getAttribute('position'),n=core.getAttribute('normal'),uv=core.getAttribute('uv'),color=core.getAttribute('color')
+    const surface:THREE.Triangle[]=[]
     for(let face=0;face<p.count;face+=3){
+      if(!shadow)surface.push(new THREE.Triangle(...[0,1,2].map(offset=>new THREE.Vector3().fromBufferAttribute(p,face+offset)) as [THREE.Vector3,THREE.Vector3,THREE.Vector3]))
       // Entirely buried faces contribute nothing to the silhouette or lighting.
       // Keep a conservative inset so cluster joins remain closed as they sway.
       const buried=clusters.some((other,j)=>j!==index&&[0,1,2].every(offset=>{
@@ -244,6 +247,7 @@ function createFoliageGeometry(shadow = false) {
         uvs.push(uv.getX(i),uv.getY(i));tints.push(color.getX(i),color.getY(i),color.getZ(i))
       }
     }
+    crownSurfaces.push(surface)
     geometry.dispose();if(core!==geometry)core.dispose()
   }
   unit.dispose()
@@ -254,17 +258,31 @@ function createFoliageGeometry(shadow = false) {
     const index=i%clusters.length,j=Math.floor(i/clusters.length),count=Math.ceil((72-index)/clusters.length)
     const y=1-(j+.5)*2/count,angle=j*2.399963229728653+index*.7,radius=Math.sqrt(1-y*y)
     const direction=new THREE.Vector3(Math.cos(angle)*radius,y,Math.sin(angle)*radius)
-    const center=point(direction,clusters[index],index,.015)
-    const across=new THREE.Vector3().crossVectors(direction,up).normalize()
-    const along=new THREE.Vector3().crossVectors(across,direction).normalize()
-    across.applyAxisAngle(direction,noise(i,8,109)*Math.PI)
-    along.applyAxisAngle(direction,noise(i,8,109)*Math.PI)
+    // Attach to the actual faceted crown, rather than the ideal ellipsoid above
+    // it. Otherwise leaf cards hover over the lower-resolution branch masses.
+    const cluster=clusters[index],origin=new THREE.Vector3(cluster.x,cluster.y,cluster.z)
+    const outward=point(direction,cluster,index).sub(origin).normalize()
+    const ray=new THREE.Ray(origin.clone().addScaledVector(outward,2),outward.clone().negate())
+    const center=new THREE.Vector3(),hit=new THREE.Vector3(),leafNormal=new THREE.Vector3()
+    let nearest=Infinity
+    for(const triangle of crownSurfaces[index])if(ray.intersectTriangle(triangle.a,triangle.b,triangle.c,false,hit)){
+      const distance=ray.origin.distanceToSquared(hit)
+      if(distance<nearest){nearest=distance;center.copy(hit);triangle.getNormal(leafNormal)}
+    }
+    if(!Number.isFinite(nearest))continue
+    if(clusters.some((other,j)=>j!==index&&((center.x-other.x)/other.sx)**2+((center.y-other.y)/other.sy)**2+((center.z-other.z)/other.sz)**2<.93))continue
+    if(leafNormal.dot(outward)<0)leafNormal.negate()
+    center.addScaledVector(leafNormal,.008)
+    const across=new THREE.Vector3().crossVectors(leafNormal,up).normalize()
+    const along=new THREE.Vector3().crossVectors(across,leafNormal).normalize()
+    across.applyAxisAngle(leafNormal,noise(i,8,109)*Math.PI)
+    along.applyAxisAngle(leafNormal,noise(i,8,109)*Math.PI)
     const width=.055+noise(i,4,117)*.035,length=.09+noise(i,3,123)*.06
     const points=[
       center.clone().addScaledVector(along,length),
-      center.clone().addScaledVector(across,width).addScaledVector(direction,-.018),
+      center.clone().addScaledVector(across,width).addScaledVector(leafNormal,-.018),
       center.clone().addScaledVector(along,-length),
-      center.clone().addScaledVector(across,-width).addScaledVector(direction,.025),
+      center.clone().addScaledVector(across,-width).addScaledVector(leafNormal,.025),
     ]
     const light=.78+noise(i,2,131)*.2,coordinates=[[.5,1],[1,.5],[.5,0],[0,.5]]
     for(const face of [[0,1,2],[0,2,3]]){
@@ -545,13 +563,17 @@ export function createMiniatureMaterials() {
         transformed.x *= mix(.78,1.0,crownShape) * mix(1.0,.83,crownWeight*crownShape);
         transformed.z *= mix(1.0,.81,crownShape);
         transformed.y *= mix(.88,1.0,crownShape);
+        // Contract selected branch masses differently per tree. The same field
+        // reaches the low-poly shadow proxy and never expands planting bounds.
+        float crownLobe = .98 + .02*sin(position.y*5.0+position.x*4.0+position.z*3.0+crownShape*12.0);
+        transformed.xz *= crownLobe;
         float gust = .72 + .28 * sin(miniatureWindTime * .19 + windPhase * .35);
         float flutter = sin(miniatureWindTime * 2.4 + windPhase * 1.7) * .12;
         transformed.x += (sin(miniatureWindTime * .85 + windPhase) + flutter) * miniatureWindStrength * gust * crownWeight;
         transformed.z += cos(miniatureWindTime * .63 + windPhase) * miniatureWindStrength * .55 * gust * crownWeight;
       `)
     }
-    material.customProgramCacheKey = () => 'miniature-crown-wind-v3'
+    material.customProgramCacheKey = () => 'miniature-crown-wind-v4'
   }
   wind(foliage)
   const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide })
