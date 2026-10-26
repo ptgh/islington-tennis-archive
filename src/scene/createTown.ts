@@ -58,7 +58,9 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const parkGrass = finishes.parkGrass
   const verge = finishes.paving
   const tarmac = finishes.asphalt
-  const lane = standard('#e8e3d7')
+  // Road paint follows the same aggregate, repairs and rain response as its
+  // carriageway, rather than reading as a perfectly smooth raised white bar.
+  const lane = cloneArchitecturalFinish(finishes.asphalt, '#e8e3d7')
   const pathMaterial = finishes.paving
   const brickPalette = ['#b9997f', '#d1bda4', '#ad816a', '#c6ae91', '#ded2b9', '#b7a68c', '#a77a62', '#d7c9ad']
   const roofPalette = ['#faf9f5', '#dce0dc', '#e5e5da', '#cbd4d2', '#ebe4d9']
@@ -208,6 +210,31 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const gutters: Instance[] = []
   const parkPaths: Instance[] = []
   const kerbMaterial = standard('#cfc8b8', { roughness: .92 })
+  // Metre-scale joints align across the clipped strips on each straight road.
+  // Shade the mortar rather than cutting geometry or adding another draw call.
+  kerbMaterial.onBeforeCompile=shader=>{
+    shader.vertexShader='varying vec2 kerbSurface;\n'+shader.vertexShader.replace('#include <begin_vertex>',`
+      #include <begin_vertex>
+      mat4 kerbModel=modelMatrix;
+      #ifdef USE_INSTANCING
+        kerbModel*=instanceMatrix;
+      #endif
+      vec3 kerbWorld=(kerbModel*vec4(transformed,1.0)).xyz;
+      vec2 kerbDirection=normalize(kerbModel[0].xz);
+      kerbSurface=vec2(dot(kerbWorld.xz,kerbDirection),position.y+.5);
+    `)
+    shader.fragmentShader='varying vec2 kerbSurface;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
+      #include <color_fragment>
+      float kerbJointDistance=abs(fract(kerbSurface.x/.9+.5)-.5)*.9;
+      float kerbFilter=max(fwidth(kerbSurface.x),.001);
+      float kerbJoint=1.0-smoothstep(.009,.009+kerbFilter,kerbJointDistance);
+      kerbJoint=mix(kerbJoint,.02,smoothstep(.06,.3,kerbFilter));
+      float kerbStone=fract(sin(floor(kerbSurface.x/.9+.5)*127.1)*43758.5453);
+      float kerbDirt=1.0-smoothstep(.05,.65,kerbSurface.y);
+      diffuseColor.rgb*=mix(.94,1.025,kerbStone)*(1.0-kerbJoint*.25)*(1.0-kerbDirt*.12);
+    `)
+  }
+  kerbMaterial.customProgramCacheKey=()=> 'town-jointed-kerb-v1'
   const gutterMaterial = standard('#3f4442', { roughness: .7, transparent: true, opacity: .35 })
   const carriageways=roads.filter(road=>!road.path).flatMap(road=>road.points.slice(1).map((b,index)=>({a:road.points[index],b,width:road.width,road,index:index+1})))
   const streetDetail=(items:Instance[],x:number,z:number,length:number,width:number,y:number,height:number,ux:number,uz:number,others:typeof carriageways)=>{
@@ -249,7 +276,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
             if (j % 3 === 0 && !local) streetDetail(gutters,x-uz*(width/2-.25)*side,z+ux*(width/2-.25)*side,sx*.9,.32,.113,.01,ux,uz,others)
           }
         }
-        if (road.avenue && j % 2 === 0) streetDetail(laneMarks,x,z,local?.45:2.2,local?.035:.15,.12,.025,ux,uz,others)
+        if (road.avenue && j % 2 === 0) streetDetail(laneMarks,x,z,local?.45:2.2,local?.035:.15,.116,.008,ux,uz,others)
       }
     }
   }
