@@ -96,13 +96,43 @@ export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,f
    }
   }else if(place.id==='estorick'){
    part(g,stone,0,.2,0,17,.4,17);part(g,'#b49b7d',0,4,0,12,8,10);part(g,slate,0,8.3,0,12.5,1,10.5);
-   for(const x of [-4,-2,0,2,4])for(const y of [2,5.5]){part(g,'#eee5cd',x,y,5.08,1.25,2,.16);part(g,glass,x,y,5.18,.9,1.6,.08);}
+   // Shallow coping and a weathered cap finish the existing flat roof.
+   detail(g,'#96998b',0,8.805,0,12.1,.01,10.1,box,0,0,false);
+   for(const side of [-1,1]){
+    detail(g,stone,side*6.16,8.80,0,.18,.08,10.5);
+    detail(g,stone,0,8.80,side*5.16,12.5,.08,.18);
+    detail(g,'#eee5cd',side*6.06,7.88,0,.16,.18,10.12);
+    detail(g,'#eee5cd',0,7.88,side*5.06,12.12,.18,.16);
+   }
+   for(const x of [-4,-2,0,2,4])for(const y of [2,5.5]){
+    part(g,'#eee5cd',x,y,5.08,1.25,2,.16);part(g,glass,x,y,5.18,.9,1.6,.08);
+    detail(g,'#eee5cd',x,y-1.04,5.20,1.42,.12,.32);
+    detail(g,'#eee5cd',x,y,5.235,.045,1.6,.035,box,0,0,false);
+    detail(g,'#eee5cd',x,y+.08,5.235,.9,.055,.035,box,0,0,false);
+   }
+   // Side elevations repeat the villa's existing two-storey window language.
+   for(const side of [-1,1])for(const z of [-3,0,3])for(const y of [2,5.5]){
+    detail(g,'#eee5cd',side*6.08,y,z,.16,2,1.25);
+    detail(g,glass,side*6.18,y,z,.08,1.6,.9,box,0,0,false);
+    detail(g,'#eee5cd',side*6.20,y-1.04,z,.32,.12,1.42);
+    detail(g,'#eee5cd',side*6.235,y,z,.035,1.6,.045,box,0,0,false);
+    detail(g,'#eee5cd',side*6.235,y+.08,z,.035,.055,.9,box,0,0,false);
+   }
    part(g,roof,0,1.5,5.3,1.3,3,.3);part(g,stone,0,.4,6.1,3,.8,2);
    // Gallery entrance banners, walled sculpture garden and conservatory distinguish the villa.
    for(const x of [-5.5,5.5]){part(g,'#d2c7ac',x,4,5.5,.12,6,.12);part(g,'#a25043',x,4.6,5.6,1.2,3,.1);}
    part(g,'#a4ad78',0,.35,-8,15,.2,6);
    for(const x of [-8,8])part(g,stone,x,1,-3,.4,2,22);
    part(g,glass,4,2.2,-7,5,4,4);part(g,stone,4,4.3,-7,5.5,.3,4.5);
+   // Fine posts and rails separate the garden room's broad glass planes.
+   for(const z of [-9.04,-4.96]){
+    for(const x of [1.5,2.75,4,5.25,6.5])detail(g,stone,x,2.2,z,.075,3.9,.075);
+    for(const y of [.28,2.1,4.12])detail(g,stone,4,y,z,5.08,.075,.075);
+   }
+   for(const x of [1.46,6.54]){
+    detail(g,stone,x,2.2,-7,.075,3.9,.075);
+    for(const y of [.28,2.1,4.12])detail(g,stone,x,y,-7,.075,.075,4.08);
+   }
    part(g,stone,-4,.7,-8,2,1,2);
    part(g,'#596459',-4,2.2,-8,1,2,1,new THREE.TorusGeometry(.7,.18,6,12));
   }else if(place.id==='barbican-centre'){
