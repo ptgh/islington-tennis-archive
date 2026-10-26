@@ -174,5 +174,11 @@ export function createLandmarks(project:(lat:number,lng:number)=>THREE.Vector3,f
   const mesh=new THREE.InstancedMesh(batch.geometry,batch.material,batch.matrices.length);mesh.name='Landmark architectural relief';
   batch.matrices.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));mesh.castShadow=batch.shadow;mesh.receiveShadow=true;mesh.computeBoundingSphere();parent.add(mesh);
  }
- return root;
+ return Object.assign(root,{setNight(night:boolean){
+  const windows=materials.get(glass);
+  if(windows){
+   windows.color.set(night?'#e0bd7d':glass);
+   windows.emissive.set('#f2bf6d');windows.emissiveIntensity=night?.75:0;
+  }
+ }});
 }

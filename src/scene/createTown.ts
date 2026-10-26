@@ -844,7 +844,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   church(38, 134, .75)
   church(-227, -32, .72)
 
-  root.add(createLandmarks(geoPosition,finishes))
+  const landmarks=createLandmarks(geoPosition,finishes);root.add(landmarks)
   const gear=createGear(geoPosition,exclusions);root.add(gear.root)
 
   const stations: Station[] = mapStations.map(s=>({name:s.name,position:geoPosition(s.lat,s.lng).setY(6),lines:s.lines}))
@@ -1016,7 +1016,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     setBusRoute:life.setBusRoute,
     setNight(night) {
       lighting.setNight(night);highburyModel.setNight(night);litCourtMaterials.forEach(material => { material.emissiveIntensity=night?.22:0 });
-      streetLamps.setNight(night)
+      streetLamps.setNight(night);landmarks.setNight(night)
       windowMaterial.emissiveIntensity = night ? .75 : 0
       windowMaterial.color.set(night ? '#e0bd7d' : '#465e65')
       trainGlass.emissiveIntensity = night ? .65 : .1
