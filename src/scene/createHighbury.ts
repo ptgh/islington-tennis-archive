@@ -17,6 +17,15 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, 
  const paving=surfaces.concrete,wood=finishes.timber,bag=material('#315c50'),ball=material('#dce985'),frame=material('#a3654a');
  frame.roughness=.46;
  const racquetHead=new THREE.TorusGeometry(1,.065,6,24),stringPoints:THREE.Vector3[]=[];
+ // Bevelled fabric cases keep the original footprint, with softly rounded shoulders.
+ const bagOutline=new THREE.Shape();
+ bagOutline.moveTo(-.24,.06);bagOutline.lineTo(.24,.06);bagOutline.quadraticCurveTo(.30,.06,.30,.12);
+ bagOutline.lineTo(.30,1.10);bagOutline.quadraticCurveTo(.30,1.26,.14,1.26);
+ bagOutline.lineTo(-.14,1.26);bagOutline.quadraticCurveTo(-.30,1.26,-.30,1.10);
+ bagOutline.lineTo(-.30,.12);bagOutline.quadraticCurveTo(-.30,.06,-.24,.06);
+ const bagGeometry=new THREE.ExtrudeGeometry(bagOutline,{depth:.35,steps:1,curveSegments:5,bevelEnabled:true,bevelSegments:2,bevelSize:.04,bevelThickness:.04});
+ bagGeometry.translate(0,0,-.175);
+ const bagHandle=new THREE.TorusGeometry(.11,.025,5,12,Math.PI),bagMatrices:THREE.Matrix4[]=[],handleMatrices:THREE.Matrix4[]=[];
  const batches=new Map<THREE.Material,THREE.Matrix4[]>(),transform=new THREE.Object3D();
  function part(parent:THREE.Group,mat:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number){
   transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,0,0);transform.updateMatrix();parent.updateMatrixWorld(true);
@@ -71,7 +80,14 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, 
     part(g,metal,sign*.95,.81,.25,.09,.36,.09);
   }
   // A bag, spare frame and practice balls reward a closer look beside each bench.
-  part(g,bag,2.05,.68,0,.68,1.24,.43);part(g,wood,2.05,1.35,0,.44,.1,.26);
+  transform.position.set(2.05,0,0);transform.scale.setScalar(1);transform.rotation.set(0,0,0);transform.updateMatrix();g.updateMatrixWorld(true);
+  bagMatrices.push(g.matrixWorld.clone().multiply(transform.matrix));
+  transform.position.set(2.05,1.30,0);transform.updateMatrix();handleMatrices.push(g.matrixWorld.clone().multiply(transform.matrix));
+  for(const side of [-1,1]){
+    for(const offset of [-.18,.18])part(g,metal,2.05+offset,.64,side*.216,.035,1.02,.018);
+    part(g,metal,2.05,.95,side*.218,.42,.018,.018);
+    part(g,frame,2.22,.91,side*.235,.025,.07,.018);
+  }
   part(g,bag,2.55,.245,.12,.075,.44,.065);
   for(const y of [.12,.25,.38])part(g,metal,2.55,y,.12,.078,.012,.07);
   part(g,frame,2.55,.64,.12,.045,.44,.035);
@@ -96,6 +112,9 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, 
   }
  }
  const strings=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(stringPoints),new THREE.LineBasicMaterial({color:'#e8e5d2',transparent:true,opacity:.65,depthWrite:false}));strings.name='Highbury racquet strings';root.add(strings);
+ for(const [geometry,mat,matrices,name] of [[bagGeometry,bag,bagMatrices,'Highbury equipment bags'],[bagHandle,metal,handleMatrices,'Highbury bag handles']] as const){
+  const mesh=new THREE.InstancedMesh(geometry,mat,matrices.length);mesh.name=name;matrices.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));mesh.castShadow=true;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);
+ }
  const balls=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,2),ball,practiceBalls.length);balls.name='Highbury practice balls';practiceBalls.forEach((matrix,i)=>balls.setMatrixAt(i,matrix));balls.castShadow=true;balls.receiveShadow=true;balls.computeBoundingSphere();root.add(balls);
  const tapes=new THREE.InstancedMesh(courtNets.tape,white,tapeMatrices.length);tapeMatrices.forEach((matrix,i)=>tapes.setMatrixAt(i,matrix));tapes.receiveShadow=true;tapes.computeBoundingSphere();root.add(tapes);
  for(const [mat,matrices] of batches){const mesh=new THREE.InstancedMesh(box,mat,matrices.length);matrices.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));mesh.castShadow=mat!==white;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);}
