@@ -77,6 +77,26 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
    const netMaterial = finishes.net
   const metalMaterial = standard('#5a695a')
   const stoneMaterial = standard('#c5bda2')
+  // Retain the hall's warm render, with fine panel joints and runoff below the
+  // existing sills/eaves. Filtered world-space detail stays still while panning.
+  const hallRender=cloneArchitecturalFinish(finishes.stucco,'#d4cebc')
+  const prepareHall=hallRender.onBeforeCompile,hallKey=hallRender.customProgramCacheKey()
+  hallRender.onBeforeCompile=(shader,renderer)=>{
+    prepareHall.call(hallRender,shader,renderer)
+    shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`
+      #include <color_fragment>
+      float hallCourse=abs(fract(finishWorld.y/1.6+.5)-.5)*1.6;
+      float hallFilter=max(fwidth(finishWorld.y),.001);
+      float hallJoint=1.0-smoothstep(.008,.008+hallFilter,hallCourse);
+      hallJoint*=1.0-smoothstep(.04,.18,hallFilter);
+      float hallAlong=finishWorld.x+finishWorld.z;
+      float hallStreak=pow(finishNoise(vec2(hallAlong*2.4,finishWorld.y*.07)),3.0);
+      float hallSill=step(finishWorld.y,4.02)*exp(-max(0.0,4.02-finishWorld.y)*1.5);
+      float hallEaves=smoothstep(7.5,9.6,finishWorld.y);
+      diffuseColor.rgb*=1.0-hallJoint*.10-hallStreak*(hallSill*.18+hallEaves*.12);
+    `)
+  }
+  hallRender.customProgramCacheKey=()=>hallKey+'-hall-render-v1'
   const box = new THREE.BoxGeometry(1, 1, 1)
   const cylinder = new THREE.CylinderGeometry(1, 1, 1, 7)
   const branchGeometry = new THREE.CylinderGeometry(.65, 1, 1, 6)
@@ -802,7 +822,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     }
     if (/centre/i.test(venue.name)) {
       const shedx = center.x - w / 2 - 12
-      const hall = mesh(box, finishes.stucco, shedx, 4.8, center.z, 17, 9.6, h)
+      const hall = mesh(box, hallRender, shedx, 4.8, center.z, 17, 9.6, h)
       hall.name = 'Tennis centre hall'
       // Long-axis ridge, with the same footprint as the original hall.
       mesh(roof, finishes.seamRoof, shedx, 9.6, center.z, h + 1.2, 3.2, 18.5, Math.PI / 2)
@@ -869,6 +889,11 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         mesh(box, metalMaterial, shedx, 1.5, face + end * .19, .07, 2.8, .08)
         mesh(box, stoneMaterial, shedx, .12, face + end * .34, 4.2, .24, .8)
         mesh(box, trimMaterial, shedx, 3.1, face + end * .3, 4.6, .16, .9)
+        // Wall-mounted canopy brackets tuck below the existing entrance hood.
+        for(const side of [-1,1]){
+          hallWallMetal.push({x:shedx+side*1.8,y:2.88,z:face+end*.12,sx:.075,sy:.35,sz:.09})
+          hallWallMetal.push({x:shedx+side*1.8,y:3.0,z:face+end*.30,sx:.075,sy:.08,sz:.42})
+        }
       }
     }
     if (/highbury fields/i.test(venue.name)) {
