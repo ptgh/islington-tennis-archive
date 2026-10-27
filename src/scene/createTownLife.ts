@@ -365,22 +365,35 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
       const carBody=new THREE.Mesh(carShell,paint);carBody.position.y=.72;carBody.scale.set(1.42,.67,2.8);carBody.castShadow=true;model.add(carBody)
       const cabin=new THREE.Mesh(carCabin,glass);cabin.position.set(0,1.22,-.18);cabin.scale.set(1.2,.53,1.44);cabin.castShadow=true;model.add(cabin)
       const roof=new THREE.Mesh(carShell,paint);roof.position.set(0,1.51,-.18);roof.scale.set(.99,.075,1.12);model.add(roof)
-      const details:{x:number;y:number;z:number;sx:number;sy:number;sz:number;color:string;rz?:number}[]=[]
+      const details:{x:number;y:number;z:number;sx:number;sy:number;sz:number;color:string;rx?:number;rz?:number}[]=[]
       for(const end of [-1,1]){
         details.push({x:0,y:.54,z:end*1.405,sx:1.25,sy:.105,sz:.07,color:'#36423f'})
         details.push({x:0,y:.72,z:end*1.421,sx:.34,sy:.1,sz:.015,color:end===1?'#eee7ce':'#d8ba65'})
+        // Small opaque lamps reuse the existing shared day/night materials.
+        // Each pair is one batch; no new lights, textures or animation work.
+        const lamps=new THREE.InstancedMesh(box,end===1?busHeadlamp:busTailLamp,2),lampTransform=new THREE.Object3D()
+        lamps.name=end===1?'Car headlamps':'Car tail lamps'
         for(const side of [-1,1]){
-          details.push({x:side*.48,y:.75,z:end*1.408,sx:.27,sy:.15,sz:.035,color:end===1?'#eee7ce':'#c45442'})
+          lampTransform.position.set(side*.48,.75,end*1.408);lampTransform.scale.set(.27,.15,.035);lampTransform.updateMatrix()
+          lamps.setMatrixAt(side===-1?0:1,lampTransform.matrix)
+          // The painted pillars follow the existing tapered cabin corners.
+          details.push({x:side*.54,y:1.22,z:-.18+end*.6336,sx:.045,sy:.57,sz:.045,rx:-end*.315,rz:side*.223,color:carPaint[i]})
         }
+        lamps.computeBoundingSphere();model.add(lamps)
       }
       for(const side of [-1,1]){
         details.push({x:side*.54,y:1.22,z:-.18,sx:.055,sy:.545,sz:.075,rz:side*.223,color:carPaint[i]})
         for(const z of [-.52,.38])details.push({x:side*.71,y:.95,z,sx:.025,sy:.035,sz:.18,color:'#d2d1c4'})
+        details.push({x:side*.64,y:1.08,z:.30,sx:.15,sy:.035,sz:.045,color:'#36423f'})
+        details.push({x:side*.72,y:1.10,z:.30,sx:.11,sy:.09,sz:.17,color:carPaint[i]})
+        details.push({x:side*.778,y:1.10,z:.30,sx:.008,sy:.06,sz:.12,color:'#738b8d'})
+        details.push({x:side*.18,y:1.13,z:.493,sx:.018,sy:.22,sz:.014,rx:-.3,rz:side*.5,color:'#36423f'})
+        details.push({x:side*.713,y:.75,z:-.18,sx:.012,sy:.35,sz:.012,color:'#46514b'})
       }
       const trim=new THREE.InstancedMesh(box,carTrimMaterial,details.length),matrix=new THREE.Object3D(),tone=new THREE.Color()
       trim.name='Moving car trim'
       details.forEach((d,index)=>{
-        matrix.position.set(d.x,d.y,d.z);matrix.rotation.set(0,0,d.rz||0);matrix.scale.set(d.sx,d.sy,d.sz);matrix.updateMatrix()
+        matrix.position.set(d.x,d.y,d.z);matrix.rotation.set(d.rx||0,0,d.rz||0);matrix.scale.set(d.sx,d.sy,d.sz);matrix.updateMatrix()
         trim.setMatrixAt(index,matrix.matrix);trim.setColorAt(index,tone.set(d.color))
       })
       trim.computeBoundingSphere();model.add(trim)

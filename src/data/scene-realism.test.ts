@@ -140,6 +140,35 @@ test('bus lamps update cloned vehicles at night without moving or rebuilding the
  }
 })
 
+test('car lamps follow night mode without changing vehicle positions, scale or shader programs',()=>{
+ const life=createTownLife([],[],(lat,lng)=>new THREE.Vector3((lng+.115)*6900,0,-(lat-51.549)*11100),courtAreas(venues))
+ const cars:THREE.Object3D[]=[],heads:THREE.InstancedMesh[]=[],tails:THREE.InstancedMesh[]=[]
+ life.root.traverse(node=>{
+  if(node.name==='Miniature car')cars.push(node)
+  if(node instanceof THREE.InstancedMesh&&node.name==='Car headlamps')heads.push(node)
+  if(node instanceof THREE.InstancedMesh&&node.name==='Car tail lamps')tails.push(node)
+ })
+ assert.equal(cars.length,3);assert.equal(heads.length,3);assert.equal(tails.length,3)
+ const pose=cars.map(c=>[...c.position.toArray(),...c.quaternion.toArray(),...c.scale.toArray()])
+ const lampMaterials=[...heads,...tails].map(m=>m.material as THREE.MeshStandardMaterial),versions=lampMaterials.map(m=>m.version)
+ try{
+  for(let cycle=0;cycle<3;cycle++){
+   life.setNight(true)
+   heads.forEach(m=>assert.equal((m.material as THREE.MeshStandardMaterial).emissiveIntensity,1))
+   tails.forEach(m=>assert.equal((m.material as THREE.MeshStandardMaterial).emissiveIntensity,.65))
+   life.setNight(false)
+   heads.forEach(m=>assert.equal((m.material as THREE.MeshStandardMaterial).emissiveIntensity,.03))
+   tails.forEach(m=>assert.equal((m.material as THREE.MeshStandardMaterial).emissiveIntensity,.02))
+   assert.deepEqual(cars.map(c=>[...c.position.toArray(),...c.quaternion.toArray(),...c.scale.toArray()]),pose)
+   assert.deepEqual(lampMaterials.map(m=>m.version),versions)
+  }
+ }finally{
+  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>()
+  life.root.traverse(n=>{if(n instanceof THREE.Mesh){geometries.add(n.geometry);(Array.isArray(n.material)?n.material:[n.material]).forEach(m=>materials.add(m))}})
+  geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())
+ }
+})
+
 test('building and ground finishes preserve shared relief and release owned textures once',()=>{
  const finishes=createMiniatureMaterials()
  for(const material of [finishes.stucco,finishes.seamRoof,finishes.membrane,finishes.asphalt,finishes.paving,finishes.parkPath]){
