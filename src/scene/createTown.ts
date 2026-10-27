@@ -18,6 +18,7 @@ import { busRoutes } from '../data/busRoutes'
 import { gableRoofGeometry } from './gableRoof'
 import { townRoofGeometry, archedOpeningGeometry } from './townArchitecture'
 import { createClubSurfaces, townCourtSurface, cloneCourtFinish, courtFenceGeometry } from './clubSurfaces'
+import { createMappedDistrict } from './createMappedDistrict'
 
 export const geoPosition = (lat: number, lng: number) =>
   new THREE.Vector3((lng + 0.115) * 6900, 0, -(lat - 51.549) * 11100)
@@ -43,6 +44,9 @@ function distanceToSegment(x: number, z: number, a: Point, b: Point) {
 }
 
 export function createTown(venues: MapVenue[], invalidate: () => void = () => {}): TownWorld {
+  // Keep the measured-layout pilot separate until coverage and transport are
+  // validated. Vite removes this development-only branch from published builds.
+  if(import.meta.env.DEV&&new URLSearchParams(window.location.search).get('layout')==='caledonian')return createMappedDistrict(venues)
   const root = new THREE.Group()
   const rnd = random(1978)
   const anchors = new Map<string, THREE.Vector3>()

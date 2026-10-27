@@ -338,8 +338,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       cancelTravel()
       const mobile=width<=760
       const highbury=world.courtFocusAnchors.get('highbury-fields')??geoPosition(51.55122,-.09902)
-      const showcase=highbury.clone().add(new THREE.Vector3(0,0,0))
-      travel(showcase,mobile?1.9:3.1,true)
+      const showcase=world.homeView?.target.clone()??highbury.clone().add(new THREE.Vector3(0,0,0))
+      travel(showcase,world.homeView?.zoom??(mobile?1.9:3.1),true)
     }
     const quality = createAdaptiveResolution(1000 / 60, runtimeRef.current.viewSettings.preset)
     let resolutionDirty = false
@@ -553,6 +553,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
 
   return (
     <div className={`town-map${night ? ' town-map--night' : ''}${moving ? ' town-map--moving' : ''}`} ref={hostRef}>
+      {import.meta.env.DEV&&new URLSearchParams(window.location.search).get('layout')==='caledonian'&&<aside className="town-map__layout-preview" aria-label="Geographic accuracy preview">Caledonian layout preview<small>Mapped streets &amp; footprints · heights estimated<br/><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></small></aside>}
       {failed && <div className="town-map__fallback" role="status"><strong>The miniature map couldn’t start.</strong><span>You can still discover every court and open booking links in the directory.</span></div>}
       <div className="town-map__labels" aria-label="Courts on the map">
         {venues.map((venue, index) => (

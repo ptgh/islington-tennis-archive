@@ -3,6 +3,10 @@
 .town-map__canvas:focus-visible{outline:3px solid #f8f5df;outline-offset:-7px}
 .town-map--moving .town-map__canvas{cursor:grabbing}
 .town-map__labels{position:absolute;inset:0;pointer-events:none;z-index:2}
+.town-map__layout-preview{position:absolute;z-index:4;top:18px;left:50%;transform:translateX(-50%);padding:10px 16px;border-radius:12px;background:#fbfaf1ed;color:#294b3d;text-align:center;font:500 14px/1.4 Georgia,serif;box-shadow:0 2px 12px #1535241a}
+.town-map__layout-preview small{display:block;font:10px/1.5 Arial,sans-serif;color:#617366}
+.town-map__layout-preview a{color:inherit}
+@media(max-width:760px){.town-map__layout-preview{top:135px;left:12px;max-width:155px;transform:none;padding:8px;font-size:12px}}
 .town-map__vignette{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 60% 46%,transparent 62%,rgba(35,43,35,.10));}
 .town-map--night .town-map__vignette{background:radial-gradient(ellipse at 65% 45%,transparent 30%,#12283170)}
 .town-pin{position:absolute;top:0;left:0;pointer-events:auto;display:flex;align-items:center;border:0;background:none;color:#fff;cursor:pointer;padding:0;width:0;height:0;z-index:3;font-family:inherit;filter:drop-shadow(0 3px 5px #14352235);outline:none}
