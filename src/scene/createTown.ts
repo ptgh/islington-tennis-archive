@@ -337,7 +337,21 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       parkPaths.push({ x, y: .07, z, sx: Math.hypot(x1 - x0, z1 - z0) + .25, sy: .05, sz: 1.3, ry: -Math.atan2(z1 - z0, x1 - x0) })
     }
   }
-  instances(box, finishes.parkPath, parkPaths, false)
+  // Paths meet the outside of the pavement instead of leaving their square
+  // sample ends painted across it, especially beside rerouted park roads.
+  const pavementStrips=roadEdges.map(edge=>{
+    const dx=Math.cos(edge.ry||0)*edge.sx/2,dz=-Math.sin(edge.ry||0)*edge.sx/2
+    return {a:[edge.x-dx,edge.z-dz],b:[edge.x+dx,edge.z+dz],width:edge.sz}
+  })
+  const clearPathPavements=(paths:Instance[])=>paths.flatMap(path=>{
+    const ux=Math.cos(path.ry||0),uz=-Math.sin(path.ry||0)
+    const a:Point=[path.x-ux*path.sx/2,path.z-uz*path.sx/2],b:Point=[path.x+ux*path.sx/2,path.z+uz*path.sx/2]
+    return streetEdgePieces(a,b,pavementStrips,.03).flatMap(([a,b])=>{
+      const length=Math.hypot(b[0]-a[0],b[1]-a[1])
+      return length<.35?[]:[{...path,x:(a[0]+b[0])/2,z:(a[1]+b[1])/2,sx:length}]
+    })
+  })
+  instances(box, finishes.parkPath, clearPathPavements(parkPaths), false)
   instances(box, kerbMaterial, kerbs)
   instances(box, gutterMaterial, gutters, false)
   instances(box, lane, laneMarks, false)
@@ -1049,7 +1063,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     const a=points[i-1],b=points[i]
     walkPieces.push({x:(a.x+b.x)/2,y:.07,z:(a.z+b.z)/2,sx:a.distanceTo(b)+.2,sy:.06,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
   }
-  instances(box,finishes.parkPath,walkPieces,false)
+  instances(box,finishes.parkPath,clearPathPavements(walkPieces),false)
   const life=createTownLife(animatedCourts,walkPaths,geoPosition,exclusions)
   root.add(life.root)
   let trainDistance = .4
