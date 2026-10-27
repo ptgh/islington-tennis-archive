@@ -18,8 +18,6 @@ export interface Station {
 }
 
 export interface TownWorld {
-  /** Optional starting view for a bounded, development-only geography pilot. */
-  homeView?: {target: THREE.Vector3;zoom:number}
   vanPosition: THREE.Vector3
   root: THREE.Group
   stations: Station[]
