@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { pedestrianPaths } from './pedestrianPaths'
-import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetEdgePieces } from './streetNetwork'
+import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetDashPieces, streetEdgePieces } from './streetNetwork'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials'
@@ -291,9 +291,22 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
             if (j % 3 === 0 && !local) streetDetail(gutters,x-uz*(width/2-.25)*side,z+ux*(width/2-.25)*side,sx*.9,.32,.113,.01,ux,uz,others)
           }
         }
-        if (road.avenue && j % 2 === 0) streetDetail(laneMarks,x,z,local?.45:2.2,local?.035:.15,.116,.008,ux,uz,others)
       }
     }
+  }
+  // A single distance-based cadence survives dense bus samples and bends.
+  // Cross streets interrupt it; earlier avenues own paint on shared roadbeds.
+  const paintedRoads:typeof carriageways=[]
+  for(const road of renderedRoads.filter(road=>road.avenue&&!road.path)){
+    for(const [a,b] of streetDashPieces(road.points)){
+      const length=Math.hypot(b[0]-a[0],b[1]-a[1]),ux=(b[0]-a[0])/length,uz=(b[1]-a[1])/length
+      const crossings=carriageways.filter(segment=>{
+        const dx=segment.b[0]-segment.a[0],dz=segment.b[1]-segment.a[1],span=Math.hypot(dx,dz)
+        return segment.road!==road&&span>.01&&Math.abs((ux*dx+uz*dz)/span)<.97
+      })
+      streetDetail(laneMarks,(a[0]+b[0])/2,(a[1]+b[1])/2,length,.12,.116,.008,ux,uz,[...crossings,...paintedRoads])
+    }
+    paintedRoads.push(...carriageways.filter(segment=>segment.road===road))
   }
   instances(box, verge, roadEdges, false)
   instances(box, tarmac, roadBodies, false)

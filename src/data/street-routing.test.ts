@@ -1,10 +1,29 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {routeStreetAroundParks,streetEndConnections,streetBendTriangles,type StreetPark} from '../scene/streetNetwork.ts'
+import {routeStreetAroundParks,streetEndConnections,streetBendTriangles,streetDashPieces,type StreetPark} from '../scene/streetNetwork.ts'
 import {courtAreas,inCourtArea,HIGHBURY_PARK} from '../scene/courtGeometry.ts'
 import {venues} from './venues.ts'
 
 type Point=[number,number]
+test('road paint keeps the same gaps when a straight road is densely sampled',()=>{
+ const sparse:Point[]=[[0,0],[20,0]],dense:Point[]=Array.from({length:41},(_,i)=>[i/2,0])
+ const before=structuredClone(dense)
+ const expected=[[[0,0],[2,0]],[[6,0],[8,0]],[[12,0],[14,0]],[[18,0],[20,0]]]
+ assert.deepEqual(streetDashPieces(sparse),expected)
+ assert.deepEqual(streetDashPieces(dense),expected)
+ assert.deepEqual(dense,before,'paint does not modify the route')
+})
+
+test('road paint follows bends without restarting its cadence or joining across gaps',()=>{
+ assert.deepEqual(streetDashPieces([[0,0],[1,0],[1,9]]),[
+  [[0,0],[1,0]],[[1,0],[1,1]],[[1,5],[1,7]],
+ ])
+ assert.deepEqual(streetDashPieces([[0,0],[0,0],[10,0]]),streetDashPieces([[0,0],[10,0]]))
+ assert.deepEqual(streetDashPieces([]),[])
+ assert.deepEqual(streetDashPieces([[0,0],[10,0]],0),[])
+ assert.deepEqual(streetDashPieces([[0,0],[10,0]],2,0),[])
+})
+
 test('bend joins fill corner notches without extending outside the road half-width',()=>{
  for(const c of [[0,10],[5,8],[-5,8]] as Point[]){
   const triangles=streetBendTriangles([-10,0],[0,0],c,6)

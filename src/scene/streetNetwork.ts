@@ -7,6 +7,31 @@ export type StreetPark = {x:number;z:number;rx:number;rz:number}
 const epsilon = .04
 const inside = ([x,z]: Point, b: Block) => x>b.left && x<b.right && z>b.top && z<b.bottom
 
+/** Space paint by travelled distance, independent of polyline sampling density.
+ * Straight pieces coalesce, while a painted dash can follow a bend. */
+export function streetDashPieces(points:Point[],dashLength=2,gapLength=4):[Point,Point][]{
+ if(dashLength<=0||gapLength<=0)return []
+ const pieces:[Point,Point][]=[]
+ let painted=true,remaining=dashLength
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz)
+  if(length<1e-8)continue
+  let along=0
+  while(along<length-1e-8){
+   const step=Math.min(remaining,length-along)
+   if(painted){
+    const start:Point=[a[0]+dx*along/length,a[1]+dz*along/length],end:Point=[a[0]+dx*(along+step)/length,a[1]+dz*(along+step)/length]
+    const previous=pieces.at(-1),px=previous?previous[1][0]-previous[0][0]:0,pz=previous?previous[1][1]-previous[0][1]:0
+    if(previous&&Math.hypot(previous[1][0]-start[0],previous[1][1]-start[1])<1e-6&&Math.abs(px*dz-pz*dx)<1e-6&&px*dx+pz*dz>0)previous[1]=end
+    else pieces.push([start,end])
+   }
+   along+=step;remaining-=step
+   if(remaining<1e-8){painted=!painted;remaining=painted?dashLength:gapLength}
+  }
+ }
+ return pieces
+}
+
 /** Bounded bevels close the triangular gaps between two road strips at a bend. */
 export function streetBendTriangles(a:Point,b:Point,c:Point,width:number):[Point,Point,Point][]{
  const first=Math.hypot(b[0]-a[0],b[1]-a[1]),last=Math.hypot(c[0]-b[0],c[1]-b[1])
