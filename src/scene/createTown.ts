@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { pedestrianPaths } from './pedestrianPaths'
-import { routeStreetAroundCourts, streetEdgePieces } from './streetNetwork'
+import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetEdgePieces } from './streetNetwork'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials'
@@ -199,6 +199,17 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   for (const road of roads) if (!road.bus && !road.surveyed) {
     road.points = routeStreetAroundCourts(road.points, exclusions, road.width)
   }
+  // Preserve the original neighbourhood placement and random stream. Only the
+  // drawn carriageways bend around parks; their former crossings remain paths.
+  const renderedRoads=roads.map(road=>({...road,points:road.bus?[...road.points]:routeStreetAroundParks(road.points,parks,exclusions,road.width)}))
+  for(const road of renderedRoads.filter(road=>road.bus||road.avenue)){
+    const others=renderedRoads.filter(other=>other!==road).flatMap(other=>other.points.slice(1).map((b,i)=>({a:other.points[i],b,width:other.width})))
+    const start=road.points[0]
+    for(const points of streetEndConnections(road.points,others,exclusions,road.width,100,road.bus?undefined:parks)){
+      if(Math.hypot(points[0][0]-start[0],points[0][1]-start[1])<.01)road.points=[...points.slice(1).reverse(),...road.points]
+      else road.points.push(...points.slice(1))
+    }
+  }
 
   const nearPark = (x: number, z: number, margin = 0) => parks.some((p) => Math.pow((x - p.x) / (p.rx + margin), 2) + Math.pow((z - p.z) / (p.rz + margin), 2) < 1)
   const roadSegments: { a: Point; b: Point; width: number; avenue: boolean }[] = []
@@ -209,6 +220,16 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const kerbs: Instance[] = []
   const gutters: Instance[] = []
   const parkPaths: Instance[] = []
+  for(const road of roads)for(let i=1;i<road.points.length;i++){
+    const a=road.points[i-1],b=road.points[i],length=Math.hypot(b[0]-a[0],b[1]-a[1])
+    if(!road.surveyed)roadSegments.push({a,b,width:road.width,avenue:!!road.avenue})
+    if(road.bus||road.surveyed)continue
+    const count=Math.ceil(length/6),ry=-Math.atan2(b[1]-a[1],b[0]-a[0])
+    for(let j=0;j<count;j++){
+      const t=(j+.5)/count,x=a[0]+(b[0]-a[0])*t,z=a[1]+(b[1]-a[1])*t
+      if(!inCourtArea(x,z,exclusions,1)&&nearPark(x,z,3)&&(road.avenue||!nearPark(x,z,0)))parkPaths.push({x,y:.07,z,sx:length/count+.3,sy:.05,sz:road.avenue?1.7:1.5,ry})
+    }
+  }
   const kerbMaterial = standard('#cfc8b8', { roughness: .92 })
   // Metre-scale joints align across the clipped strips on each straight road.
   // Shade the mortar rather than cutting geometry or adding another draw call.
@@ -236,13 +257,14 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   }
   kerbMaterial.customProgramCacheKey=()=> 'town-jointed-kerb-v1'
   const gutterMaterial = standard('#3f4442', { roughness: .7, transparent: true, opacity: .35 })
-  const carriageways=roads.filter(road=>!road.path).flatMap(road=>road.points.slice(1).map((b,index)=>({a:road.points[index],b,width:road.width,road,index:index+1})))
+  const carriageways=renderedRoads.filter(road=>!road.path).flatMap(road=>road.points.slice(1).map((b,index)=>({a:road.points[index],b,width:road.width,road,index:index+1})))
   const streetDetail=(items:Instance[],x:number,z:number,length:number,width:number,y:number,height:number,ux:number,uz:number,others:typeof carriageways)=>{
     for(const [a,b] of streetEdgePieces([x-ux*length/2,z-uz*length/2],[x+ux*length/2,z+uz*length/2],others,width/2+.12)){
+      if(items!==laneMarks&&Math.hypot(b[0]-a[0],b[1]-a[1])<.6)continue
       items.push({x:(a[0]+b[0])/2,y,z:(a[1]+b[1])/2,sx:Math.hypot(b[0]-a[0],b[1]-a[1]),sy:height,sz:width,ry:-Math.atan2(uz,ux)})
     }
   }
-  for (const road of roads) {
+  for (const road of renderedRoads) {
     for (let i = 1; i < road.points.length; i++) {
       const a = road.points[i - 1]
       const b = road.points[i]
@@ -251,7 +273,6 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       const angle = -Math.atan2(b[1] - a[1], b[0] - a[0])
       const others=carriageways.filter(segment=>segment.road!==road||segment.index!==i)
       const ux=(b[0]-a[0])/length,uz=(b[1]-a[1])/length
-      if(!road.surveyed) roadSegments.push({ a, b, width: road.width, avenue: !!road.avenue })
       for (let j = 0; j < subdivisions; j++) {
         const t = (j + .5) / subdivisions
         const x = a[0] + (b[0] - a[0]) * t
@@ -259,12 +280,6 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         const local=!road.bus&&Math.abs(x-109)<50&&Math.abs(z+32)<82;
         const width=road.width;
         if(inCourtArea(x,z,exclusions,width/2+(local?.2:1)))continue;
-        // Streets never stop dead at a park: main avenues cross it as footpaths,
-        // side streets run on to the perimeter walk and end at its gate.
-        if (!road.surveyed && nearPark(x, z, 3) && !road.bus) {
-          if (road.avenue || !nearPark(x, z, 0)) parkPaths.push({ x, y: .07, z, sx: length / subdivisions + .3, sy: .05, sz: road.avenue ? 1.7 : 1.5, ry: angle })
-          continue
-        }
         const sx = length / subdivisions + (road.surveyed?.025:.4)
         roadEdges.push({ x, y: .035, z, sx, sy: .07, sz: width + (road.surveyed||local?.32:2.4), ry: angle })
         ;(road.path?surveyedPaths:roadBodies).push({ x, y: .08, z, sx, sy: .06, sz: width, ry: angle })
@@ -283,6 +298,20 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   instances(box, verge, roadEdges, false)
   instances(box, tarmac, roadBodies, false)
   instances(box, pathMaterial, surveyedPaths, false)
+  // Join the existing strips at their bends, including the old transport-road
+  // endpoints. Two pooled meshes avoid square-ended notches at each junction.
+  const asphaltBends:number[]=[],pavementBends:number[]=[]
+  for(const road of renderedRoads)for(let i=1;i<road.points.length-1;i++){
+    const a=road.points[i-1],b=road.points[i],c=road.points[i+1],local=!road.bus&&Math.abs(b[0]-109)<50&&Math.abs(b[1]+32)<82
+    for(const [positions,width,y] of [[asphaltBends,road.width,.11],[pavementBends,road.width+(local?.32:2.4),.07]] as const){
+      for(const triangle of streetBendTriangles(a,b,c,width))for(const [x,z] of triangle)positions.push(x,y,z)
+    }
+  }
+  for(const [positions,material,name] of [[asphaltBends,tarmac,'Carriageway bend joins'],[pavementBends,verge,'Pavement bend joins']] as const){
+    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3))
+    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(positions.flatMap((_,i)=>i%3===0?[positions[i]/24,positions[i+2]/24]:[]),2));geometry.computeVertexNormals();geometry.computeBoundingSphere()
+    const joins=new THREE.Mesh(geometry,material);joins.name=name;joins.receiveShadow=true;root.add(joins)
+  }
   // A perimeter walk just outside each park edge, where side streets meet it.
   for (const park of parks) {
     const steps = Math.ceil((park.rx + park.rz) * Math.PI / 3)
@@ -299,7 +328,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   instances(box, kerbMaterial, kerbs)
   instances(box, gutterMaterial, gutters, false)
   instances(box, lane, laneMarks, false)
-  const streetLamps=createStreetLamps(primaryRoads,exclusions);root.add(streetLamps.root)
+  const streetLamps=createStreetLamps(renderedRoads.filter(road=>road.avenue&&!road.bus),exclusions);root.add(streetLamps.root)
 
   // The Regent's Canal provides a quiet blue ribbon through the southern quarter.
   const canalCurve = new THREE.CatmullRomCurve3([
@@ -368,7 +397,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     if(!mansard)roofDetails.push({x,y:height+rise+.02,z,sx:hipped?width*.64:width+.22,sy:.12,sz:.17,ry:angle})
     for (const side of [-1, 1]) {
       const garden=coord(0,side*(depth/2+.8));
-      gardenPaving.push({...garden,y:.12,sx:width-.1,sy:.08,sz:1.5,ry:angle});
+      gardenPaving.push({...garden,y:.06,sx:width-.1,sy:.08,sz:1.5,ry:angle});
       const wall=coord(-width*.42,side*(depth/2+.8));
       gardenWalls.push({...wall,y:.42,sx:.13,sy:.65,sz:1.5,ry:angle,color});
       if(detailedLocal&&variation%3!==0){
@@ -486,6 +515,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         if (inCourtArea(x,z,exclusions,8)||nearPark(x, z, 7)||nearLandmark(x,z)) continue
         if (canalPoints.some((p) => Math.hypot(p.x - x, p.z - z) < 9)) continue
         if (roadSegments.some((other) => other !== segment && distanceToSegment(x, z, other.a, other.b) < other.width / 2 + 4.2)) continue
+        if(carriageways.some(other=>distanceToSegment(x,z,other.a,other.b)<other.width/2+depth/2+2.0))continue
         if (occupiedNear(x, z)) continue
         const variation = Math.abs(Math.sin(x * 8.17 + z * 14.83) * 43758.5453) % 1
         const tone = brickPalette[(toneIndex + (variation < .18 ? 1 : variation > .85 ? brickPalette.length - 1 : 0)) % brickPalette.length]
@@ -521,6 +551,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   // Compact trees (gardens, avenues) use four lobes and skip the outer clusters,
   // keeping crown instances near the original budget while doubling coverage.
   function tree(x: number, z: number, size = 1, compact = false) {
+    const startTrunks=treeTrunks.length,startCrowns=treeCrowns.length,startBranches=treeBranches.length
     const species = Math.floor(rnd() * foliageColors.length)
     const color = foliageColors[species]
     const height = (3.8 + rnd() * 2.2) * size
@@ -555,6 +586,11 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
           z: z + Math.sin(angle) * height * .38, sx: radius, sy: radius * .8,
           sz: radius, color: foliageColors[(species + tip) % foliageColors.length] })
       }
+    }
+    // Consume the same random values, then omit only trees blocking a newly
+    // connected carriageway. Other park trees retain their original positions.
+    if(carriageways.some(road=>distanceToSegment(x,z,road.a,road.b)<road.width/2+.4)){
+      treeTrunks.length=startTrunks;treeCrowns.length=startCrowns;treeBranches.length=startBranches
     }
   }
   for (let i = 0; i < 5800; i++) {
@@ -998,7 +1034,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const walkPieces:Instance[]=[]
   for(const source of walkPaths)for(const {points} of pedestrianPaths(source,exclusions))for(let i=1;i<points.length;i++){
     const a=points[i-1],b=points[i]
-    walkPieces.push({x:(a.x+b.x)/2,y:.12,z:(a.z+b.z)/2,sx:a.distanceTo(b)+.2,sy:.06,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
+    walkPieces.push({x:(a.x+b.x)/2,y:.07,z:(a.z+b.z)/2,sx:a.distanceTo(b)+.2,sy:.06,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
   }
   instances(box,finishes.parkPath,walkPieces,false)
   const life=createTownLife(animatedCourts,walkPaths,geoPosition,exclusions)
