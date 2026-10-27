@@ -18,17 +18,23 @@ REACH = 1050  # metres, inside the drawn ±1100 ground plane
 QUERY = """[out:json][timeout:60];(way["railway"="rail"]("%f","%f","%f","%f"););out geom;"""
 
 
+ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter',
+             'https://overpass.private.coffee/api/interpreter']
+
+
 def fetch(name, lon, lat):
     radius = 0.011
     bbox = (lat - radius, lon - radius, lat + radius, lon + radius)
-    url = 'https://overpass-api.de/api/interpreter?data=' + urllib.parse.quote(QUERY % bbox)
-    request = urllib.request.Request(url, headers={'User-Agent': 'islingtontennis-scene/1.0 (railway extract)'})
-    for attempt in range(4):
-        try:
-            return json.load(urllib.request.urlopen(request, timeout=90))
-        except Exception as error:
-            print(f'{name}: retry {attempt}: {error}')
-            time.sleep(8)
+    query = QUERY % bbox
+    for endpoint in ENDPOINTS:
+        for attempt in range(3):
+            url = endpoint + '?data=' + urllib.parse.quote(query)
+            request = urllib.request.Request(url, headers={'User-Agent': 'islingtontennis-scene/1.0 (railway extract)'})
+            try:
+                return json.load(urllib.request.urlopen(request, timeout=90))
+            except Exception as error:
+                print(f'{name}: retry {attempt} on {endpoint}: {error}')
+                time.sleep(6)
     raise SystemExit(f'{name}: Overpass unavailable')
 
 
