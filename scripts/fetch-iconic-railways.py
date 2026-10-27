@@ -8,7 +8,7 @@ Overpass (railway=rail only; underground and covered tube lines are omitted)
 and merged into src/data/iconic-geography.json as a `railways` array per
 venue. Existing features, trees and metadata are preserved untouched.
 """
-import json, math, time, urllib.request, urllib.parse
+import json, math, sys, time, urllib.request, urllib.parse
 from datetime import date
 from pathlib import Path
 
@@ -38,11 +38,13 @@ def fetch(name, lon, lat):
     raise SystemExit(f'{name}: Overpass unavailable')
 
 
-def merge(data, name, lon, lat):
+def merge(data, name, lon, lat, response=None):
+    if response is None:
+        response = fetch(name, lon, lat)
     scale_x = 111320 * math.cos(math.radians(lat))
     existing = {f['id'] for f in data.get('features', [])} | {w['id'] for w in data.get('railways', [])}
     ways = []
-    for element in fetch(name, lon, lat).get('elements', []):
+    for element in response.get('elements', []):
         tags = element.get('tags', {})
         if tags.get('railway') != 'rail' or tags.get('tunnel') == 'yes':
             continue
@@ -64,9 +66,13 @@ def merge(data, name, lon, lat):
 
 if __name__ == '__main__':
     geography = json.loads(TARGET.read_text())
+    saved = dict(zip(CLUBS, sys.argv[1:]))
     for venue, (lon, lat) in CLUBS.items():
         data = geography[venue]
-        data['railways'] = merge(data, venue, lon, lat)
+        if saved.get(venue):
+            data['railways'] = merge(data, venue, lon, lat, json.loads(Path(saved[venue]).read_text()))
+        else:
+            data['railways'] = merge(data, venue, lon, lat)
         data['railwaySource'] = 'https://overpass-api.de/api/interpreter'
         data['railwaysImportedAt'] = date.today().isoformat()
         note = 'Surface railway ways are sourced from Overpass and drawn at ground level; underground and covered tube lines are omitted.'
