@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { pedestrianPaths } from './pedestrianPaths'
-import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetDashPieces, streetEdgePieces } from './streetNetwork'
+import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetDashPieces, streetEdgePieces, parkAvenuePaths } from './streetNetwork'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials'
@@ -242,13 +242,13 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const gutters: Instance[] = []
   const parkPaths: Instance[] = []
   for(const road of roads)for(let i=1;i<road.points.length;i++){
-    const a=road.points[i-1],b=road.points[i],length=Math.hypot(b[0]-a[0],b[1]-a[1])
+    const a=road.points[i-1],b=road.points[i]
     if(!road.surveyed)roadSegments.push({a,b,width:road.width,avenue:!!road.avenue})
-    if(road.bus||road.surveyed)continue
-    const count=Math.ceil(length/6),ry=-Math.atan2(b[1]-a[1],b[0]-a[0])
-    for(let j=0;j<count;j++){
-      const t=(j+.5)/count,x=a[0]+(b[0]-a[0])*t,z=a[1]+(b[1]-a[1])*t
-      if(!inCourtArea(x,z,exclusions,1)&&nearPark(x,z,3)&&(road.avenue||!nearPark(x,z,0)))parkPaths.push({x,y:.07,z,sx:length/count+.3,sy:.05,sz:road.avenue?1.7:1.5,ry})
+  }
+  for(const road of roads.filter(r=>r.avenue&&!r.bus&&!r.surveyed))for(const park of parks){
+    for(const points of parkAvenuePaths(road.points,{...park,rx:park.rx+1.2,rz:park.rz+1.2},exclusions))for(let i=1;i<points.length;i++){
+      const a=points[i-1],b=points[i]
+      parkPaths.push({x:(a[0]+b[0])/2,y:.045,z:(a[1]+b[1])/2,sx:Math.hypot(b[0]-a[0],b[1]-a[1]),sy:1,sz:1.7,ry:-Math.atan2(b[1]-a[1],b[0]-a[0])})
     }
   }
   const kerbMaterial = standard('#cfc8b8', { roughness: .92 })
@@ -277,7 +277,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     `)
   }
   kerbMaterial.customProgramCacheKey=()=> 'town-jointed-kerb-v1'
-  const gutterMaterial = standard('#3f4442', { roughness: .7, transparent: true, opacity: .35 })
+  const gutterMaterial = standard('#3f4442', { roughness: .7, transparent: true, opacity: .22 })
   const carriageways=renderedRoads.filter(road=>!road.path).flatMap(road=>road.points.slice(1).map((b,index)=>({a:road.points[index],b,width:road.width,road,index:index+1})))
   const streetDetail=(items:Instance[],x:number,z:number,length:number,width:number,y:number,height:number,ux:number,uz:number,others:typeof carriageways)=>{
     for(const [a,b] of streetEdgePieces([x-ux*length/2,z-uz*length/2],[x+ux*length/2,z+uz*length/2],others,width/2+.12)){
@@ -294,6 +294,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       const angle = -Math.atan2(b[1] - a[1], b[0] - a[0])
       const others=carriageways.filter(segment=>segment.road!==road||segment.index!==i)
       const ux=(b[0]-a[0])/length,uz=(b[1]-a[1])/length
+      const middleLocal=!road.bus&&Math.abs((a[0]+b[0])/2-109)<50&&Math.abs((a[1]+b[1])/2+32)<82
+      if(!road.path&&!middleLocal)for(const side of [-1,1])streetDetail(gutters,(a[0]+b[0])/2-uz*(road.width/2-.15)*side,(a[1]+b[1])/2+ux*(road.width/2-.15)*side,length,.18,.113,.01,ux,uz,others)
       for (let j = 0; j < subdivisions; j++) {
         const t = (j + .5) / subdivisions
         const x = a[0] + (b[0] - a[0]) * t
@@ -309,7 +311,6 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
           for (const side of [-1, 1]) {
             const off = width / 2 + .09
             streetDetail(kerbs,x-uz*off*side,z+ux*off*side,sx,.18,.13,.12,ux,uz,others)
-            if (j % 3 === 0 && !local) streetDetail(gutters,x-uz*(width/2-.25)*side,z+ux*(width/2-.25)*side,sx*.9,.32,.113,.01,ux,uz,others)
           }
         }
       }
@@ -348,6 +349,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   }
   // A perimeter walk just outside each park edge, where side streets meet it.
   for (const park of parks) {
+    if(park===parks[1]||park===parks[2])continue // The walking loops below draw this same perimeter once.
     const steps = Math.ceil((park.rx + park.rz) * Math.PI / 3)
     for (let i = 0; i < steps; i++) {
       const a0 = i / steps * Math.PI * 2, a1 = (i + 1) / steps * Math.PI * 2
@@ -372,7 +374,20 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       return length<.35?[]:[{...path,x:(a[0]+b[0])/2,z:(a[1]+b[1])/2,sx:length}]
     })
   })
-  instances(box, finishes.parkPath, clearPathPavements(parkPaths), false)
+  const parkWalkMaterial=cloneArchitecturalFinish(finishes.parkPath,'#c0bca8')
+  const walkPlane=new THREE.PlaneGeometry(1,1);walkPlane.rotateX(-Math.PI/2)
+  const walkCap=new THREE.CircleGeometry(.5,12);walkCap.rotateX(-Math.PI/2)
+  const drawParkPaths=(paths:Instance[])=>{
+    const clear=clearPathPavements(paths),caps=new Map<string,Instance>()
+    for(const path of clear)for(const sign of [-1,1]){
+      const x=path.x+Math.cos(path.ry||0)*path.sx/2*sign,z=path.z-Math.sin(path.ry||0)*path.sx/2*sign
+      const key=`${Math.round(x*20)},${Math.round(z*20)},${path.sz}`
+      caps.set(key,{x,y:.045,z,sx:path.sz,sy:1,sz:path.sz})
+    }
+    instances(walkPlane,parkWalkMaterial,clear.map(p=>({...p,y:.045,sy:1})),false)
+    instances(walkCap,parkWalkMaterial,[...caps.values()],false)
+  }
+  drawParkPaths(parkPaths)
   instances(box, kerbMaterial, kerbs)
   instances(box, gutterMaterial, gutters, false)
   instances(box, lane, laneMarks, false)
@@ -540,9 +555,9 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const gardenRnd = random(2718)
   const highburyLoop: Point[] = [[68,-90],[92,-106],[130,-91],[150,-61],[152,-21],[130,20],[108,25],[72,27],[64,3],[64,-38]]
   const parkWalkLoops: Point[][] = [highburyLoop, ...parks.slice(1,3).map(park =>
-    Array.from({length:32},(_,i): Point => {
-      const angle=i/32*Math.PI*2
-      return [park.x+Math.cos(angle)*(park.rx-7),park.z+Math.sin(angle)*(park.rz-7)]
+    Array.from({length:64},(_,i): Point => {
+      const angle=i/64*Math.PI*2
+      return [park.x+Math.cos(angle)*(park.rx+1.2),park.z+Math.sin(angle)*(park.rz+1.2)]
     }))]
   const gardenTrees: { x: number; z: number }[] = []
   for (const segment of roadSegments) {
@@ -1075,7 +1090,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     const a=points[i-1],b=points[i]
     walkPieces.push({x:(a.x+b.x)/2,y:.07,z:(a.z+b.z)/2,sx:a.distanceTo(b)+.2,sy:.06,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
   }
-  instances(box,finishes.parkPath,clearPathPavements(walkPieces),false)
+  drawParkPaths(walkPieces)
   const life=createTownLife(animatedCourts,walkPaths,geoPosition,exclusions)
   root.add(life.root)
   let trainDistance = .4

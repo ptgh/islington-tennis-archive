@@ -7,6 +7,38 @@ export type StreetPark = {x:number;z:number;rx:number;rz:number}
 const epsilon = .04
 const inside = ([x,z]: Point, b: Block) => x>b.left && x<b.right && z>b.top && z<b.bottom
 
+/** Retained avenue walks meet the park's perimeter, including source road ends
+ * that used to leave a square stub in the lawn. Shallow grazes are omitted. */
+export function parkAvenuePaths(source:Point[],park:StreetPark,areas:CourtArea[]=[]):Point[][]{
+ const points=source.filter((p,i)=>!i||Math.hypot(p[0]-source[i-1][0],p[1]-source[i-1][1])>1e-6).map(p=>[...p] as Point)
+ if(points.length<2||park.rx<=0||park.rz<=0)return []
+ const local=(p:Point):Point=>[(p[0]-park.x)/park.rx,(p[1]-park.z)/park.rz]
+ const roots=(a:Point,b:Point)=>{
+  const p=local(a),q=local(b),dx=q[0]-p[0],dz=q[1]-p[1],aa=dx*dx+dz*dz,bb=2*(p[0]*dx+p[1]*dz),cc=p[0]*p[0]+p[1]*p[1]-1
+  const discriminant=bb*bb-4*aa*cc
+  return aa<1e-12||discriminant<0?null:[(-bb-Math.sqrt(discriminant))/(2*aa),(-bb+Math.sqrt(discriminant))/(2*aa)]
+ }
+ for(const [index,neighbor] of [[0,1],[points.length-1,points.length-2]]){
+  const a=points[index],p=local(a)
+  if(p[0]*p[0]+p[1]*p[1]>=1)continue
+  const beyond:Point=[2*a[0]-points[neighbor][0],2*a[1]-points[neighbor][1]],hits=roots(a,beyond)
+  if(hits){const t=hits[1];points[index]=[a[0]+(beyond[0]-a[0])*t,a[1]+(beyond[1]-a[1])*t]}
+ }
+ const paths:Point[][]=[]
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i],hits=roots(a,b)
+  if(!hits)continue
+  const lo=Math.max(0,hits[0]),hi=Math.min(1,hits[1]);if(hi-lo<1e-6)continue
+  const at=(t:number):Point=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t],start=at(lo),end=at(hi),last=paths.at(-1)
+  if(last&&Math.hypot(last.at(-1)![0]-start[0],last.at(-1)![1]-start[1])<1e-5)last.push(end)
+  else paths.push([start,end])
+ }
+ return paths.filter(path=>path.slice(1).some((b,i)=>{
+  const a=local(path[i]),q=local(b),dx=q[0]-a[0],dz=q[1]-a[1],t=Math.max(0,Math.min(1,-(a[0]*dx+a[1]*dz)/(dx*dx+dz*dz||1)))
+  return Math.hypot(a[0]+t*dx,a[1]+t*dz)<.9
+ })).map(path=>routeStreetAroundCourts(path,areas,1.7))
+}
+
 /** Space paint by travelled distance, independent of polyline sampling density.
  * Straight pieces coalesce, while a painted dash can follow a bend. */
 export function streetDashPieces(points:Point[],dashLength=2,gapLength=4):[Point,Point][]{

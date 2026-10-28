@@ -256,8 +256,10 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const curve = new THREE.CurvePath<THREE.Vector3>()
     for (let i = 1; i < points.length; i++) curve.add(new THREE.LineCurve3(points[i - 1], points[i]))
     const length = curve.getLength()
-    const routeMaterial = new THREE.MeshBasicMaterial({ color: route.color, transparent: true, opacity: .66, depthWrite: false })
+    const routeMaterial = new THREE.MeshBasicMaterial({ color: route.color, transparent: true, opacity: .18, depthWrite: false })
     const ribbon = new THREE.InstancedMesh(box, routeMaterial, points.length - 1)
+    ribbon.name = 'Bus route line'
+    ribbon.userData.routeId = route.id
     const transform = new THREE.Object3D()
     points.slice(1).forEach((point, i) => {
       const a = points[i]
@@ -468,7 +470,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     setBusRoute(id: string | null) {
       for (const route of routes) {
         route.group.visible = id === null || route.id === id
-        route.material.opacity = id === route.id ? .95 : .66
+        route.material.opacity = id === route.id ? .95 : .18
       }
     },
     setNight(night: boolean) { busGlass.emissiveIntensity = night ? .55 : .08;busHeadlamp.emissiveIntensity=night?1:.03;busTailLamp.emissiveIntensity=night?.65:.02 },

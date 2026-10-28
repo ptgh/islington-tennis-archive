@@ -109,6 +109,16 @@ test('buses retain their size through a complete outbound and return trip',()=>{
  const before=buses.map(p=>p.position.toArray())
  life.animate(30,false,false)
  assert.deepEqual(buses.map(p=>p.position.toArray()),before)
+ const lines:THREE.InstancedMesh[]=[]
+ life.root.traverse(node=>{if(node instanceof THREE.InstancedMesh&&node.name==='Bus route line')lines.push(node)})
+ assert.ok(lines.length>1)
+ assert.ok(lines.every(line=>(line.material as THREE.MeshBasicMaterial).opacity===.18),'overview routes remain subdued')
+ life.setBusRoute(lines[0].userData.routeId)
+ assert.equal((lines[0].material as THREE.MeshBasicMaterial).opacity,.95,'selected route stays legible')
+ assert.ok(lines[0].parent!.visible&&lines.slice(1).every(line=>!line.parent!.visible))
+ life.setBusRoute(null)
+ assert.ok(lines.every(line=>line.parent!.visible&&(line.material as THREE.MeshBasicMaterial).opacity===.18))
+ assert.deepEqual(buses.map(p=>p.position.toArray()),before,'selecting a line preserves vehicle positions')
 })
 
 test('bus lamps update cloned vehicles at night without moving or rebuilding them',()=>{

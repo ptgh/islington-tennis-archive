@@ -1,10 +1,30 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {routeStreetAroundParks,streetEndConnections,streetBendTriangles,streetDashPieces,type StreetPark} from '../scene/streetNetwork.ts'
+import {routeStreetAroundParks,streetEndConnections,streetBendTriangles,streetDashPieces,parkAvenuePaths,type StreetPark} from '../scene/streetNetwork.ts'
 import {courtAreas,inCourtArea,HIGHBURY_PARK} from '../scene/courtGeometry.ts'
 import {venues} from './venues.ts'
 
 type Point=[number,number]
+test('park avenue crossings reach the perimeter instead of stopping in the lawn',()=>{
+ const park={x:0,z:0,rx:20,rz:30},source:Point[]=[[-40,0],[0,0],[5,0]],before=structuredClone(source)
+ assert.deepEqual(parkAvenuePaths(source,park),[[[-20,0],[0,0],[20,0]]])
+ assert.deepEqual(source,before,'path finishing preserves the source street')
+ const vertical=parkAvenuePaths([[0,-5],[0,5]],park)
+ assert.equal(vertical.length,1)
+ assert.ok(Math.abs(vertical[0][0][1]+30)<1e-6&&Math.abs(vertical[0].at(-1)![1]-30)<1e-6)
+ assert.deepEqual(parkAvenuePaths([[-40,0],[40,0]],park),[[[-20,0],[20,0]]])
+})
+
+test('park walks omit outside and shallow grazing streets and still avoid court fences',()=>{
+ const park={x:0,z:0,rx:20,rz:30}
+ for(const z of [40,30,29])assert.deepEqual(parkAvenuePaths([[-40,z],[40,z]],park),[])
+ assert.deepEqual(parkAvenuePaths([[0,0],[0,0]],park),[])
+ const areas=[{x:0,z:0,rotation:0,halfWidth:4,halfDepth:6}]
+ const paths=parkAvenuePaths([[-40,0],[40,0]],park,areas)
+ assert.equal(paths.length,1)
+ samples(paths[0],(x,z)=>assert.equal(inCourtArea(x,z,areas,.85),false,'full path clears the enclosure'))
+})
+
 test('road paint keeps the same gaps when a straight road is densely sampled',()=>{
  const sparse:Point[]=[[0,0],[20,0]],dense:Point[]=Array.from({length:41},(_,i)=>[i/2,0])
  const before=structuredClone(dense)
