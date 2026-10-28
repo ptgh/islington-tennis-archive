@@ -2,6 +2,7 @@ import type { CourtArea } from './courtGeometry.ts'
 
 type Point = [number, number]
 export type StreetSegment = { a: readonly number[]; b: readonly number[]; width: number }
+export type StreetCorner = {corner:Point;center:Point;radius:number;arc:Point[]}
 type Block = { left: number; right: number; top: number; bottom: number }
 export type StreetPark = {x:number;z:number;rx:number;rz:number}
 const epsilon = .04
@@ -74,6 +75,90 @@ export function streetBendTriangles(a:Point,b:Point,c:Point,width:number):[Point
   const p:Point=[b[0]-uz*width*.5*side,b[1]+ux*width*.5*side],q:Point=[b[0]-vz*width*.5*side,b[1]+vx*width*.5*side]
   return (p[0]-b[0])*(q[1]-b[1])-(p[1]-b[1])*(q[0]-b[0])>0?[b,q,p]:[b,p,q]
  })
+}
+
+/** Small tangent arcs soften the islands between finite crossing road strips.
+ * This adds surface detail only; neither source line nor road width changes. */
+export function streetCornerFillets(first:StreetSegment,second:StreetSegment,radius=2.4){
+ const length=(s:StreetSegment)=>Math.hypot(s.b[0]-s.a[0],s.b[1]-s.a[1])
+ const l1=length(first),l2=length(second)
+ if(l1<1||l2<1||first.width<=0||second.width<=0||radius<=0)return []
+ const u:Point=[(first.b[0]-first.a[0])/l1,(first.b[1]-first.a[1])/l1],v:Point=[(second.b[0]-second.a[0])/l2,(second.b[1]-second.a[1])/l2]
+ const cross=(a:Point,b:Point)=>a[0]*b[1]-a[1]*b[0],det=cross(u,v)
+ if(Math.abs(det)<.18)return [] // Shared roadbeds and near-parallel strips need no corner patch.
+ const gap:Point=[second.a[0]-first.a[0],second.a[1]-first.a[1]],along1=cross(gap,v)/det,along2=cross(gap,u)/det
+ if(along1<-.01||along1>l1+.01||along2<-.01||along2>l2+.01)return []
+ const origin:Point=[first.a[0]+u[0]*along1,first.a[1]+u[1]*along1]
+ const fillets:StreetCorner[]=[]
+ for(const s1 of [-1,1])for(const s2 of [-1,1]){
+  const n1:Point=[-u[1]*s1,u[0]*s1],n2:Point=[-v[1]*s2,v[0]*s2],d=cross(n1,n2),dot=n1[0]*n2[0]+n1[1]*n2[1]
+  const h1=first.width/2,h2=second.width/2
+  const corner:Point=[origin[0]+(h1*n2[1]-n1[1]*h2)/d,origin[1]+(n1[0]*h2-h1*n2[0])/d]
+  const r=Math.min(radius,4/Math.sqrt((1-dot)/(1+dot))) // Tangencies stay within four metres of the corner.
+  if(r<.15)continue
+  const center:Point=[corner[0]+(n1[0]+n2[0])*r/(1+dot),corner[1]+(n1[1]+n2[1])*r/(1+dot)]
+  const t1:Point=[center[0]-n1[0]*r,center[1]-n1[1]*r],t2:Point=[center[0]-n2[0]*r,center[1]-n2[1]*r]
+  const onSegment=(p:Point,s:StreetSegment,direction:Point,span:number)=>{
+   const t=(p[0]-s.a[0])*direction[0]+(p[1]-s.a[1])*direction[1]
+   return t>=0&&t<=span
+  }
+  if(!onSegment(corner,first,u,l1)||!onSegment(corner,second,v,l2)||!onSegment(t1,first,u,l1)||!onSegment(t2,second,v,l2))continue
+  const start=Math.atan2(-n1[1],-n1[0]),end=Math.atan2(-n2[1],-n2[0]),sweep=Math.atan2(Math.sin(end-start),Math.cos(end-start)),steps=Math.ceil(Math.abs(sweep)/(Math.PI/18))
+  const arc=Array.from({length:steps+1},(_,i):Point=>{
+   const angle=start+sweep*i/steps
+   return [center[0]+Math.cos(angle)*r,center[1]+Math.sin(angle)*r]
+  })
+  fillets.push({corner,center,radius:r,arc})
+ }
+ return fillets
+}
+
+/** Keep the paving concentric with its kerb, even where a narrow pavement
+ * meets a wider one. Tiny island tips close at the centre rather than invert. */
+export function streetCornerBorder(fillet:StreetCorner,firstWidth:number,secondWidth:number){
+ return {corner:fillet.corner,arc:fillet.arc.map((p,i):Point=>{
+  const width=firstWidth+(secondWidth-firstWidth)*i/(fillet.arc.length-1),scale=Math.max(0,fillet.radius-width)/fillet.radius
+  return [fillet.center[0]+(p[0]-fillet.center[0])*scale,fillet.center[1]+(p[1]-fillet.center[1])*scale]
+ })}
+}
+
+/** Trim decoration against the added junction surfaces too. Close crossings
+ * can overlap corner patches even when their original road strips do not. */
+export function streetCornerEdgeClipper(corners:StreetCorner[]){
+ const patches=corners.map(corner=>{
+  const polygon=[corner.corner,...corner.arc]
+  return {corner,polygon,left:Math.min(...polygon.map(p=>p[0])),right:Math.max(...polygon.map(p=>p[0])),top:Math.min(...polygon.map(p=>p[1])),bottom:Math.max(...polygon.map(p=>p[1]))}
+ })
+ return (a:Point,b:Point,except?:StreetCorner):[Point,Point][]=>{
+  const dx=b[0]-a[0],dz=b[1]-a[1],span=Math.hypot(dx,dz)
+  if(span<.05)return []
+  let visible:[number,number][]=[[0,1]]
+  for(const {corner,polygon,left,right,top,bottom} of patches){
+   if(corner===except||Math.max(a[0],b[0])<left||Math.min(a[0],b[0])>right||Math.max(a[1],b[1])<top||Math.min(a[1],b[1])>bottom)continue
+   const cuts=[0,1]
+   for(let i=0;i<polygon.length;i++){
+    const p=polygon[i],q=polygon[(i+1)%polygon.length],ex=q[0]-p[0],ez=q[1]-p[1],det=dx*ez-dz*ex
+    if(Math.abs(det)<1e-9)continue
+    const t=((p[0]-a[0])*ez-(p[1]-a[1])*ex)/det,s=((p[0]-a[0])*dz-(p[1]-a[1])*dx)/det
+    if(t>0&&t<1&&s>=0&&s<=1)cuts.push(t)
+   }
+   cuts.sort((x,y)=>x-y)
+   const outside:[number,number][]=[]
+   for(let i=1;i<cuts.length;i++){
+    const t=(cuts[i-1]+cuts[i])/2,x=a[0]+t*dx,z=a[1]+t*dz
+    let inside=false
+    for(let j=0;j<polygon.length;j++){
+     const p=polygon[j],q=polygon[(j+1)%polygon.length]
+     if((p[1]>z)!==(q[1]>z)&&x<(q[0]-p[0])*(z-p[1])/(q[1]-p[1])+p[0])inside=!inside
+    }
+    if(!inside)outside.push([cuts[i-1],cuts[i]])
+   }
+   visible=visible.flatMap(([lo,hi])=>outside.map(([start,end]):[number,number]=>[Math.max(lo,start),Math.min(hi,end)]).filter(([start,end])=>end>start))
+   if(!visible.length)break
+  }
+  const point=(t:number):Point=>[a[0]+t*dx,a[1]+t*dz]
+  return visible.filter(([lo,hi])=>(hi-lo)*span>.08).map(([lo,hi])=>[point(lo),point(hi)])
+ }
 }
 
 /** Remove metre-spaced collinear samples without turning park arcs into corners. */

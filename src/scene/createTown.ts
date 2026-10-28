@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { pedestrianPaths } from './pedestrianPaths'
-import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetDashPieces, streetEdgePieces, parkAvenuePaths } from './streetNetwork'
+import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetCornerFillets, streetCornerBorder, streetCornerEdgeClipper, streetDashPieces, streetEdgePieces, parkAvenuePaths, type StreetSegment, type StreetCorner } from './streetNetwork'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials'
@@ -279,9 +279,36 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   kerbMaterial.customProgramCacheKey=()=> 'town-jointed-kerb-v1'
   const gutterMaterial = standard('#3f4442', { roughness: .7, transparent: true, opacity: .22 })
   const carriageways=renderedRoads.filter(road=>!road.path).flatMap(road=>road.points.slice(1).map((b,index)=>({a:road.points[index],b,width:road.width,road,index:index+1})))
-  const streetDetail=(items:Instance[],x:number,z:number,length:number,width:number,y:number,height:number,ux:number,uz:number,others:typeof carriageways)=>{
-    for(const [a,b] of streetEdgePieces([x-ux*length/2,z-uz*length/2],[x+ux*length/2,z+uz*length/2],others,width/2+.12)){
-      if(items!==laneMarks&&Math.hypot(b[0]-a[0],b[1]-a[1])<.6)continue
+  const asphaltBends:number[]=[],pavementBends:number[]=[],cornerCuts=new Map<typeof carriageways[number],StreetSegment[]>()
+  const junctionCorners:{fillet:StreetCorner;first:typeof carriageways[number];second:typeof carriageways[number]}[]=[]
+  const addCorner=(positions:number[],fillet:Pick<StreetCorner,'corner'|'arc'>,y:number)=>{
+    if([fillet.corner,...fillet.arc].some(([x,z])=>nearPark(x,z)||inCourtArea(x,z,exclusions,1)))return false
+    for(let i=1;i<fillet.arc.length;i++){
+      const p=fillet.corner,a=fillet.arc[i-1],b=fillet.arc[i]
+      const triangle=(a[0]-p[0])*(b[1]-p[1])-(a[1]-p[1])*(b[0]-p[0])>0?[p,b,a]:[p,a,b]
+      for(const [x,z] of triangle)positions.push(x,y,z)
+    }
+    return true
+  }
+  for(let i=0;i<carriageways.length;i++)for(let j=i+1;j<carriageways.length;j++){
+    const first=carriageways[i],second=carriageways[j]
+    if(first.road===second.road||Math.max(first.a[0],first.b[0])<Math.min(second.a[0],second.b[0])||Math.min(first.a[0],first.b[0])>Math.max(second.a[0],second.b[0])||Math.max(first.a[1],first.b[1])<Math.min(second.a[1],second.b[1])||Math.min(first.a[1],first.b[1])>Math.max(second.a[1],second.b[1]))continue
+    const pavementWidth=(segment:typeof first,p:Point)=>!segment.road.bus&&Math.abs(p[0]-109)<50&&Math.abs(p[1]+32)<82?.16:1.2
+    for(const fillet of streetCornerFillets(first,second))if(addCorner(asphaltBends,fillet,.11)){
+      addCorner(pavementBends,streetCornerBorder(fillet,pavementWidth(first,fillet.arc[0]),pavementWidth(second,fillet.arc.at(-1)!)),.07)
+      junctionCorners.push({fillet,first,second})
+      for(const [segment,end] of [[first,fillet.arc[0]],[second,fillet.arc.at(-1)!]] as const){
+        if(!cornerCuts.has(segment))cornerCuts.set(segment,[])
+        cornerCuts.get(segment)!.push({a:fillet.corner,b:end,width:.5})
+      }
+    }
+  }
+  const clearCorners=streetCornerEdgeClipper(junctionCorners.map(c=>c.fillet))
+  const streetDetail=(items:Instance[],x:number,z:number,length:number,width:number,y:number,height:number,ux:number,uz:number,others:typeof carriageways,cuts:StreetSegment[]=[],minimum=.6,except?:StreetCorner)=>{
+    const pieces=streetEdgePieces([x-ux*length/2,z-uz*length/2],[x+ux*length/2,z+uz*length/2],others,width/2+.12)
+    const straight=pieces.flatMap(([a,b])=>cuts.length?streetEdgePieces(a,b,cuts,0):[[a,b]] as [Point,Point][])
+    for(const [a,b] of straight.flatMap(([a,b])=>items===laneMarks?[[a,b]]:clearCorners(a,b,except))){
+      if(items!==laneMarks&&Math.hypot(b[0]-a[0],b[1]-a[1])<minimum)continue
       items.push({x:(a[0]+b[0])/2,y,z:(a[1]+b[1])/2,sx:Math.hypot(b[0]-a[0],b[1]-a[1]),sy:height,sz:width,ry:-Math.atan2(uz,ux)})
     }
   }
@@ -293,9 +320,10 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       const subdivisions = Math.ceil(length / (road.surveyed||road.bus?1:6))
       const angle = -Math.atan2(b[1] - a[1], b[0] - a[0])
       const others=carriageways.filter(segment=>segment.road!==road||segment.index!==i)
+      const cuts=cornerCuts.get(carriageways.find(segment=>segment.road===road&&segment.index===i)!)||[]
       const ux=(b[0]-a[0])/length,uz=(b[1]-a[1])/length
       const middleLocal=!road.bus&&Math.abs((a[0]+b[0])/2-109)<50&&Math.abs((a[1]+b[1])/2+32)<82
-      if(!road.path&&!middleLocal)for(const side of [-1,1])streetDetail(gutters,(a[0]+b[0])/2-uz*(road.width/2-.15)*side,(a[1]+b[1])/2+ux*(road.width/2-.15)*side,length,.18,.113,.01,ux,uz,others)
+      if(!road.path&&!middleLocal)for(const side of [-1,1])streetDetail(gutters,(a[0]+b[0])/2-uz*(road.width/2-.15)*side,(a[1]+b[1])/2+ux*(road.width/2-.15)*side,length,.18,.113,.01,ux,uz,others,cuts)
       for (let j = 0; j < subdivisions; j++) {
         const t = (j + .5) / subdivisions
         const x = a[0] + (b[0] - a[0]) * t
@@ -310,10 +338,18 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
           // Raised stone kerbs either side catch the light and give carriageways a real edge.
           for (const side of [-1, 1]) {
             const off = width / 2 + .09
-            streetDetail(kerbs,x-uz*off*side,z+ux*off*side,sx,.18,.13,.12,ux,uz,others)
+            streetDetail(kerbs,x-uz*off*side,z+ux*off*side,sx,.18,.13,.12,ux,uz,others,cuts)
           }
         }
       }
+    }
+  }
+  for(const {fillet,first,second} of junctionCorners){
+    const others=carriageways.filter(segment=>segment!==first&&segment!==second)
+    for(let i=1;i<fillet.arc.length;i++){
+      const offset=(p:Point,r:number):Point=>[fillet.center[0]+(p[0]-fillet.center[0])*r/fillet.radius,fillet.center[1]+(p[1]-fillet.center[1])*r/fillet.radius]
+      const a=offset(fillet.arc[i-1],fillet.radius-.09),b=offset(fillet.arc[i],fillet.radius-.09),length=Math.hypot(b[0]-a[0],b[1]-a[1])
+      streetDetail(kerbs,(a[0]+b[0])/2,(a[1]+b[1])/2,length+.015,.18,.13,.12,(b[0]-a[0])/length,(b[1]-a[1])/length,others,[],.08,fillet)
     }
   }
   // A single distance-based cadence survives dense bus samples and bends.
@@ -335,7 +371,6 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   instances(box, pathMaterial, surveyedPaths, false)
   // Join the existing strips at their bends, including the old transport-road
   // endpoints. Two pooled meshes avoid square-ended notches at each junction.
-  const asphaltBends:number[]=[],pavementBends:number[]=[]
   for(const road of renderedRoads)for(let i=1;i<road.points.length-1;i++){
     const a=road.points[i-1],b=road.points[i],c=road.points[i+1],local=!road.bus&&Math.abs(b[0]-109)<50&&Math.abs(b[1]+32)<82
     for(const [positions,width,y] of [[asphaltBends,road.width,.11],[pavementBends,road.width+(local?.32:2.4),.07]] as const){
