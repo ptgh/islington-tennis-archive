@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { pedestrianPaths } from './pedestrianPaths'
-import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetCornerFillets, streetCornerBorder, streetCornerEdgeClipper, streetDashPieces, streetEdgePieces, parkAvenuePaths, type StreetSegment, type StreetCorner } from './streetNetwork'
+import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetCornerFillets, streetCornerBorder, streetCornerEdgeClipper, streetPavementWidth, streetDashPieces, streetEdgePieces, parkAvenuePaths, type StreetSegment, type StreetCorner } from './streetNetwork'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials'
@@ -237,6 +237,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const roadBodies: Instance[] = []
   const surveyedPaths: Instance[] = []
   const roadEdges: Instance[] = []
+  const straightPavements: Instance[] = []
   const laneMarks: Instance[] = []
   const kerbs: Instance[] = []
   const gutters: Instance[] = []
@@ -292,8 +293,9 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   }
   for(let i=0;i<carriageways.length;i++)for(let j=i+1;j<carriageways.length;j++){
     const first=carriageways[i],second=carriageways[j]
-    if(first.road===second.road||Math.max(first.a[0],first.b[0])<Math.min(second.a[0],second.b[0])||Math.min(first.a[0],first.b[0])>Math.max(second.a[0],second.b[0])||Math.max(first.a[1],first.b[1])<Math.min(second.a[1],second.b[1])||Math.min(first.a[1],first.b[1])>Math.max(second.a[1],second.b[1]))continue
-    const pavementWidth=(segment:typeof first,p:Point)=>!segment.road.bus&&Math.abs(p[0]-109)<50&&Math.abs(p[1]+32)<82?.16:1.2
+    const overlap=(first.width+second.width)/2
+    if(first.road===second.road||Math.max(first.a[0],first.b[0])+overlap<Math.min(second.a[0],second.b[0])||Math.min(first.a[0],first.b[0])-overlap>Math.max(second.a[0],second.b[0])||Math.max(first.a[1],first.b[1])+overlap<Math.min(second.a[1],second.b[1])||Math.min(first.a[1],first.b[1])-overlap>Math.max(second.a[1],second.b[1]))continue
+    const pavementWidth=(segment:typeof first,p:Point)=>streetPavementWidth(p[0],p[1],segment.road)
     for(const fillet of streetCornerFillets(first,second))if(addCorner(asphaltBends,fillet,.11)){
       addCorner(pavementBends,streetCornerBorder(fillet,pavementWidth(first,fillet.arc[0]),pavementWidth(second,fillet.arc.at(-1)!)),.07)
       junctionCorners.push({fillet,first,second})
@@ -332,7 +334,18 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
         const width=road.width;
         if(inCourtArea(x,z,exclusions,width/2+(local?.2:1)))continue;
         const sx = length / subdivisions + (road.surveyed?.025:.4)
-        roadEdges.push({ x, y: .035, z, sx, sy: .07, sz: width + (road.surveyed||local?.32:2.4), ry: angle })
+        const edge={ x, y: .035, z, sx, sy: .07, sz: width + streetPavementWidth(x,z,road)*2, ry: angle }
+        roadEdges.push(edge)
+        const start:Point=[a[0]+(b[0]-a[0])*j/subdivisions,a[1]+(b[1]-a[1])*j/subdivisions]
+        const end:Point=[a[0]+(b[0]-a[0])*(j+1)/subdivisions,a[1]+(b[1]-a[1])*(j+1)/subdivisions]
+        const firstWidth=streetPavementWidth(start[0],start[1],road),lastWidth=streetPavementWidth(end[0],end[1],road)
+        if(Math.abs(firstWidth-lastWidth)>.001||Math.abs(firstWidth-streetPavementWidth(x,z,road))>.001){
+          // Taper only the transition pieces; constant-width pavements keep
+          // their existing instancing and the shared world-space stone finish.
+          const leftA:Point=[start[0]-uz*(width/2+firstWidth),start[1]+ux*(width/2+firstWidth)],rightA:Point=[start[0]+uz*(width/2+firstWidth),start[1]-ux*(width/2+firstWidth)]
+          const leftB:Point=[end[0]-uz*(width/2+lastWidth),end[1]+ux*(width/2+lastWidth)],rightB:Point=[end[0]+uz*(width/2+lastWidth),end[1]-ux*(width/2+lastWidth)]
+          for(const p of [leftA,leftB,rightB,leftA,rightB,rightA])pavementBends.push(p[0],.07,p[1])
+        }else straightPavements.push(edge)
         ;(road.path?surveyedPaths:roadBodies).push({ x, y: .08, z, sx, sy: .06, sz: width, ry: angle })
         if (!road.path) {
           // Raised stone kerbs either side catch the light and give carriageways a real edge.
@@ -366,14 +379,14 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     }
     paintedRoads.push(...carriageways.filter(segment=>segment.road===road))
   }
-  instances(box, verge, roadEdges, false)
+  instances(box, verge, straightPavements, false)
   instances(box, tarmac, roadBodies, false)
   instances(box, pathMaterial, surveyedPaths, false)
   // Join the existing strips at their bends, including the old transport-road
   // endpoints. Two pooled meshes avoid square-ended notches at each junction.
   for(const road of renderedRoads)for(let i=1;i<road.points.length-1;i++){
-    const a=road.points[i-1],b=road.points[i],c=road.points[i+1],local=!road.bus&&Math.abs(b[0]-109)<50&&Math.abs(b[1]+32)<82
-    for(const [positions,width,y] of [[asphaltBends,road.width,.11],[pavementBends,road.width+(local?.32:2.4),.07]] as const){
+    const a=road.points[i-1],b=road.points[i],c=road.points[i+1]
+    for(const [positions,width,y] of [[asphaltBends,road.width,.11],[pavementBends,road.width+streetPavementWidth(b[0],b[1],road)*2,.07]] as const){
       for(const triangle of streetBendTriangles(a,b,c,width))for(const [x,z] of triangle)positions.push(x,y,z)
     }
   }

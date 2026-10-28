@@ -8,6 +8,15 @@ export type StreetPark = {x:number;z:number;rx:number;rz:number}
 const epsilon = .04
 const inside = ([x,z]: Point, b: Block) => x>b.left && x<b.right && z>b.top && z<b.bottom
 
+/** Feather the existing narrow Highbury pavements into the wider town finish,
+ * instead of stepping sideways at a rectangular neighbourhood boundary. */
+export function streetPavementWidth(x:number,z:number,road:{bus?:boolean;surveyed?:boolean}={}){
+ if(road.surveyed)return .16
+ if(road.bus)return 1.2
+ const margin=Math.min(50-Math.abs(x-109),82-Math.abs(z+32)),t=Math.max(0,Math.min(1,margin/8))
+ return 1.2-1.04*t*t*(3-2*t)
+}
+
 /** Retained avenue walks meet the park's perimeter, including source road ends
  * that used to leave a square stub in the lawn. Shallow grazes are omitted. */
 export function parkAvenuePaths(source:Point[],park:StreetPark,areas:CourtArea[]=[]):Point[][]{
@@ -85,24 +94,27 @@ export function streetCornerFillets(first:StreetSegment,second:StreetSegment,rad
  if(l1<1||l2<1||first.width<=0||second.width<=0||radius<=0)return []
  const u:Point=[(first.b[0]-first.a[0])/l1,(first.b[1]-first.a[1])/l1],v:Point=[(second.b[0]-second.a[0])/l2,(second.b[1]-second.a[1])/l2]
  const cross=(a:Point,b:Point)=>a[0]*b[1]-a[1]*b[0],det=cross(u,v)
- if(Math.abs(det)<.18)return [] // Shared roadbeds and near-parallel strips need no corner patch.
- const gap:Point=[second.a[0]-first.a[0],second.a[1]-first.a[1]],along1=cross(gap,v)/det,along2=cross(gap,u)/det
- if(along1<-.01||along1>l1+.01||along2<-.01||along2>l2+.01)return []
+ if(Math.abs(det)<.06)return [] // Shared and almost parallel roadbeds need no corner patch.
+ const gap:Point=[second.a[0]-first.a[0],second.a[1]-first.a[1]],along1=cross(gap,v)/det
  const origin:Point=[first.a[0]+u[0]*along1,first.a[1]+u[1]*along1]
  const fillets:StreetCorner[]=[]
  for(const s1 of [-1,1])for(const s2 of [-1,1]){
   const n1:Point=[-u[1]*s1,u[0]*s1],n2:Point=[-v[1]*s2,v[0]*s2],d=cross(n1,n2),dot=n1[0]*n2[0]+n1[1]*n2[1]
   const h1=first.width/2,h2=second.width/2
   const corner:Point=[origin[0]+(h1*n2[1]-n1[1]*h2)/d,origin[1]+(n1[0]*h2-h1*n2[0])/d]
-  const r=Math.min(radius,4/Math.sqrt((1-dot)/(1+dot))) // Tangencies stay within four metres of the corner.
+  const along=(p:Point,s:StreetSegment,direction:Point)=>(p[0]-s.a[0])*direction[0]+(p[1]-s.a[1])*direction[1]
+  const q1=along(corner,first,u),q2=along(corner,second,v)
+  if(q1<0||q1>l1||q2<0||q2>l2)continue
+  const unitCenter:Point=[(n1[0]+n2[0])/(1+dot),(n1[1]+n2[1])/(1+dot)]
+  const shift1=(unitCenter[0]-n1[0])*u[0]+(unitCenter[1]-n1[1])*u[1],shift2=(unitCenter[0]-n2[0])*v[0]+(unitCenter[1]-n2[1])*v[1]
+  const fit=(at:number,span:number,shift:number)=>Math.abs(shift)<1e-9?Infinity:(shift>0?span-at:at)/Math.abs(shift)
+  // Short meeting edges get a smaller curve, rather than losing the corner.
+  // Leave a tiny tolerance at finite ends; never extend a road to fit an arc.
+  const r=Math.min(radius,4/Math.sqrt((1-dot)/(1+dot)),fit(q1,l1,shift1)*.999999,fit(q2,l2,shift2)*.999999)
   if(r<.15)continue
   const center:Point=[corner[0]+(n1[0]+n2[0])*r/(1+dot),corner[1]+(n1[1]+n2[1])*r/(1+dot)]
   const t1:Point=[center[0]-n1[0]*r,center[1]-n1[1]*r],t2:Point=[center[0]-n2[0]*r,center[1]-n2[1]*r]
-  const onSegment=(p:Point,s:StreetSegment,direction:Point,span:number)=>{
-   const t=(p[0]-s.a[0])*direction[0]+(p[1]-s.a[1])*direction[1]
-   return t>=0&&t<=span
-  }
-  if(!onSegment(corner,first,u,l1)||!onSegment(corner,second,v,l2)||!onSegment(t1,first,u,l1)||!onSegment(t2,second,v,l2))continue
+  if(along(t1,first,u)<0||along(t1,first,u)>l1||along(t2,second,v)<0||along(t2,second,v)>l2)continue
   const start=Math.atan2(-n1[1],-n1[0]),end=Math.atan2(-n2[1],-n2[0]),sweep=Math.atan2(Math.sin(end-start),Math.cos(end-start)),steps=Math.ceil(Math.abs(sweep)/(Math.PI/18))
   const arc=Array.from({length:steps+1},(_,i):Point=>{
    const angle=start+sweep*i/steps

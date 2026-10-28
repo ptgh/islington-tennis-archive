@@ -1,9 +1,22 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {streetCornerFillets,streetCornerBorder,streetCornerEdgeClipper,type StreetSegment} from '../scene/streetNetwork.ts'
+import {streetCornerFillets,streetCornerBorder,streetCornerEdgeClipper,streetPavementWidth,type StreetSegment} from '../scene/streetNetwork.ts'
 
 const horizontal:StreetSegment={a:[-20,0],b:[20,0],width:6}
 const vertical:StreetSegment={a:[0,-20],b:[0,20],width:6}
+
+test('neighbourhood pavement widths blend continuously and transport finishes stay fixed',()=>{
+ assert.ok(Math.abs(streetPavementWidth(109,-32)-.16)<1e-6)
+ for(const [x,z,dx,dz] of [[59,-32,1,0],[159,-32,-1,0],[109,-114,0,1],[109,50,0,-1]]){
+  const outside=streetPavementWidth(x-dx*.001,z-dz*.001),inside=streetPavementWidth(x+dx*.001,z+dz*.001)
+  assert.ok(Math.abs(outside-inside)<.000001,'no abrupt sideways step at the old boundary')
+  const widths=Array.from({length:17},(_,i)=>streetPavementWidth(x+dx*i/2,z+dz*i/2))
+  assert.ok(widths.every((w,i)=>w>=.16-1e-6&&w<=1.2&&(!i||w<=widths[i-1])))
+  assert.ok(Math.abs(widths.at(-1)!-.16)<1e-6)
+  assert.equal(streetPavementWidth(x+dx*4,z+dz*4,{bus:true}),1.2)
+  assert.equal(streetPavementWidth(x-dx*10,z-dz*10,{surveyed:true}),.16)
+ }
+})
 
 test('crossroads gain tangent corner arcs without narrowing or moving either road',()=>{
  const before=structuredClone([horizontal,vertical]),corners=streetCornerFillets(horizontal,vertical)
@@ -42,6 +55,35 @@ test('T junctions round only the meeting side; unrelated and parallel streets ga
   {a:[0,0],b:[0,0],width:6},
   {a:[0,-20],b:[0,20],width:0},
  ] as StreetSegment[])assert.deepEqual(streetCornerFillets(horizontal,road),[])
+})
+
+test('branches meeting a road edge gain corners even when their centre lines do not cross',()=>{
+ const branch:StreetSegment={a:[0,3],b:[0,20],width:6},before=structuredClone(branch)
+ const corners=streetCornerFillets(horizontal,branch)
+ assert.equal(corners.length,2)
+ assert.ok(corners.every(f=>f.corner[1]===3&&f.arc.every(p=>p[1]>=3-1e-6)))
+ assert.deepEqual(branch,before)
+ assert.deepEqual(streetCornerFillets(horizontal,{...branch,a:[0,3.1]}),[],'a real gap is not bridged by a new corner')
+})
+
+test('short meeting strips shrink corner radii without extending their finite ends',()=>{
+ const first:StreetSegment={a:[-3.5,0],b:[3.5,0],width:6},second:StreetSegment={a:[0,-3.5],b:[0,3.5],width:6}
+ const corners=streetCornerFillets(first,second)
+ assert.equal(corners.length,4)
+ for(const f of corners){
+  assert.ok(f.radius>.49&&f.radius<.51,'half-metre tangencies fit the short edge')
+  assert.ok(f.arc[0][0]>=-3.5&&f.arc[0][0]<=3.5)
+  assert.ok(f.arc.at(-1)![1]>=-3.5&&f.arc.at(-1)![1]<=3.5)
+ }
+})
+
+test('shallow merges round only where their finite road edges actually meet',()=>{
+ const angle=7*Math.PI/180,first:StreetSegment={a:[-100,0],b:[100,0],width:6}
+ const second:StreetSegment={a:[-100*Math.cos(angle),-100*Math.sin(angle)],b:[100*Math.cos(angle),100*Math.sin(angle)],width:6}
+ const corners=streetCornerFillets(first,second)
+ assert.equal(corners.length,4)
+ for(const f of corners)for(const p of [f.arc[0],f.arc.at(-1)!])assert.ok(Math.hypot(p[0]-f.corner[0],p[1]-f.corner[1])<=4.000001)
+ assert.deepEqual(streetCornerFillets(first,{...second,a:[200,0],b:[300*Math.cos(angle),100*Math.sin(angle)]}),[])
 })
 
 test('closely spaced junctions remove kerbs covered by another rounded corner',()=>{
