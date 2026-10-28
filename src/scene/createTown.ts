@@ -13,6 +13,7 @@ import { mapStations, tubeConnections } from '../data/transit'
 import type { MapVenue, Station, TownWorld } from './types'
 import { createTownLife } from './createTownLife'
 import { createStreetLamps } from './createStreetLamps'
+import { createMiniatureTrain } from './miniatureTrain'
 import { createCourtNetGeometries } from './courtNet'
 import { busRoutes } from '../data/busRoutes'
 import { gableRoofGeometry } from './gableRoof'
@@ -1065,22 +1066,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   instances(box,stoneMaterial,ballastStones,false,railway)
   const railsGeo = new THREE.BufferGeometry(); railsGeo.setAttribute('position', new THREE.Float32BufferAttribute(railPositions, 3))
   railway.add(new THREE.LineSegments(railsGeo, railsMat))
-  const carriages: THREE.Group[] = []
-  const red = standard('#c24f39'), blue = standard('#344a64'), white = standard('#ece9d8')
-  const trainGlass = standard('#456775', { emissive: '#e8c27b', emissiveIntensity: .1 })
-  for (let c = 0; c < 5; c++) {
-    const carriage = new THREE.Group(); railway.add(carriage); carriages.push(carriage)
-    mesh(box, blue, 0, .66, 0, 2.75, .85, 7.9, 0, carriage)
-    mesh(box, white, 0, 1.53, 0, 2.7, 1.2, 7.6, 0, carriage)
-    mesh(box, red, 0, 1.4, 3.58, 2.75, 1.6, .48, 0, carriage)
-    mesh(box, red, 0, 1.4, -3.58, 2.75, 1.6, .48, 0, carriage)
-    mesh(box, trimMaterial, 0, 2.2, 0, 2.85, .24, 7.95, 0, carriage)
-    for (const side of [-1, 1]) {
-      for (let w = 0; w < 4; w++) mesh(box, trainGlass, side * 1.37, 1.55, -2.7 + w * 1.8, .04, .64, 1.18, 0, carriage)
-      mesh(box, red, side * 1.4, 1.3, 0, .06, 1.55, .45, 0, carriage)
-    }
-    if (c === 0) mesh(box, trainGlass, 0, 1.64, 3.84, 2.05, .66, .05, 0, carriage)
-  }
+  const train=createMiniatureTrain();railway.add(train.root)
+  const carriages=train.carriages
   const trackLength = track.getLength()
   const walkPaths=parkWalkLoops.map(loop=>loop.map(([x,z])=>new THREE.Vector3(x,.2,z)));
   const walkPieces:Instance[]=[]
@@ -1127,7 +1114,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       streetLamps.setNight(night);landmarks.setNight(night)
       windowMaterial.emissiveIntensity = night ? .75 : 0
       windowMaterial.color.set(night ? '#e0bd7d' : '#465e65')
-      trainGlass.emissiveIntensity = night ? .65 : .1
+      train.setNight(night)
       life.setNight(night)
     },
     setTransit(visible) { transit.visible = visible },
