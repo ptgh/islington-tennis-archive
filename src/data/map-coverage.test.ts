@@ -6,7 +6,7 @@ import geography from './highbury-geography.json' with { type: 'json' }
 test('mapped coverage includes every recorded court without implying borough-wide coverage', () => {
   for (const court of geography.courts) for (const [lng, lat] of court.points) assert.equal(hasMappedCoverage(lat, lng), true)
   assert.equal(hasMappedCoverage(51.549, -.099), true)
-  assert.equal(hasMappedCoverage(51.5512, -.1269), false, 'the tennis centre is outside this extract')
+  assert.equal(hasMappedCoverage(51.5512, -.1269), false, 'a location outside both extracts uses illustrated context')
   assert.equal(hasMappedCoverage(51.5456, -.1033), false, 'Highbury Corner camera is outside this extract')
   assert.equal(hasMappedCoverage(NaN, -.1), false)
 })

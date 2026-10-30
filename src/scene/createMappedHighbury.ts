@@ -21,8 +21,11 @@ export const mappedHighburyGroups = [
 /** A consistent geographic scale: one world unit is about ten metres. Snapshot
  * footprints/centre-lines are retained. Heights, road widths and crowns are illustrations.
  * Owns its resources and uses TownMap's existing renderer and light/grade pipeline. */
-export function createMappedHighbury() {
-  const root = new THREE.Group(); root.name = 'Mapped Highbury'
+export function createMappedHighbury(geography: typeof highburyGeography = highburyGeography, courts: typeof highburyCourts = highburyCourts, name = 'Mapped Highbury') {
+  const [west, south, east, north] = geography.bbox
+  const nw = projectPoint(west, north), se = projectPoint(east, south)
+  const center = { x: (nw[0] + se[0]) / 2, z: (nw[1] + se[1]) / 2 }
+  const root = new THREE.Group(); root.name = name
   const finishes = createMiniatureMaterials()
   const brick = cloneWorldArchitecturalFinish(finishes.brick, '#b5a18a', false, .1)
   const slate = cloneWorldArchitecturalFinish(finishes.slate, '#b8bfba', true, .1)
@@ -54,10 +57,10 @@ export function createMappedHighbury() {
     const geometry = height ? new THREE.ExtrudeGeometry(polygon, { depth: height, bevelEnabled: false, steps: 1 }) : new THREE.ShapeGeometry(polygon)
     geometry.rotateX(-Math.PI / 2); geometry.translate(0, y, 0); collect(material, geometry)
   }
-  addBox(ground, mappedHighburyCenter.x, -.025, mappedHighburyCenter.z, se[0] - nw[0], .04, se[1] - nw[1])
-  for (const park of highburyGeography.parks) shape(park.map(([lng, lat]) => projectPoint(lng, lat)), lawn, .002)
+  addBox(ground, center.x, -.025, center.z, se[0] - nw[0], .04, se[1] - nw[1])
+  for (const park of geography.parks) shape(park.map(([lng, lat]) => projectPoint(lng, lat)), lawn, .002)
   let roadSegments = 0
-  for (const street of highburyGeography.roads) {
+  for (const street of geography.roads) {
     const walking = ['footway', 'path', 'pedestrian', 'steps', 'cycleway'].includes(street.kind)
     const width = walking ? .18 : ['primary', 'secondary', 'tertiary'].includes(street.kind) ? .75 : street.kind === 'service' ? .32 : .5
     for (let i = 1; i < street.points.length; i++) {
@@ -66,7 +69,7 @@ export function createMappedHighbury() {
       addBox(walking ? path : road, (a[0] + b[0]) / 2, .004, (a[1] + b[1]) / 2, length, .004, width, -Math.atan2(b[1] - a[1], b[0] - a[0])); roadSegments++
     }
   }
-  for (const building of highburyGeography.buildings) {
+  for (const building of geography.buildings) {
     const points = building.points.map(([lng, lat]) => projectPoint(lng, lat))
     shape(points, brick, .006, building.height)
     shape(points, slate, building.height + .009)
@@ -88,7 +91,7 @@ export function createMappedHighbury() {
     }
   }
   const netGeometry = new THREE.PlaneGeometry(1, 1)
-  for (const c of highburyCourts) {
+  for (const c of courts) {
     const position = (x: number, z: number) => ({ x: c.x + x * Math.cos(c.rotation) + z * Math.sin(c.rotation), z: c.z - x * Math.sin(c.rotation) + z * Math.cos(c.rotation) })
     const part = (material: THREE.Material, x: number, y: number, z: number, w: number, h: number, d: number) => { const p = position(x, z); addBox(material, p.x, y, p.z, w, h, d, c.rotation) }
     const w = c.width, d = c.depth, ow = w * 1.46, od = d * 1.32
@@ -110,7 +113,7 @@ export function createMappedHighbury() {
     part(white, 0, .116, 0, w * 1.12, .006, .006)
   }
   const crowns: THREE.Matrix4[] = []
-  for (const [index, [lng, lat]] of highburyGeography.trees.entries()) {
+  for (const [index, [lng, lat]] of geography.trees.entries()) {
     const [x, z] = projectPoint(lng, lat), size = .7 + (index % 7) * .055
     addBox(trunk, x, size * .32, z, .025, size * .64, .025)
     transform.position.set(x, size * .8, z); transform.rotation.set(0, index * 2.399, 0); transform.scale.set(size * .43, size * .5, size * .43); transform.updateMatrix(); crowns.push(transform.matrix.clone())
@@ -126,7 +129,7 @@ export function createMappedHighbury() {
     const geometry = mergeGeometries(pieces); pieces.forEach(piece => piece.dispose())
     if (geometry) { const mesh = new THREE.Mesh(geometry, material);mesh.name=material===brick?'Mapped building footprints':material===slate?'Mapped building roofs':'Mapped park polygons'; mesh.castShadow = material === brick; mesh.receiveShadow = true; root.add(mesh) }
   }
-  root.userData.coverage = { buildings: highburyGeography.buildings.length, courts: highburyCourts.length, parkPolygons: highburyGeography.parks.length, trees: crowns.length, roadSegments, checked: highburyGeography.checked }
+  root.userData.coverage = { buildings: geography.buildings.length, courts: courts.length, parkPolygons: geography.parks.length, trees: crowns.length, roadSegments, checked: geography.checked }
   return { root, setNight(night: boolean) { glazing.emissiveIntensity = night ? .5 : 0 }, setRain: finishes.setRain, dispose() {
     const geometries = new Set<THREE.BufferGeometry>([box, netGeometry]), materials = new Set<THREE.Material>()
     root.traverse(object => { if (object instanceof THREE.Mesh) { geometries.add(object.geometry); (Array.isArray(object.material) ? object.material : [object.material]).forEach(material => materials.add(material)) } })

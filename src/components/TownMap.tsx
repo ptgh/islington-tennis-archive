@@ -13,8 +13,7 @@ import type { MapVenue, TownWorld } from '../scene/types'
 import { mappedServices } from '../data/hub'
 import { busRoutes } from '../data/busRoutes'
 import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
-import { courtAreas, highburyCourts, inHighbury } from '../scene/courtGeometry'
-import { hasMappedCoverage } from '../data/mapCoverage'
+import { courtAreas, highburyCourts } from '../scene/courtGeometry'
 import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
@@ -23,6 +22,8 @@ import { createViewShadowFitter } from '../scene/viewShadows'
 import { freeLabel, type NextFree } from '../data/freeCourts'
 import { cameraAvailability, type TrafficCamera } from '../data/trafficCameras'
 import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, collectOcclusionExclusions } from '../scene/renderQuality'
+import { createMappedCentre, mappedCentreBounds, mappedCentreCourtBounds } from '../scene/createMappedCentre'
+import { mappedNeighbourhoods, mappedCoverageAt, type MappedVenueId } from '../data/mapCoverage'
 import { createMappedHighbury, mappedHighburyGroups, mappedHighburyBounds, mappedHighburyCourtBounds } from '../scene/createMappedHighbury'
 import '../scene/TownMap.css'
 
@@ -64,6 +65,7 @@ interface TownMapProps {
   onReset?: () => void
   onReady?: () => void
   mappedHighbury?: boolean
+  mappedVenueId?: MappedVenueId
   mappedOverview?: boolean
   cameras?: readonly TrafficCamera[]
   showCameras?: boolean
@@ -94,7 +96,7 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, mappedHighbury = false, mappedOverview = false, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, mappedHighbury = false, mappedVenueId = 'highbury-fields', mappedOverview = false, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -103,9 +105,9 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
   const mappedGroupRefs = useRef(new Map<string, HTMLDivElement>())
   const cameraRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedHighbury, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedHighbury, mappedVenueId, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedHighbury, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady,
+  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedHighbury, mappedVenueId, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
@@ -220,7 +222,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     let needsFrame = true
     const world = createTown(venues, () => { needsFrame = true })
     scene.add(world.root)
-    let mappedScene: ReturnType<typeof createMappedHighbury> | null = null
+    const mappedScenes = new Map<MappedVenueId, ReturnType<typeof createMappedHighbury>>()
     world.setNight(runtimeRef.current.night)
     const weatherWorld=createWeather();scene.add(weatherWorld.root)
     const weatherClearance=courtAreas(venues).flatMap(area=>{
@@ -351,7 +353,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const reset = () => {
       cancelTravel()
       if(runtimeRef.current.mappedHighbury){
-        const bounds=runtimeRef.current.mappedOverview?mappedHighburyBounds:mappedHighburyCourtBounds
+        const centre=runtimeRef.current.mappedVenueId==='islington-tennis-centre'
+        const bounds=centre?(runtimeRef.current.mappedOverview?mappedCentreBounds:mappedCentreCourtBounds):(runtimeRef.current.mappedOverview?mappedHighburyBounds:mappedHighburyCourtBounds)
         const center=new THREE.Vector3((bounds.minX+bounds.maxX)/2,0,(bounds.minZ+bounds.maxZ)/2),preview=camera.clone()
         preview.position.copy(center).add(CAMERA_OFFSET);preview.lookAt(center);preview.zoom=1;preview.updateProjectionMatrix();preview.updateMatrixWorld()
         const points=[bounds.minX-3,bounds.maxX+3].flatMap(x=>[bounds.minZ-3,bounds.maxZ+3].map(z=>new THREE.Vector3(x,0,z).project(preview)))
@@ -416,8 +419,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       weatherWorld.setKind(runtimeRef.current.weather)
       weatherWorld.setView(camera,camera.zoom,weatherClearance)
       world.setRain(runtimeRef.current.weather==='rain')
-      mappedScene?.setRain(runtimeRef.current.weather==='rain')
-      mappedScene?.setNight(runtimeRef.current.night)
+      for(const mappedScene of mappedScenes.values()){mappedScene.setRain(runtimeRef.current.weather==='rain');mappedScene.setNight(runtimeRef.current.night)}
       sunlight.shadow.normalBias=runtimeRef.current.mappedHighbury?.0055:.055
       updateSceneLight(sunlight, ambient, controls.target, 425, runtimeRef.current.lightingTime === null ? lightClock : new Date(runtimeRef.current.lightingTime), runtimeRef.current.night, runtimeRef.current.weather);
       if(!fitShadows(sunlight,camera)){
@@ -429,20 +431,20 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       renderer.shadowMap.needsUpdate=true
       composer.render()
       const runtime = runtimeRef.current
-      for (const venue of venues) project(runtime.mappedHighbury&&venue.id==='highbury-fields'?MAPPED_COURT_ANCHOR:world.anchors.get(venue.id)!, markerRefs.current.get(venue.id), runtime.visibleIds.includes(venue.id)&&(!runtime.mappedHighbury||venue.id==='highbury-fields'), 3)
-      for (const station of world.stations) project(station.position, stationRefs.current.get(station.name), !runtime.mappedHighbury||inHighbury(station.position.x,station.position.z))
-      for (const group of mappedHighburyGroups) project(new THREE.Vector3(group.x,.3,group.z),mappedGroupRefs.current.get(group.name),runtime.mappedHighbury)
-      for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.4),cameraRefs.current.get(camera.id),runtime.showCameras&&(!runtime.mappedHighbury||hasMappedCoverage(camera.lat,camera.lng)),3)
+      for (const venue of venues) project(runtime.mappedHighbury?(venue.id==='highbury-fields'?MAPPED_COURT_ANCHOR:geoPosition(venue.lat,venue.lng).setY(.4)):world.anchors.get(venue.id)!, markerRefs.current.get(venue.id), runtime.visibleIds.includes(venue.id)&&(!runtime.mappedHighbury||venue.id===runtime.mappedVenueId), 3)
+      for (const station of world.stations) project(station.position, stationRefs.current.get(station.name), !runtime.mappedHighbury||mappedCoverageAt(51.549-station.position.z/11100,station.position.x/6900-.115)===runtime.mappedVenueId)
+      for (const group of mappedHighburyGroups) project(new THREE.Vector3(group.x,.3,group.z),mappedGroupRefs.current.get(group.name),runtime.mappedHighbury&&runtime.mappedVenueId==='highbury-fields')
+      for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.4),cameraRefs.current.get(camera.id),runtime.showCameras&&(!runtime.mappedHighbury||mappedCoverageAt(camera.lat,camera.lng)===runtime.mappedVenueId),3)
       project(world.vanPosition.clone().setY(4),vanRef.current,runtime.showShops&&!runtime.mappedHighbury)
       for (const service of mappedServices) project(geoPosition(service.lat,service.lng).setY(5),shopRefs.current.get(service.id),runtime.showShops&&!runtime.mappedHighbury)
     }
     const setMappedHighbury=(open:boolean)=>{
-      const wasOpen=!!mappedScene?.root.visible
-      if(open&&!mappedScene){mappedScene=createMappedHighbury();scene.add(mappedScene.root);transparentObjects.push(...collectOcclusionExclusions(mappedScene.root))}
-      renderer.domElement.setAttribute('aria-label',`${open?'Mapped Highbury Fields':'Illustrated map context'}. Drag to pan, scroll or pinch to zoom, right-drag to rotate. Select court markers for venue details.`)
+      const wasOpen=[...mappedScenes.values()].some(view=>view.root.visible),id=runtimeRef.current.mappedVenueId
+      if(open&&!mappedScenes.has(id)){const view=id==='highbury-fields'?createMappedHighbury():createMappedCentre();mappedScenes.set(id,view);scene.add(view.root);transparentObjects.push(...collectOcclusionExclusions(view.root))}
+      renderer.domElement.setAttribute('aria-label',`${open?`Mapped ${mappedNeighbourhoods[id].name}`:'Illustrated map context'}. Drag to pan, scroll or pinch to zoom, right-drag to rotate. Select court markers for venue details.`)
       world.root.visible=!open
       occlusion.updateGtaoMaterial({radius:open?.16:1.6,thickness:open?.12:1.2})
-      if(mappedScene)mappedScene.root.visible=open
+      for(const [key,view] of mappedScenes)view.root.visible=open&&key===id
       if(open||wasOpen)reset()
       frame()
     }
@@ -539,7 +541,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       occlusion.gtaoMaterial.dispose();occlusion.blendMaterial.dispose()
       weatherWorld.dispose()
       world.dispose()
-      mappedScene?.dispose()
+      mappedScenes.forEach(view=>view.dispose())
       disposeEnvironment()
       sunlight.shadow.map?.dispose()
       renderer.dispose()
@@ -550,7 +552,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   }, [venues])
 
   useEffect(() => { engineRef.current?.frame() }, [viewSettings, suspended])
-  useEffect(() => { engineRef.current?.setMappedHighbury(mappedHighbury) }, [mappedHighbury, mappedOverview, ready])
+  useEffect(() => { engineRef.current?.setMappedHighbury(mappedHighbury) }, [mappedHighbury, mappedVenueId, mappedOverview, ready])
 
   useEffect(() => {
     const engine = engineRef.current
@@ -579,10 +581,10 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const engine = engineRef.current
     const venue = venues.find((item) => item.id === selectedId)
     if (!engine || !venue) return
-    const point = mappedHighbury&&venue.id==='highbury-fields'?MAPPED_COURT_ANCHOR:engine.world.anchors.get(venue.id)??geoPosition(venue.lat, venue.lng)
+    const point = mappedHighbury?(venue.id==='highbury-fields'?MAPPED_COURT_ANCHOR:geoPosition(venue.lat,venue.lng)):engine.world.anchors.get(venue.id)??geoPosition(venue.lat, venue.lng)
     engine.focus(point)
     engine.frame()
-  }, [selectedId, venues, mappedHighbury])
+  }, [selectedId, venues, mappedHighbury, mappedVenueId])
 
   // Court pins describe; they don't promise a link. Once a court is selected its card is
   // already open, so the label is just the name (plus Better's free time when known).

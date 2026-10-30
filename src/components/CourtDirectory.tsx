@@ -17,7 +17,7 @@ export function CourtDirectory({facility,onFacility,results,allVenues,query,onQu
   return <>
     <div className="directory-heading">
       <h1 tabIndex={-1}>Find your <br/>next court.</h1>
-      <p>A local guide to your next hit.<br/>{mappedHighbury?'Highbury footprints mapped · OSM snapshot':'Illustrated context · mapped footprints cover Highbury.'}</p>
+      <p>A local guide to your next hit.<br/>{mappedHighbury?'Local footprints mapped · OSM snapshot':'Illustrated context · two neighbourhoods mapped.'}</p>
     </div>
     <div className="directory-tools">
       <label className="search-box"><Icon name="search" size={19}/><input aria-label="Search courts or neighbourhoods" placeholder="Search courts or neighbourhoods" value={query} onChange={e=>onQuery(e.target.value)}/>{query && <button aria-label="Clear search" className="clear-search" onClick={()=>onQuery('')}><Icon name="close" size={15}/></button>}</label>

@@ -7,13 +7,14 @@ export function inHighbury(x:number,z:number,margin=0){
  const a=projectPoint(west,north),b=projectPoint(east,south);
  return x>=a[0]-margin&&x<=b[0]+margin&&z>=a[1]-margin&&z<=b[1]+margin;
 }
-export const highburyCourts=geography.courts.map(court=>{
+export function mappedCourts(courts:typeof geography.courts){return courts.map(court=>{
  const points=court.points.slice(0,-1).map(([lng,lat])=>projectPoint(lng,lat));
  const x=points.reduce((n,p)=>n+p[0],0)/points.length,z=points.reduce((n,p)=>n+p[1],0)/points.length;
  const edges=points.map((p,i)=>{const q=points[(i+1)%points.length];return {dx:q[0]-p[0],dz:q[1]-p[1],length:Math.hypot(q[0]-p[0],q[1]-p[1])};});
  const long=edges.reduce((a,b)=>a.length>b.length?a:b),short=edges.reduce((a,b)=>a.length<b.length?a:b);
  return {id:court.id,x,z,width:short.length,depth:long.length,rotation:Math.atan2(long.dx,long.dz)};
-});
+});}
+export const highburyCourts=mappedCourts(geography.courts);
 /** Cartographic display scale: the surveyed 3 + 4 + 2 + 2 arrangement stays legible
  * alongside the other miniature courts. Source measurements remain above. */
 export const renderedHighburyCourts=highburyCourts.map(court=>({
