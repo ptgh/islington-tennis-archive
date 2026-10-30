@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../integrations/supabase/client';
-import { feedIsFresh, nextFreeByVenue, type NextFree } from '../data/freeCourts';
+import { feedIsFresh, nextFreeByVenue, LIVE_TIME_VENUES, type NextFree } from '../data/freeCourts';
 
 /** Venues whose individual courts appear in Better's open slot feed. */
-export const LIVE_TIME_VENUES = ['highbury-fields', 'islington-tennis-centre'];
+export { LIVE_TIME_VENUES } from '../data/freeCourts';
 
 type Slot = { start_at: string; court_name: string; remaining_uses: number };
 const day = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' });

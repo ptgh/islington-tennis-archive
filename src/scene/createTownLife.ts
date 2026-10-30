@@ -256,10 +256,11 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const curve = new THREE.CurvePath<THREE.Vector3>()
     for (let i = 1; i < points.length; i++) curve.add(new THREE.LineCurve3(points[i - 1], points[i]))
     const length = curve.getLength()
-    const routeMaterial = new THREE.MeshBasicMaterial({ color: route.color, transparent: true, opacity: .18, depthWrite: false })
+    const routeMaterial = new THREE.MeshBasicMaterial({ color: route.color, transparent: true, opacity: .95, depthWrite: false })
     const ribbon = new THREE.InstancedMesh(box, routeMaterial, points.length - 1)
     ribbon.name = 'Bus route line'
     ribbon.userData.routeId = route.id
+    ribbon.visible = false
     const transform = new THREE.Object3D()
     points.slice(1).forEach((point, i) => {
       const a = points[i]
@@ -312,7 +313,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const otherBus = bus.clone(true)
     group.add(otherBus)
     otherBus.traverse(node=>{if(node instanceof THREE.Mesh&&node.geometry===wheelGeometry)busWheels.push(node)})
-    return { id: route.id, group, vehicles: [bus, otherBus], curve, length, material: routeMaterial, offset: .25 + index * .18 }
+    return { id: route.id, group, vehicles: [bus, otherBus], curve, length, ribbon, offset: .25 + index * .18 }
   })
 
   // Keep small road users on road stretches away from the collection van's route.
@@ -470,7 +471,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     setBusRoute(id: string | null) {
       for (const route of routes) {
         route.group.visible = id === null || route.id === id
-        route.material.opacity = id === route.id ? .95 : .18
+        route.ribbon.visible = id === route.id
       }
     },
     setNight(night: boolean) { busGlass.emissiveIntensity = night ? .55 : .08;busHeadlamp.emissiveIntensity=night?1:.03;busTailLamp.emissiveIntensity=night?.65:.02 },

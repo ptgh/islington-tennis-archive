@@ -72,6 +72,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   const finishes = createMiniatureMaterials()
   const surfaces = createClubSurfaces(finishes.parkGrass, invalidate)
   const unitPlane = new THREE.PlaneGeometry(1, 1)
+  const pathJoinGeometry=new THREE.CircleGeometry(.5,16);pathJoinGeometry.rotateX(-Math.PI/2)
   const courtNets = createCourtNetGeometries(.65,.045)
   const materials = new Map<string, THREE.MeshStandardMaterial>()
   const batches = new Map<string, { material: THREE.Material; geometry: THREE.BufferGeometry; castShadow: boolean; matrices: THREE.Matrix4[] }>()
@@ -108,6 +109,10 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
     transform.rotation.set(0, 0, 0)
     transform.scale.set(w, h, d)
     instance(material(colour), shadow)
+  }
+  const pathJoin=(x:number,z:number,width:number)=>{
+    transform.position.set(x,.039,z);transform.rotation.set(0,0,0);transform.scale.set(width,1,width)
+    instance(material('#c9c2ad'),false,pathJoinGeometry)
   }
   const beam = (a: THREE.Vector3, b: THREE.Vector3, thickness: number, colour: string) => {
     transform.position.copy(a).add(b).multiplyScalar(.5)
@@ -365,13 +370,14 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
       }
     }
   }
-  const mapped = createMappedVenue(id, { scene, finishes, box, place, tree, parkedCar, court, bowl, centreStand, smallerStand, queensStand })
+  const mapped = createMappedVenue(id, { scene, finishes, box, pathJoin, place, tree, parkedCar, court, bowl, centreStand, smallerStand, queensStand })
 
   for (const { material: mat, geometry, castShadow, matrices } of batches.values()) {
     const mesh = new THREE.InstancedMesh(geometry, mat, matrices.length)
     if (geometry === carShell) mesh.name = 'Parked car shells'
     if (geometry === carCabin) mesh.name = 'Parked car glazing'
     if (geometry === carWheel) mesh.name = 'Parked car wheels'
+    if (geometry === pathJoinGeometry) mesh.name = 'Club path joins'
     matrices.forEach((matrix, i) => mesh.setMatrixAt(i, matrix))
     mesh.castShadow = castShadow; mesh.receiveShadow = !['f5f2df', 'fcf8e9'].includes((mat as THREE.MeshStandardMaterial).color.getHexString()); mesh.computeBoundingSphere(); scene.add(mesh)
   }

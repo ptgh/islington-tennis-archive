@@ -112,12 +112,12 @@ test('buses retain their size through a complete outbound and return trip',()=>{
  const lines:THREE.InstancedMesh[]=[]
  life.root.traverse(node=>{if(node instanceof THREE.InstancedMesh&&node.name==='Bus route line')lines.push(node)})
  assert.ok(lines.length>1)
- assert.ok(lines.every(line=>(line.material as THREE.MeshBasicMaterial).opacity===.18),'overview routes remain subdued')
+ assert.ok(lines.every(line=>!line.visible),'overview hides route traces while retaining its vehicles')
  life.setBusRoute(lines[0].userData.routeId)
  assert.equal((lines[0].material as THREE.MeshBasicMaterial).opacity,.95,'selected route stays legible')
- assert.ok(lines[0].parent!.visible&&lines.slice(1).every(line=>!line.parent!.visible))
+ assert.ok(lines[0].visible&&lines[0].parent!.visible&&lines.slice(1).every(line=>!line.visible&&!line.parent!.visible))
  life.setBusRoute(null)
- assert.ok(lines.every(line=>line.parent!.visible&&(line.material as THREE.MeshBasicMaterial).opacity===.18))
+ assert.ok(lines.every(line=>line.parent!.visible&&!line.visible))
  assert.deepEqual(buses.map(p=>p.position.toArray()),before,'selecting a line preserves vehicle positions')
 })
 

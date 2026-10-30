@@ -1,3 +1,4 @@
+export const LIVE_TIME_VENUES = ['highbury-fields', 'islington-tennis-centre'];
 export type FreeSlot = { venue_id: string; start_at: string; court_name: string; remaining_uses: number };
 export type FeedState = { last_success: string | null; caught_up: boolean | null } | null;
 export type NextFree = { start: number; courts: number };

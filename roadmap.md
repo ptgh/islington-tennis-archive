@@ -43,3 +43,8 @@
 - [x] Add photographic club court surfaces, subtle baseline/runoff wear, weathered concrete surrounds and chain-link fencing without changing mapped court locations or known surface types; nine hosted PBR maps verified in browser, upload errors corrected, 63 tests pass. Full-scene parity remains subject to the hardware WebGL check above.
 
 - [x] Use the original pixelprismdesign ball-logo as a full-screen startup loader with subtle, reduced-motion-aware animation; original artwork inspected, preview asset returns HTTP 200, animation/readiness/reduced-motion checks pass with no page errors.
+
+- [x] Make mapped Highbury the normal opening map with the directory, an accurately anchored court pin and retained floating controls. Other venues and transport/rally features use labelled illustrated context; Home restores mapped Highbury. Verified fresh desktop/mobile loads and transitions with one retained canvas.
+- [x] Add London-time court planning, three-venue comparison, browser-local timing preferences and saved-court availability. Stale, failed and partial feeds retain explicit limits; official booking remains with operators. Build and all 155 tests pass; Chrome desktop/mobile emulation verified, physical Safari remains untested.
+- [x] Replace the camera trial with the complete public TfL JamCam directory, searchable nearby and London-wide, with status labels, duplicate-name IDs, bounded image refresh and failure states. Directory parity verified against all 890 entries in the checked response; availability changes over time.
+- [ ] Extend sourced footprint coverage to the Islington Tennis Centre neighbourhood, preserving recorded geometry and clearly separating mapped footprints from illustrative heights and details.

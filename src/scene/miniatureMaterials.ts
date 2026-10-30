@@ -33,14 +33,17 @@ export function cloneArchitecturalFinish(base: THREE.MeshStandardMaterial, color
 }
 
 /** Landmark dimensions vary widely; keep masonry and roof courses in metres. */
-export function cloneWorldArchitecturalFinish(base:THREE.MeshStandardMaterial,color:string,roof=false) {
+export function cloneWorldArchitecturalFinish(base:THREE.MeshStandardMaterial,color:string,roof=false,worldScale=1) {
   const copy=cloneArchitecturalFinish(base,color)
-  architecturalUV(copy,roof)
+  const weathered=base.userData.architecturalWeathering===true
+  architecturalUV(copy,roof,(roof?(weathered?3:6):4)*worldScale,weathered,worldScale)
   return copy
 }
 
-function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, span = roof ? 6 : 4) {
+function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, span = roof ? 6 : 4, weathered = false, worldScale = 1) {
+  material.userData.architecturalWeathering = weathered
   material.onBeforeCompile = shader => {
+    if(weathered)shader.vertexShader='varying vec3 masonryWorld;\n'+shader.vertexShader
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `
       #include <begin_vertex>
       mat4 architectureModel = modelMatrix;
@@ -48,8 +51,21 @@ function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, sp
         architectureModel *= instanceMatrix;
       #endif
       vec3 architectureWorld = (architectureModel * vec4(transformed, 1.0)).xyz;
+      ${weathered?`masonryWorld = architectureWorld / ${worldScale.toFixed(3)};`:''}
       vec3 architectureNormal = mat3(architectureModel) * normal;
-      vec2 architectureUv = ${roof ? 'architectureWorld.xz' : 'vec2(abs(architectureNormal.x) > abs(architectureNormal.z) ? architectureWorld.z : architectureWorld.x, architectureWorld.y)'} / ${span.toFixed(1)};
+      ${weathered&&roof?`
+        // Inverse-scale each orthogonal model axis before transforming normals.
+        // Slate courses follow the pitched plane, including merged mapped roofs;
+        // camera movement never changes the basis or the weathering field.
+        mat3 slateNormalBasis=mat3(
+          architectureModel[0].xyz/max(dot(architectureModel[0].xyz,architectureModel[0].xyz),.000001),
+          architectureModel[1].xyz/max(dot(architectureModel[1].xyz,architectureModel[1].xyz),.000001),
+          architectureModel[2].xyz/max(dot(architectureModel[2].xyz,architectureModel[2].xyz),.000001));
+        vec3 slateNormal=normalize(slateNormalBasis*normal);
+        vec3 slateAlong=abs(slateNormal.y)>.999?vec3(1,0,0):normalize(cross(vec3(0,1,0),slateNormal));
+        vec3 slateAcross=normalize(cross(slateNormal,slateAlong));
+        vec2 architectureUv=vec2(dot(architectureWorld,slateAlong),dot(architectureWorld,slateAcross))/${span.toFixed(1)};
+      `:`vec2 architectureUv = ${roof ? 'architectureWorld.xz' : 'vec2(abs(architectureNormal.x) > abs(architectureNormal.z) ? architectureWorld.z : architectureWorld.x, architectureWorld.y)'} / ${span.toFixed(1)};`}
       #ifdef USE_MAP
         vMapUv = architectureUv;
       #endif
@@ -60,8 +76,23 @@ function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, sp
         vRoughnessMapUv = architectureUv;
       #endif
     `)
+    if(weathered)shader.fragmentShader=`varying vec3 masonryWorld;
+      float masonryHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+      float masonryNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(masonryHash(i),masonryHash(i+vec2(1,0)),f.x),mix(masonryHash(i+vec2(0,1)),masonryHash(i+vec2(1,1)),f.x),f.y);}
+      `+shader.fragmentShader.replace('#include <color_fragment>',`
+        #include <color_fragment>
+        ${roof?`
+          float slateWeather=masonryNoise(masonryWorld.xz/11.0)*.7+masonryNoise(masonryWorld.xz/2.7)*.3;
+          diffuseColor.rgb*=mix(.88,1.045,slateWeather);
+          diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(1.035,1.025,.96),smoothstep(.66,.88,slateWeather)*.35);
+        `:`
+          float brickWeather=masonryNoise(vec2((masonryWorld.x+masonryWorld.z)/4.0,masonryWorld.y/9.0));
+          float brickBase=(1.0-smoothstep(.12,1.2,masonryWorld.y))*mix(.45,1.0,brickWeather);
+          diffuseColor.rgb*=mix(.94,1.035,brickWeather)*(1.0-brickBase*.14);
+        `}
+      `)
   }
-  material.customProgramCacheKey = () => `architecture-world-uv-${roof ? 'roof' : 'wall'}-${span}-v2`
+  material.customProgramCacheKey = () => `architecture-world-uv-${roof ? 'roof' : 'wall'}-${span}-${weathered?'weathered':'plain'}-${worldScale}-v3`
 }
 
 /** Varied panes and selective warm rooms use the existing lighting and PBR
@@ -432,6 +463,9 @@ export function createMiniatureMaterials() {
   const slate = new THREE.MeshStandardMaterial({
     color: '#9ca7a5', map: slateMap, bumpMap: slateBump, bumpScale: .035, roughnessMap:slateRoughness, roughness: .98,
   })
+  // Fixed course sizes replace stretched per-box UVs. The same instanced world
+  // coordinates anchor weathering during pans, zooms and day/night changes.
+  architecturalUV(brick,false,4,true);architecturalUV(slate,true,3,true)
   const stucco = new THREE.MeshStandardMaterial({color:'#d4cebc',map:renderMap,bumpMap:renderBump,bumpScale:.018,roughness:.96})
   const seamRoof = new THREE.MeshStandardMaterial({color:'#87938b',map:metalRoofMap,bumpMap:metalRoofBump,bumpScale:.055,roughnessMap:metalRoofRoughness,roughness:.8,metalness:.22})
   const membrane = new THREE.MeshStandardMaterial({color:'#b3b8b2',map:membraneMap,bumpMap:renderBump,bumpScale:.012,roughnessMap:membraneRoughness,roughness:1})

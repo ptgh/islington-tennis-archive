@@ -1,0 +1,24 @@
+.traffic-cameras{position:absolute;right:30px;top:250px;z-index:5}
+.traffic-cameras>.pill{float:right}
+.traffic-cameras:has(.traffic-cameras-panel){z-index:8}
+.traffic-cameras-panel{position:fixed;right:30px;top:142px;width:330px;max-width:calc(100vw - 38px);max-height:calc(100dvh - 250px);overflow:auto;overscroll-behavior:contain;padding:20px;background:var(--paper);border:1px solid #fff9;border-radius:16px;box-shadow:0 12px 40px #18342d30;font-size:11px}
+.traffic-cameras-panel h2{font-size:25px}
+.traffic-cameras-panel p{font-size:11px;line-height:1.65;color:#6c7b67}
+.traffic-cameras-panel label{display:block;margin:16px 0}
+.traffic-cameras-panel select{display:block;width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink)}
+.traffic-camera-image{margin-top:14px}
+/* Preserve TfL's full frame, branding and capture timestamp. Never crop it. */
+.traffic-camera-image img{display:block;width:100%;height:auto;border-radius:4px}
+.traffic-camera-image img[hidden]{display:none}
+.traffic-cameras-panel .text-button{display:block;padding:10px 0;font-size:11px}
+.traffic-cameras-panel a{color:var(--ink)}
+.camera-scope{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:14px 0}
+.camera-scope legend{font-size:10px;color:#6c7b67;padding:0 4px}
+.traffic-cameras-panel .camera-scope label{display:inline-flex;align-items:center;gap:5px;margin:5px 9px 5px 0}
+.camera-search input{display:block;width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink);font:inherit}
+.camera-selected-name{font:19px var(--serif);margin:15px 0 8px}
+.camera-browser{margin:14px 0;padding:10px 0;border-block:1px solid var(--line)}
+.camera-browser summary{cursor:pointer;line-height:1.6;font-weight:500}
+.town-pin--camera .town-pin__number{background:#365467}
+.town-pin--camera-offline .town-pin__number{background:#717973}
+@media(max-width:760px){.traffic-cameras{right:19px;top:273px}.traffic-cameras-panel{right:19px;top:167px;max-height:calc(100dvh - 270px);padding-bottom:calc(20px + env(safe-area-inset-bottom))}}

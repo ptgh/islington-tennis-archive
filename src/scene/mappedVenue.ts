@@ -14,6 +14,7 @@ type Venue = 'wimbledon' | 'queens'
 type Box = (x:number,y:number,z:number,w:number,h:number,d:number,colour:string,shadow?:boolean)=>void
 export type VenuePrimitives = {
   scene: THREE.Scene; finishes: ReturnType<typeof createMiniatureMaterials>; box: Box
+  pathJoin: (x:number,z:number,width:number)=>void
   place: (x:number,z:number,angle:number,scale:number,draw:()=>void)=>void
   tree: (x:number,z:number,size:number,shade:string)=>void
   parkedCar: (colour:string,variation:number)=>void
@@ -62,7 +63,7 @@ const foliage=['#64814a','#769354','#8da260','#a0ad6e','#6d8b4d']
 
 /** Draw mapped ground geometry; architectural decoration deliberately remains a miniature. */
 export function createMappedVenue(id:Venue, api:VenuePrimitives) {
-  const {scene,finishes,box,place,tree,court}=api
+  const {scene,finishes,box,place,tree,court,pathJoin}=api
   const data=geography[id], features=data.features as unknown as Feature[]
   const venue=features.find(f=>id==='queens'?f.id===55149713:f.id===-4268203)!
   const buildings=features.filter(f=>f.tags.building && closed(f.points) && f.tags.building!=='roof')
@@ -121,6 +122,10 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
       if(!path)segment(a,b,width,.065,'#85897e')
       roadSegments.push({a,b,width,path})
     }
+    if(path)for(let i=1;i<f.points.length-1;i++){
+      const a=f.points[i-1],p=f.points[i],b=f.points[i+1],first=Math.hypot(p[0]-a[0],p[1]-a[1]),last=Math.hypot(b[0]-p[0],b[1]-p[1])
+      if(first>.05&&last>.05&&Math.abs((p[0]-a[0])*(b[1]-p[1])-(p[1]-a[1])*(b[0]-p[0]))/(first*last)>.08)pathJoin(p[0],p[1],width+.3)
+    }
   }
   const carriageways=roadSegments.filter(s=>!s.path)
   for(const road of carriageways){
@@ -153,6 +158,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   })
   for(const link of access.links){
     segment(link.points[0],link.points[1],link.width,.04,'#c9c2ad')
+    for(const [x,z] of link.points)pathJoin(x,z,link.width)
     roadSegments.push({a:link.points[0],b:link.points[1],width:link.width,path:true})
   }
   // Mapped garden walls and fences tie the blocks to their actual plots.

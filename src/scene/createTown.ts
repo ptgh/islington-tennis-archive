@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { pedestrianPaths } from './pedestrianPaths'
+import { pedestrianPaths, roundedWalkPath, courtWalkApproaches } from './pedestrianPaths'
 import { routeStreetAroundCourts, routeStreetAroundParks, streetEndConnections, streetBendTriangles, streetCornerFillets, streetCornerBorder, streetCornerEdgeClipper, streetPavementWidth, streetDashPieces, streetEdgePieces, parkAvenuePaths, type StreetSegment, type StreetCorner } from './streetNetwork'
 import { createHighbury } from './createHighbury'
 import { createCourtLighting } from './createCourtLighting'
@@ -9,7 +9,7 @@ import { createGear } from './createGear'
 import { mappedServices } from '../data/hub'
 import { createLandmarks } from './createLandmarks'
 import { places } from '../data/places'
-import { mapStations, tubeConnections } from '../data/transit'
+import { mapStations } from '../data/transit'
 import type { MapVenue, Station, TownWorld } from './types'
 import { createTownLife } from './createTownLife'
 import { createStreetLamps } from './createStreetLamps'
@@ -64,7 +64,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const lane = cloneArchitecturalFinish(finishes.asphalt, '#e8e3d7')
   const pathMaterial = finishes.paving
   const brickPalette = ['#b9997f', '#d1bda4', '#ad816a', '#c6ae91', '#ded2b9', '#b7a68c', '#a77a62', '#d7c9ad']
-  const roofPalette = ['#faf9f5', '#dce0dc', '#e5e5da', '#cbd4d2', '#ebe4d9']
+  // Slate hues rather than near-white instance tints on the shared slate finish.
+  const roofPalette = ['#d8d9d5', '#c7cecc', '#e3e0d5', '#cbd1cf', '#d5d2c8']
   const glassPalette = ['#ecf1e8', '#d5e5e3', '#bfd2d0', '#dae2d8']
   const bodyMaterial = finishes.brick
   const roofMaterial = finishes.slate
@@ -247,9 +248,13 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     if(!road.surveyed)roadSegments.push({a,b,width:road.width,avenue:!!road.avenue})
   }
   for(const road of roads.filter(r=>r.avenue&&!r.bus&&!r.surveyed))for(const park of parks){
-    for(const points of parkAvenuePaths(road.points,{...park,rx:park.rx+1.2,rz:park.rz+1.2},exclusions))for(let i=1;i<points.length;i++){
-      const a=points[i-1],b=points[i]
-      parkPaths.push({x:(a[0]+b[0])/2,y:.045,z:(a[1]+b[1])/2,sx:Math.hypot(b[0]-a[0],b[1]-a[1]),sy:1,sz:1.7,ry:-Math.atan2(b[1]-a[1],b[0]-a[0])})
+    if(park===parks[0])continue // Highbury's authored court-side walk already serves this edge.
+    for(const crossing of parkAvenuePaths(road.points,{...park,rx:park.rx+1.2,rz:park.rz+1.2},exclusions)){
+      const points=roundedWalkPath(crossing.map(([x,z])=>new THREE.Vector3(x,0,z)),exclusions,false,1.7)
+      for(let i=1;i<points.length;i++){
+        const a=points[i-1],b=points[i]
+        parkPaths.push({x:(a.x+b.x)/2,y:.045,z:(a.z+b.z)/2,sx:a.distanceTo(b),sy:1,sz:1.7,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
+      }
     }
   }
   const kerbMaterial = standard('#cfc8b8', { roughness: .92 })
@@ -397,7 +402,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   }
   // A perimeter walk just outside each park edge, where side streets meet it.
   for (const park of parks) {
-    if(park===parks[1]||park===parks[2])continue // The walking loops below draw this same perimeter once.
+    if(park===parks[0]||park===parks[1]||park===parks[2])continue // The walking loops below draw these perimeters once.
     const steps = Math.ceil((park.rx + park.rz) * Math.PI / 3)
     for (let i = 0; i < steps; i++) {
       const a0 = i / steps * Math.PI * 2, a1 = (i + 1) / steps * Math.PI * 2
@@ -422,9 +427,9 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       return length<.35?[]:[{...path,x:(a[0]+b[0])/2,z:(a[1]+b[1])/2,sx:length}]
     })
   })
-  const parkWalkMaterial=cloneArchitecturalFinish(finishes.parkPath,'#c0bca8')
-  const walkPlane=new THREE.PlaneGeometry(1,1);walkPlane.rotateX(-Math.PI/2)
-  const walkCap=new THREE.CircleGeometry(.5,12);walkCap.rotateX(-Math.PI/2)
+  const parkWalkMaterial=cloneArchitecturalFinish(finishes.parkPath,'#b7b49e')
+  const walkPlane=new THREE.PlaneGeometry(1,1);walkPlane.rotateX(-Math.PI/2);walkPlane.name='Park path strips'
+  const walkCap=new THREE.CircleGeometry(.5,12);walkCap.rotateX(-Math.PI/2);walkCap.name='Park path joins'
   const drawParkPaths=(paths:Instance[])=>{
     const clear=clearPathPavements(paths),caps=new Map<string,Instance>()
     for(const path of clear)for(const sign of [-1,1]){
@@ -602,11 +607,22 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
 
   const gardenRnd = random(2718)
   const highburyLoop: Point[] = [[68,-90],[92,-106],[130,-91],[150,-61],[152,-21],[130,20],[108,25],[72,27],[64,3],[64,-38]]
-  const parkWalkLoops: Point[][] = [highburyLoop, ...parks.slice(1,3).map(park =>
+  const parkWalkLoops: Point[][] = parks.slice(0,3).map((park,index) =>
     Array.from({length:64},(_,i): Point => {
       const angle=i/64*Math.PI*2
-      return [park.x+Math.cos(angle)*(park.rx+1.2),park.z+Math.sin(angle)*(park.rz+1.2)]
-    }))]
+      const margin=index===0?-3:1.2
+      return [park.x+Math.cos(angle)*(park.rx+margin),park.z+Math.sin(angle)*(park.rz+margin)]
+    }))
+  const walkPaths=parkWalkLoops.map(loop=>roundedWalkPath(loop.map(([x,z])=>new THREE.Vector3(x,.2,z)),exclusions))
+  const courtApproaches=[[-Infinity,-45],[-45,-20],[-20,0],[0,Infinity]].flatMap(([low,high])=>{
+    const targets=renderedHighburyCourts.filter(c=>c.z>=low&&c.z<high).flatMap(c=>[
+      ...[-1,1].map(side=>new THREE.Vector3(c.x+side*(c.width*.75+1.5)*Math.cos(c.rotation),.2,c.z-side*(c.width*.75+1.5)*Math.sin(c.rotation))),
+      ...[-1,1].map(side=>new THREE.Vector3(c.x+side*(c.depth*.68+1.5)*Math.sin(c.rotation),.2,c.z+side*(c.depth*.68+1.5)*Math.cos(c.rotation))),
+    ])
+    const closest=courtWalkApproaches(walkPaths[0],targets,exclusions).sort(([a,b],[c,d])=>a.distanceToSquared(b)-c.distanceToSquared(d))[0]
+    return closest?[closest]:[]
+  })
+  const highburyWalkSegments=[...walkPaths[0].map((a,i)=>[a,walkPaths[0][(i+1)%walkPaths[0].length]]),...courtApproaches].map(([a,b])=>({a:[a.x,a.z] as Point,b:[b.x,b.z] as Point}))
   const gardenTrees: { x: number; z: number }[] = []
   for (const segment of roadSegments) {
     const dx = segment.b[0] - segment.a[0], dz = segment.b[1] - segment.a[1]
@@ -700,7 +716,8 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
     }
     // Consume the same random values, then omit only trees blocking a newly
     // connected carriageway. Other park trees retain their original positions.
-    if(carriageways.some(road=>distanceToSegment(x,z,road.a,road.b)<road.width/2+.4)){
+    const onParkWalk=Math.abs(x-HIGHBURY_PARK.x)<HIGHBURY_PARK.rx&&Math.abs(z-HIGHBURY_PARK.z)<HIGHBURY_PARK.rz&&highburyWalkSegments.some(path=>distanceToSegment(x,z,path.a,path.b)<.9)
+    if(onParkWalk||carriageways.some(road=>distanceToSegment(x,z,road.a,road.b)<road.width/2+.4)){
       treeTrunks.length=startTrunks;treeCrowns.length=startCrowns;treeBranches.length=startBranches
     }
   }
@@ -1000,11 +1017,9 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const gear=createGear(geoPosition,exclusions);root.add(gear.root)
 
   const stations: Station[] = mapStations.map(s=>({name:s.name,position:geoPosition(s.lat,s.lng).setY(6),lines:s.lines}))
-  const transit = new THREE.Group(); root.add(transit)
-  for (const route of tubeConnections) {
-    const points=route.stops.map(name=>stations.find(s=>s.name===name)!.position.clone().setY(.6))
-    transit.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineDashedMaterial({color:route.color,dashSize:3,gapSize:2,transparent:true,opacity:.7})).computeLineDistances())
-  }
+  // Station markers provide orientation; schematic Tube connections belong in
+  // Places, rather than looking like unexplained tracks across the lawns.
+  const transit = new THREE.Group();transit.name='Stations';root.add(transit)
   const stationBrick = cloneWorldArchitecturalFinish(finishes.brick,'#b27e5d')
   const stationArch=archedOpeningGeometry(),stationFrames:Instance[]=[],stationGlass:Instance[]=[],stationTrim:Instance[]=[],stationDoors:Instance[]=[],stationRoof:Instance[]=[]
   for (const station of stations) {
@@ -1132,12 +1147,12 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
   const train=createMiniatureTrain();railway.add(train.root)
   const carriages=train.carriages
   const trackLength = track.getLength()
-  const walkPaths=parkWalkLoops.map(loop=>loop.map(([x,z])=>new THREE.Vector3(x,.2,z)));
   const walkPieces:Instance[]=[]
   for(const source of walkPaths)for(const {points} of pedestrianPaths(source,exclusions))for(let i=1;i<points.length;i++){
     const a=points[i-1],b=points[i]
     walkPieces.push({x:(a.x+b.x)/2,y:.07,z:(a.z+b.z)/2,sx:a.distanceTo(b)+.2,sy:.06,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
   }
+  for(const [a,b] of courtApproaches)walkPieces.push({x:(a.x+b.x)/2,y:.045,z:(a.z+b.z)/2,sx:a.distanceTo(b),sy:1,sz:1.4,ry:-Math.atan2(b.z-a.z,b.x-a.x)})
   drawParkPaths(walkPieces)
   const life=createTownLife(animatedCourts,walkPaths,geoPosition,exclusions)
   root.add(life.root)

@@ -113,7 +113,7 @@ export function addSkyEnvironment(renderer: THREE.WebGLRenderer, scene: THREE.Sc
  * gentle split-tone grading, soft vignette and fine grain to break up
  * flat computer-graphics fills. Runs once per frame on the final image.
  */
-export const LENS_FINISH = { focus: .5, band: .22, blur: 3.2, vignette: .28, contrast: 1.06, saturation: SCENE_GRADE.day.saturation, grain: .018 }
+export const LENS_FINISH = { focus: .5, band: .36, blur: 1.4, vignette: .2, contrast: 1.04, saturation: SCENE_GRADE.day.saturation, grain: .008 }
 
 export function applyViewFocus(lens: Record<string, THREE.IUniform>, sharp: boolean) {
   lens.band.value = sharp ? .55 : LENS_FINISH.band
