@@ -3,13 +3,35 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import * as THREE from 'three'
-import { boroughGeography, boroughBounds, boroughCourts, courtsNearVenue, buildingHeight, type BoroughCell } from '../scene/boroughGeometry.ts'
+import { boroughGeography, boroughBounds, boroughCourts, courtsNearVenue, boroughCourtDimensions, buildingHeight, type BoroughCell } from '../scene/boroughGeometry.ts'
 import { projectPoint } from '../scene/courtGeometry.ts'
 import { createBoroughMaterials, createBoroughTile } from '../scene/createBoroughTile.ts'
 import { createIslington } from '../scene/createIslington.ts'
 import { venues } from './venues.ts'
+import { places } from './places.ts'
 
 const dir=path.resolve('public')
+test('Tufnell run-off polygons retain their footprint around regulation-sized playing rectangles',()=>{
+ const venue=venues.find(v=>v.id==='tufnell-park')!,courts=courtsNearVenue(venue.lat,venue.lng)
+ assert.equal(courts.length,2)
+ for(const court of courts){const dimensions=boroughCourtDimensions(court)
+  assert.equal(dimensions.w,10.97);assert.equal(dimensions.d,23.77)
+  assert.equal(dimensions.ow,court.width*10);assert.equal(dimensions.od,court.depth*10)
+  assert.ok(dimensions.ow>dimensions.w&&dimensions.od>dimensions.d)
+ }
+ const ordinary=boroughCourtDimensions({width:1.097,depth:2.377})
+ assert.ok(Math.abs(ordinary.w-10.97)<1e-9&&Math.abs(ordinary.d-23.77)<1e-9)
+ assert.ok(ordinary.ow>ordinary.w&&ordinary.od>ordinary.d)
+})
+test('close-up landmark anchors fall inside their stored source building footprint bounds',()=>{
+ for(const [id,way] of [['union-chapel',27815160],['clock-tower',37371124],['estorick',230253685]] as const){
+  const place=places.find(p=>p.id===id)!,[x,z]=projectPoint(place.lng,place.lat)
+  const buildings=boroughGeography.cells.flatMap(cell=>(JSON.parse(fs.readFileSync(path.join(dir,cell.url),'utf8')) as BoroughCell).buildings)
+  const points=buildings.find(b=>b.id===way)!.points
+  assert.ok(x>=Math.min(...points.map(p=>p[0]))&&x<=Math.max(...points.map(p=>p[0])),id)
+  assert.ok(z>=Math.min(...points.map(p=>p[1]))&&z<=Math.max(...points.map(p=>p[1])),id)
+ }
+})
 test('borough window clones retain pane detail and light selected rooms without recolouring every window',()=>{
  const materials=createBoroughMaterials()
  try{

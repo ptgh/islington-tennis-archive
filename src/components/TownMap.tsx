@@ -32,7 +32,7 @@ export interface TownMapHandle {
   reset: () => void
   rotate: () => void
   visitCourt: (id: string) => void
-  locate: (lat: number, lng: number) => void
+  locate: (lat: number, lng: number, zoom?: number) => void
   visitVan: () => void
   followRoute: (id: string) => void
 }
@@ -110,7 +110,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   const [moving, setMoving] = useState(false)
 
   useImperativeHandle(forwardedRef, () => ({
-    visitVan(){const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),9);},
+    visitVan(){const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),55);},
     zoomIn() {
       const engine = engineRef.current
       if (!engine) return
@@ -129,7 +129,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     },
     reset() { engineRef.current?.reset() },
     visitCourt(id) { engineRef.current?.visitCourt(id) },
-    locate(lat,lng) { engineRef.current?.travel(geoPosition(lat,lng),2.8) },
+    locate(lat,lng,zoom=18) { engineRef.current?.travel(geoPosition(lat,lng),zoom) },
     followRoute(id) {
       const route=busRoutes.find(r=>r.id===id)
       if(!route)return
@@ -262,7 +262,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const panel=host.parentElement?.querySelector('.directory-panel')?.getBoundingClientRect()
       const panelVisible=!!panel&&!host.parentElement?.classList.contains('panel-closed')&&panel.top<bounds.bottom-5&&!runtimeRef.current.activeVisitId
       const left=!mobile&&panelVisible?panel!.right-bounds.left+28:24
-      const right=width-(mobile?65:96)
+      const places=host.parentElement?.querySelector('.places-panel')?.getBoundingClientRect()
+      const right=places&&!mobile?Math.min(width-96,places.left-bounds.left-24):width-(mobile?65:96)
       const top=mobile?156:112
       const bottom=mobile&&panelVisible?panel!.top-bounds.top-28:height-180
       return {left,right,top,bottom:Math.max(top+100,bottom)}
@@ -597,7 +598,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
             <span className="town-station__roundel" aria-hidden="true" /><span hidden={!showTransit}>{name}</span>
           </div>
         ))}
-        <button className="town-pin town-pin--shop" ref={vanRef} style={{display:'none'}} aria-label="Sweet Spot Stringer van. Follow the miniature" onClick={()=>{onSelectService('sweet-spot-stringer');const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),9);}}><span className="town-pin__number"><Icon name="bus" size={17}/></span><span className="town-pin__label">Sweet Spot Stringer<span>Follow the miniature van</span></span></button>
+        <button className="town-pin town-pin--shop" ref={vanRef} style={{display:'none'}} aria-label="Sweet Spot Stringer van. Follow the miniature" onClick={()=>{onSelectService('sweet-spot-stringer');const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),55);}}><span className="town-pin__number"><Icon name="bus" size={17}/></span><span className="town-pin__label">Sweet Spot Stringer<span>Follow the miniature van</span></span></button>
         {mappedServices.map(service=><button className={`town-pin town-pin--shop${selectedServiceId===service.id?' town-pin--selected':''}`} key={service.id} ref={element=>{if(element)shopRefs.current.set(service.id,element);else shopRefs.current.delete(service.id)}} style={{display:'none'}} aria-label={`${service.name}. Show shop details`} onClick={()=>onSelectService(service.id)}><span className="town-pin__number"><Icon name="bag" size={16}/></span><span className="town-pin__label">{service.name}</span></button>)}
       </div>
       {mapStatus&&<div className="map-stream-status" role="status">{mapStatus}{mapStatus.startsWith('Some')&&<button onClick={()=>{engineRef.current?.world.retry();engineRef.current?.frame()}}>Retry</button>}</div>}

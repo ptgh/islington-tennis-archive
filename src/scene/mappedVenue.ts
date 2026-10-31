@@ -6,6 +6,7 @@ import geography from '../data/iconic-geography.json' with { type: 'json' }
 import { cloneArchitecturalFinish } from './miniatureMaterials.ts'
 import type { createMiniatureMaterials } from './miniatureMaterials'
 import { createFootprintRoof } from './footprintRoof.ts'
+import { mappedRailwayParts } from './mappedRailway.ts'
 import { clubCourtSurface, type ClubCourtSurface } from './clubSurfaces.ts'
 
 type Point = number[]
@@ -111,6 +112,12 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     else if(f.tags.natural==='water')shape(f.points,-.10,'#7d9e9a')
   }
   for(const outline of outlines)if(outline.length)shape(outline,-.14,id==='wimbledon'?'#cfd0c8':'#a1b180',id==='wimbledon'?'paving':'grass')
+  // Sourced surface tracks only; the stored extract omits tunnels. Rail height
+  // remains illustrative at ground level, as documented by the geography.
+  const railway=mappedRailwayParts(data.railways)
+  for(const part of railway.ballast)place(part.x,part.z,part.angle,1,()=>box(0,-.035,0,part.length,.28,3.4,'#a4a191',false))
+  for(const part of railway.sleepers)place(part.x,part.z,part.angle,1,()=>box(0,.135,0,.23,.12,2.6,'#746b51',false))
+  for(const part of railway.rails)place(part.x,part.z,part.angle,1,()=>box(0,.255,0,part.length,.13,.075,'#3f5b49',false))
   const roadSegments:{a:Point;b:Point;width:number;path:boolean}[]=[]
   for(const f of roads) {
     if(f.tags.area==='yes') { shape(f.points,.01,'#c7c5b0','paving'); continue }
@@ -375,7 +382,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dz)
   }
   const stadiums=features.filter(f=>f.tags.leisure==='stadium' && closed(f.points))
-  const blocked=(p:Point,r:number)=>stadiums.some(f=>inside(p,f.points)) || buildings.some(b=>inside(p,b.points)||b.points.some((a,i)=>i>0&&distance(p,b.points[i-1],a)<r)) || pitches.some(f=>inside(p,f.points)||f.points.some((a,i)=>i>0&&distance(p,f.points[i-1],a)<r+3)) || roadSegments.some(s=>distance(p,s.a,s.b)<s.width/2+r)
+  const blocked=(p:Point,r:number)=>stadiums.some(f=>inside(p,f.points)) || buildings.some(b=>inside(p,b.points)||b.points.some((a,i)=>i>0&&distance(p,b.points[i-1],a)<r)) || pitches.some(f=>inside(p,f.points)||f.points.some((a,i)=>i>0&&distance(p,f.points[i-1],a)<r+3)) || roadSegments.some(s=>distance(p,s.a,s.b)<s.width/2+r) || data.railways.some(way=>way.points.some((b,i)=>i>0&&distance(p,way.points[i-1],b)<1.7+r))
   const trees:Point[]=[]
   const plant=(p:Point,size:number,seed:number)=>{
     if(trees.some(t=>Math.hypot(p[0]-t[0],p[1]-t[1])<4.2))return

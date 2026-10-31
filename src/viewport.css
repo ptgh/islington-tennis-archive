@@ -2,7 +2,7 @@
 html,body,#root{width:100%;height:100%;overflow:hidden}
 .app{position:absolute;left:var(--app-visible-left,0px);top:var(--app-visible-top,0px);width:var(--app-visible-width,100%);height:var(--app-visible-height,100dvh);min-height:0}
 /* A single sheet scroll surface includes filters, every result and final actions. */
-.app .directory-panel{display:block;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;min-height:0;scrollbar-width:thin}
+.app .directory-panel{display:block;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;min-height:0;scrollbar-width:none}
 .app .directory-panel .court-list,.app .directory-panel .court-detail,.app .directory-panel .detail-scroll{overflow:visible;min-height:0}
 .app .directory-panel .court-detail{display:block}
 .app .directory-panel .detail-actions{position:relative}
@@ -10,7 +10,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}
 .about-dialog,.tennis-atlas,.tennis-atlas.is-court-view{position:fixed;left:calc(var(--app-visible-left,0px) + var(--app-visible-width,100vw)/2);top:calc(var(--app-visible-top,0px) + var(--app-visible-height,100dvh)/2);transform:translate(-50%,-50%);margin:0;max-width:calc(var(--app-visible-width,100vw) - 24px);max-height:calc(var(--app-visible-height,100dvh) - 24px)}
 @media(min-width:761px){
  .app:has(.hub-navigation) .directory-panel:not(.has-detail){max-height:min(720px,calc(var(--app-visible-height,100dvh) - 185px));width:min(390px,calc(var(--app-visible-width,100vw) - 60px))}
- .app .directory-panel.has-detail{max-height:calc(var(--app-visible-height,100dvh) - 145px);width:min(390px,calc(var(--app-visible-width,100vw) - 60px))}
+ .app .directory-panel.has-detail{max-height:calc(var(--app-visible-height,100dvh) - 210px);width:min(390px,calc(var(--app-visible-width,100vw) - 60px))}
  .app .map-coverage-note{width:min(620px,calc(var(--app-visible-width,100vw) - 470px))}
 }
 @media(max-width:760px){
@@ -20,3 +20,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}
  .app.panel-open:has(.has-detail) .mobile-panel-toggle{bottom:calc(var(--app-visible-height,100dvh)*.62 + 14px)}
  .app .map-coverage-note{width:calc(var(--app-visible-width,100vw) - 100px)}
 }
+
+/* Hide scrollbar chrome while preserving wheel, touch and keyboard scrolling. */
+.app,.app *,dialog,dialog *,.select-field__menu{scrollbar-width:none!important}
+.app ::-webkit-scrollbar,dialog::-webkit-scrollbar,dialog ::-webkit-scrollbar,.select-field__menu::-webkit-scrollbar{display:none;width:0;height:0}

@@ -16,6 +16,12 @@ export const boroughCourts=geography.courts.map(court=>{
 /** Association only affects framing; it never substitutes operator court counts.
  * School/club/park venue pins may be published general locations rather than gates. */
 export function courtsNearVenue(lat:number,lng:number){const [x,z]=projectPoint(lng,lat);return boroughCourts.filter(c=>Math.hypot(c.x-x,c.z-z)<22)}
+/** Some source polygons include run-off (not just the white-line rectangle). */
+export function boroughCourtDimensions(c:{width:number;depth:number}){
+ const sourceW=c.width*10,sourceD=c.depth*10,enclosure=sourceW>13&&sourceD>28
+ const w=enclosure?10.97:sourceW,d=enclosure?23.77:sourceD
+ return {w,d,ow:enclosure?sourceW:w*1.45,od:enclosure?sourceD:d*1.32}
+}
 export function buildingHeight(tags:Record<string,string>={}) {
  const height=Number.parseFloat(tags.height??''),levels=Number.parseFloat(tags['building:levels']??'')
  return Math.max(.22,Math.min(9,Number.isFinite(height)&&height>0?height*.1:Number.isFinite(levels)&&levels>0?levels*.3:['garage','garages','shed','outbuilding'].includes(tags.building)?.28:['industrial','warehouse','sports_centre'].includes(tags.building)?1:tags.building==='apartments'?1.5:.95))

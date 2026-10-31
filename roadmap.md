@@ -13,7 +13,7 @@
 - [x] Club grounds and roofs without moving any footprint: Wimbledon's grounds are stone rather than sand, in-venue flat roofs are pale panelled membrane instead of dark slate courses, and pitched roofs are a mid slate grey. Before/after: docs/verification/clubs-before-after-2026-10-10.png.
 - [x] First visit opens in clear weather; the rain animation is opt-in from Forecast.
 - [x] Extend matching building/tree detail radii to Tufnell Park, Rosemary Gardens, Islington Tennis Centre and Spa Fields, and railway detail along the existing town track; enrich Wimbledon and Queen’s buildings/trees (independent WebGL renders verified; 42 tests pass).
-- [ ] Add railway surroundings to Wimbledon and Queen’s — requires sourced railway geometry; neither club scene has an existing track, so none was invented.
+- [x] Render railway surroundings from the cached OSM club extract: nine Wimbledon ways and two Queen’s ways, with ballast, standard-gauge rails and continuously spaced sleepers. Source centrelines remain unchanged; elevations and surface detail are illustrative. Both club renders, shared-canvas revisits and returns verified.
 - [x] Make partner finding prominent, link My frame to player cards, and separate editing court preferences from browsing players.
 - [x] Explain photo URLs versus local files, locate the Mac source folder, and distinguish local DNS failure from public GitHub 404.
 - [x] Recover and host the exact T2000 and SW102 photographs; verify photo delivery and racquet navigation.
@@ -22,9 +22,9 @@
 - [x] Assess aerial reference: matching its realism requires richer building, foliage and railway geometry beyond renderer settings.
 - [x] Focus the first detailed scene upgrade on Highbury Fields: local facade relief, bay windows, railings, branches and varied tree silhouettes in existing instance batches.
 - [x] Add railway masonry, parapets, coping stones, ballast and trackside vegetation; extend detailed buildings and trees around other courts without changing venue locations (42 tests pass).
-- [ ] Validate Highbury's visual result on working WebGL hardware; sandbox map rendering stalls, so reference-level realism remains unverified.
+- [x] Validate Highbury on working Chrome WebGL: full mapped scenes now render and desktop/mobile journeys have been visually checked. Further art direction toward the reference remains ongoing.
 - [x] Improve desktop contact shading and texture clarity without changing map geometry; all 42 tests pass.
-- [ ] Visually verify improved 3D map detail — sandbox WebGL stalls; navigation and phone layouts verified with WebGL disabled.
+- [x] Visually verify improved 3D map detail in full Chrome WebGL renders, including court close-ups and desktop/mobile navigation.
 - [x] Make the mobile Play together sheet scroll as a whole, keeping filters, sessions and detail actions reachable.
 - [x] Share mobile scrolling across Courts and Coaching, add bottom spacing, and replace the map overlay attribution with access to required credits.
 - [x] Replace the weather attribution's emoji arrow with the app's external-link icon.
@@ -38,7 +38,7 @@
 - [x] UTR application answers drafted
 - [x] Submit UTR application — sent by the user; integration awaits UTR approval.
 - [x] Upgrade Wimbledon and Queen’s with footprint-preserving pitched terrace roofs, facade bands/window relief, textured architectural surfaces, denser layered planting, woven nets and clearer daylight; all 61 tests pass and preview compilation succeeds.
-- [ ] Confirm Wimbledon and Queen’s visual parity against the reference — actual isolated club views still stall sandbox screenshots, including a smaller paused Queen’s view; needs hardware WebGL preview confirmation.
+- [ ] Continue Wimbledon and Queen’s art direction toward the reference. Full club scenes now render successfully in Chrome, including mobile and 125-percent pinch-zoom dialogs; photographic parity has not been claimed.
 - [ ] Phase 4: in-app booking — waiting on a provider agreeing to give access
 - [x] Add photographic club court surfaces, subtle baseline/runoff wear, weathered concrete surrounds and chain-link fencing without changing mapped court locations or known surface types; nine hosted PBR maps verified in browser, upload errors corrected, 63 tests pass. Full-scene parity remains subject to the hardware WebGL check above.
 
@@ -53,3 +53,5 @@
 - [x] Fix desktop court-sheet scrolling, fit floating cards and Explore map controls to the visible viewport (including pinch zoom), and correct accelerating Stringer movement by passing a frame delta. Shared metre-scaled grass grain, dry variation and fine relief apply to Islington, Wimbledon and Queen’s. Browser QA covers desktop, mobile, 125 percent pinch zoom, both London clubs and returns; physical Safari remains untested.
 
 - [x] Release verification: 161 tests and production build pass; all 300 geographic cells (53,735 source/context buildings) generate finite geometry. Desktop/mobile journeys retain one map; source-cell failure/retry recovers without dropping the continuous base. Expanded Wimbledon/Queen’s dialogs fit the mobile and 125-percent pinch-zoom visual viewports.
+
+- [x] Refine Tufnell court run-off versus playing dimensions, net sag/tape and shared fencing; keep bottom transport controls clear of detail sheets and hide scrollbar chrome while retaining scrolling. Landmarks use stored building anchors and closer framing; Stringer selection frames the van closely without changing its bounded movement. The guide scene knowledge was regenerated after anchor corrections. 169 tests and the production build pass; desktop, short-window, mobile and club pinch-zoom checks report no page errors. Physical iPhone/Safari performance and provider-approved booking remain unverified dependencies.

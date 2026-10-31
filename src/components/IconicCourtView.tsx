@@ -89,7 +89,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   const material = (colour: string) => {
     let value = materials.get(colour)
     if (!value) {
-      const base = grassColours.has(colour) ? finishes.parkGrass : colour === '#c9c2ad' ? finishes.parkPath : colour === '#ccc5b0' ? finishes.paving : [...pavingColours, '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? surfaces.concrete : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#746b51' ? finishes.timber : colour === '#3f5b49' ? surfaces.steel : null
+      const base = grassColours.has(colour) ? finishes.parkGrass : colour === '#c9c2ad' ? finishes.parkPath : colour === '#ccc5b0' ? finishes.paving : [...pavingColours, '#ded6c4', '#c2baa6', '#d8ddd7', '#e4e5d4'].includes(colour) ? surfaces.concrete : ['#a9775a', '#986b55', '#ad866b', '#aa7c60', '#ad7759', '#b39a79'].includes(colour) ? finishes.brick : ['#3d5143', '#4d5e56', '#66736c', '#52625c', '#727d73', '#5c6964'].includes(colour) ? finishes.slate : colour === '#85897e' ? finishes.asphalt : colour === '#a4a191' ? finishes.ballast : colour === '#746b51' ? finishes.timber : colour === '#3f5b49' ? surfaces.steel : null
       value = colour === '#456b63' ? cloneArchitecturalFinish(finishes.glazing, colour) : base ? (base === finishes.paving || base === finishes.asphalt || base === finishes.parkPath ? cloneArchitecturalFinish(base, colour) : base.clone()) : new THREE.MeshStandardMaterial({ roughness: .9 })
       value.color.set(colour)
       if (colour === '#50686a') { value.roughness = .3; value.metalness = .08; value.envMapIntensity = .8 }
@@ -437,6 +437,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
       const geometries = new Set<THREE.BufferGeometry>([courtNets.net,courtNets.tape]), usedMaterials = new Set<THREE.Material>()
       scene.traverse(object => {
         if (object instanceof THREE.Mesh) {
+          if (object instanceof THREE.InstancedMesh) object.dispose()
           geometries.add(object.geometry)
           const mats = Array.isArray(object.material) ? object.material : [object.material]
           mats.forEach(mat => usedMaterials.add(mat))

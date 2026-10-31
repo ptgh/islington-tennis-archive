@@ -69,9 +69,9 @@ export default function App() {
   const [playFocusId,setPlayFocusId]=useState<string|null>(null);
   const [visitId,setVisitId]=useState<string|null>(null);
   const [mappedOverview,setMappedOverview]=useState(false);
-  const [locationTarget,setLocationTarget]=useState<{lat:number;lng:number}|null>(null);
-  function locateMap(lat:number,lng:number){setLocationTarget({lat,lng});}
-  useEffect(()=>{if(locationTarget){map.current?.locate(locationTarget.lat,locationTarget.lng);setLocationTarget(null);}},[locationTarget]);
+  const [locationTarget,setLocationTarget]=useState<{lat:number;lng:number;zoom?:number}|null>(null);
+  function locateMap(lat:number,lng:number,zoom?:number){setLocationTarget({lat,lng,zoom});}
+  useEffect(()=>{if(locationTarget){map.current?.locate(locationTarget.lat,locationTarget.lng,locationTarget.zoom);setLocationTarget(null);}},[locationTarget]);
   function openMappedHighbury(){setMappedOverview(false);setVisitId(null);setPracticeOpen(false);setCard(null);restoreSheet.current=false;setPanelOpen(false);map.current?.visitCourt('highbury-fields');}
   const [practiceOpen,setPracticeOpen]=useState(false);
   const [manualNight,setNight]=useState(false);
@@ -182,7 +182,7 @@ export default function App() {
   return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} ${card?'card-open':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
     <TownMap mappedOverview={mappedOverview} cameras={cameraPins} showCameras={card==='cameras'} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
-    <div className="map-vignette"/><Weather onWeather={changeWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onLocate={(lat,lng)=>{restoreSheet.current=false;setPanelOpen(false);setStations(true);locateMap(lat,lng);}}/>
+    <div className="map-vignette"/><Weather onWeather={changeWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onLocate={(lat,lng,zoom)=>{restoreSheet.current=false;setPanelOpen(false);if(isMobile)setCard(null);setStations(true);locateMap(lat,lng,zoom);}}/>
     <TrafficCameras directory={cameraDirectory} {...cardProps('cameras')} selectedId={cameraId} onSelect={selectCamera}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
     <button className="pill ask-launch" onClick={()=>{if(askHash===undefined)window.location.hash='#/ask';setAskMinimized(false);}} aria-haspopup="dialog" aria-expanded={askHash!==undefined&&!askMinimized} aria-controls={askHash!==undefined?'ask-guide':undefined}>Ask</button>
