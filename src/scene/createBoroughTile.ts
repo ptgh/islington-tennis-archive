@@ -10,7 +10,8 @@ export function createBoroughMaterials() {
  const brick=['#b9997f','#d1bda4','#ad816a','#c6ae91','#ded2b9','#b7a68c'].map(c=>cloneWorldArchitecturalFinish(finishes.brick,c,false,.1))
  const roofs=['#7d8881','#90998c','#7d8d89','#9ba093'].map(c=>cloneWorldArchitecturalFinish(finishes.slate,c,true,.1))
  const plain=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.94})
- const glass=cloneWorldArchitecturalFinish(finishes.glazing,'#46665e',false,.1)
+ // Preserve the metre-calibrated pane/curtain shader on the shared glass.
+ const glass=cloneArchitecturalFinish(finishes.glazing,'#46665e')
  // Ground finishes already use horizontal UVs at borough scale; retain their
  // shared wetness uniform and path margins instead of replacing the shader.
  const paving=cloneArchitecturalFinish(finishes.paving,'#c6bfab')
@@ -19,7 +20,7 @@ export function createBoroughMaterials() {
  const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4'),water=plain('#779c97')
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
  return {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle,
- setNight(night:boolean){glass.emissiveIntensity=night?.65:0;glass.color.set(night?'#e0bd7d':'#46665e')},
+ setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
  dispose(){[...brick,...roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>

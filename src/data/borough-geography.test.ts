@@ -10,6 +10,20 @@ import { createIslington } from '../scene/createIslington.ts'
 import { venues } from './venues.ts'
 
 const dir=path.resolve('public')
+test('borough window clones retain pane detail and light selected rooms without recolouring every window',()=>{
+ const materials=createBoroughMaterials()
+ try{
+  assert.equal(materials.glass.onBeforeCompile,materials.finishes.glazing.onBeforeCompile)
+  const color=materials.glass.color.getHex(),shader={vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader,uniforms:{}}
+  materials.glass.onBeforeCompile(shader as Parameters<typeof materials.glass.onBeforeCompile>[0],{} as THREE.WebGLRenderer)
+  assert.match(shader.fragmentShader,/totalEmissiveRadiance \*= mix\(.055, 1.0, occupied\)/,'room occupancy modulates the evening light')
+  materials.setNight(true)
+  assert.equal(materials.glass.emissiveIntensity,.65)
+  assert.equal(materials.glass.color.getHex(),color,'unlit panes retain their daytime glass finish')
+  materials.setNight(false)
+  assert.equal(materials.glass.emissiveIntensity,0)
+ }finally{materials.dispose()}
+})
 test('borough ground keeps horizontal texture projection and shared weather after cloning',()=>{
  const materials=createBoroughMaterials()
  try{

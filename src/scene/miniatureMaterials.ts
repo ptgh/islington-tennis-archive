@@ -97,7 +97,7 @@ function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, sp
 
 /** Varied panes and selective warm rooms use the existing lighting and PBR
  * environment. No interior geometry, extra pass, or per-frame uniforms. */
-function architecturalGlass(material: THREE.MeshStandardMaterial) {
+function architecturalGlass(material: THREE.MeshStandardMaterial, worldScale = 1) {
   material.onBeforeCompile = shader => {
     shader.vertexShader = 'varying vec3 glassWorld; varying vec3 glassOrigin; varying vec2 glassPanel; varying vec2 glassSpan; varying float glassVertical;\n' + shader.vertexShader.replace('#include <begin_vertex>', `
       #include <begin_vertex>
@@ -105,9 +105,11 @@ function architecturalGlass(material: THREE.MeshStandardMaterial) {
       #ifdef USE_INSTANCING
         glassModel *= instanceMatrix;
       #endif
-      glassWorld = (glassModel * vec4(transformed, 1.0)).xyz;
-      glassOrigin = glassModel[3].xyz;
-      vec3 glassSize = vec3(length(glassModel[0].xyz), length(glassModel[1].xyz), length(glassModel[2].xyz));
+      // Pane spacing, reflection height and room variation use metres in both
+      // the scaled borough and the metre-based club worlds.
+      glassWorld = (glassModel * vec4(transformed, 1.0)).xyz / ${worldScale.toFixed(3)};
+      glassOrigin = glassModel[3].xyz / ${worldScale.toFixed(3)};
+      vec3 glassSize = vec3(length(glassModel[0].xyz), length(glassModel[1].xyz), length(glassModel[2].xyz)) / ${worldScale.toFixed(3)};
       // Project onto the actual face: upright windows use their height, while
       // horizontal rooflights retain a clear sky-facing surface.
       if (abs(normal.y) > .5) glassSpan = glassSize.xz;
@@ -138,7 +140,7 @@ function architecturalGlass(material: THREE.MeshStandardMaterial) {
         totalEmissiveRadiance *= mix(.055, 1.0, occupied) * (1.0-curtain*.65);
       `)
   }
-  material.customProgramCacheKey = () => 'architecture-glass-v2'
+  material.customProgramCacheKey = () => `architecture-glass-v3-${worldScale}`
 }
 
 function surface(size: number, pixel: (x: number, y: number) => Pixel, color = true) {
@@ -496,7 +498,7 @@ export function createMiniatureMaterials(worldScale=1) {
     material.customProgramCacheKey=()=>`${key}-building-weather-v1`
   }
   const glazing = new THREE.MeshStandardMaterial({color:'#456b63',roughness:.25,metalness:.12,envMapIntensity:1.1,emissive:'#f2bf6d',emissiveIntensity:0})
-  architecturalGlass(glazing)
+  architecturalGlass(glazing, worldScale)
   const grass = new THREE.MeshStandardMaterial({ color: '#94ae7e', map: grassMap, bumpMap: grassBump, bumpScale: .035*worldScale, roughness: 1 })
   const parkGrass = new THREE.MeshStandardMaterial({ color: '#a1b981', map: parkMap, bumpMap: parkBump, bumpScale: .035*worldScale, roughness: 1 })
   // World-space mottling: broad sunlit and shaded patches plus drier, warmer
