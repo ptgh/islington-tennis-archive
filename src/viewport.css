@@ -1,0 +1,22 @@
+/* The visible viewport can be smaller than the CSS layout viewport when zoomed. */
+html,body,#root{width:100%;height:100%;overflow:hidden}
+.app{position:absolute;left:var(--app-visible-left,0px);top:var(--app-visible-top,0px);width:var(--app-visible-width,100%);height:var(--app-visible-height,100dvh);min-height:0}
+/* A single sheet scroll surface includes filters, every result and final actions. */
+.app .directory-panel{display:block;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;min-height:0;scrollbar-width:thin}
+.app .directory-panel .court-list,.app .directory-panel .court-detail,.app .directory-panel .detail-scroll{overflow:visible;min-height:0}
+.app .directory-panel .court-detail{display:block}
+.app .directory-panel .detail-actions{position:relative}
+.app .places-panel,.app .weather-panel{width:min(320px,calc(var(--app-visible-width,100vw) - 38px));max-height:calc(var(--app-visible-height,100dvh) - 225px);overscroll-behavior:contain}
+.about-dialog,.tennis-atlas{position:fixed;left:calc(var(--app-visible-left,0px) + var(--app-visible-width,100vw)/2);top:calc(var(--app-visible-top,0px) + var(--app-visible-height,100dvh)/2);transform:translate(-50%,-50%);margin:0;max-width:calc(var(--app-visible-width,100vw) - 24px);max-height:calc(var(--app-visible-height,100dvh) - 24px)}
+@media(min-width:761px){
+ .app:has(.hub-navigation) .directory-panel:not(.has-detail){max-height:min(720px,calc(var(--app-visible-height,100dvh) - 185px));width:min(390px,calc(var(--app-visible-width,100vw) - 60px))}
+ .app .directory-panel.has-detail{max-height:calc(var(--app-visible-height,100dvh) - 145px);width:min(390px,calc(var(--app-visible-width,100vw) - 60px))}
+ .app .map-coverage-note{width:min(620px,calc(var(--app-visible-width,100vw) - 470px))}
+}
+@media(max-width:760px){
+ .app:has(.hub-navigation) .directory-panel:not(.has-detail){max-height:calc(var(--app-visible-height,100dvh)*.54)}
+ .app .directory-panel.has-detail{max-height:calc(var(--app-visible-height,100dvh)*.62)}
+ .app.panel-open .mobile-panel-toggle{bottom:calc(var(--app-visible-height,100dvh)*.54 + 14px)}
+ .app.panel-open:has(.has-detail) .mobile-panel-toggle{bottom:calc(var(--app-visible-height,100dvh)*.62 + 14px)}
+ .app .map-coverage-note{width:calc(var(--app-visible-width,100vw) - 100px)}
+}

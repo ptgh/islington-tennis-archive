@@ -198,11 +198,11 @@ function slatePixel(x: number, y: number, relief: boolean, roughness = false): P
 }
 
 function grassPixel(x: number, y: number): Pixel {
-  const broad = field(x, y, 57, 43) - .5
-  const fine = field(x, y, 9, 55) - .5
+  const broad = field(x, y, 14, 43) - .5
+  const fine = field(x, y, 3, 55) - .5
   const blade = noise(x, y, 63) - .5
   const dry = Math.max(0, field(x, y, 24, 67) - .63)
-  const value = 225 + broad * 28 + fine * 18 + blade * 13
+  const value = 225 + broad * 12 + fine * 14 + blade * 20
   return [value * (.961 + dry * .18), value, value * (.93 - dry * .15)]
 }
 
@@ -366,7 +366,7 @@ function leafPixel(x: number, y: number) {
   return { cover, variation }
 }
 
-export function createMiniatureMaterials() {
+export function createMiniatureMaterials(worldScale=1) {
   const brickMap = surface(512, (x, y) => brickPixel(x, y, false))
   const brickBump = surface(512, (x, y) => brickPixel(x, y, true), false)
   const slateMap = surface(256, (x, y) => slatePixel(x, y, false))
@@ -497,15 +497,25 @@ export function createMiniatureMaterials() {
   }
   const glazing = new THREE.MeshStandardMaterial({color:'#456b63',roughness:.25,metalness:.12,envMapIntensity:1.1,emissive:'#f2bf6d',emissiveIntensity:0})
   architecturalGlass(glazing)
-  const grass = new THREE.MeshStandardMaterial({ color: '#8aa777', map: grassMap, bumpMap: grassBump, bumpScale: .025, roughness: 1 })
-  const parkGrass = new THREE.MeshStandardMaterial({ color: '#91ad73', map: parkMap, bumpMap: parkBump, bumpScale: .025, roughness: 1 })
+  const grass = new THREE.MeshStandardMaterial({ color: '#94ae7e', map: grassMap, bumpMap: grassBump, bumpScale: .035*worldScale, roughness: 1 })
+  const parkGrass = new THREE.MeshStandardMaterial({ color: '#a1b981', map: parkMap, bumpMap: parkBump, bumpScale: .035*worldScale, roughness: 1 })
   // World-space mottling: broad sunlit and shaded patches plus drier, warmer
   // ground, as in the concept's lawns. Fixed to the world so it never crawls.
   const mottle = (material: THREE.MeshStandardMaterial, key: string) => {
     material.onBeforeCompile = shader => {
       shader.vertexShader = 'varying vec2 lawnWorld;\n' + shader.vertexShader.replace('#include <begin_vertex>', `
         #include <begin_vertex>
-        lawnWorld = (modelMatrix * vec4(transformed, 1.0)).xz;`)
+        vec4 lawnPosition = vec4(transformed, 1.0);
+        #ifdef USE_INSTANCING
+          lawnPosition = instanceMatrix * lawnPosition;
+        #endif
+        lawnWorld = (modelMatrix * lawnPosition).xz / ${worldScale.toFixed(3)};
+        #ifdef USE_MAP
+          vMapUv = lawnWorld / 6.0;
+        #endif
+        #ifdef USE_BUMPMAP
+          vBumpMapUv = lawnWorld / 6.0;
+        #endif`)
       shader.fragmentShader = `varying vec2 lawnWorld;
         float lawnHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float lawnNoise(vec2 p) {
@@ -516,10 +526,15 @@ export function createMiniatureMaterials() {
         ` + shader.fragmentShader.replace('#include <color_fragment>', `
         #include <color_fragment>
         float lawnBroad = lawnField(lawnWorld / 34.0), lawnFine = lawnField(lawnWorld / 7.0 + 9.0);
-        diffuseColor.rgb *= mix(.9, 1.07, lawnBroad) * mix(.97, 1.03, lawnFine);
+        float lawnFilter=max(length(dFdx(lawnWorld)),length(dFdy(lawnWorld)));
+        float lawnBlade=lawnNoise(lawnWorld*46.0)*2.0-1.0;
+        float lawnCut=sin(dot(lawnWorld,vec2(.80,.60))*1.35);
+        diffuseColor.rgb *= mix(.86, 1.10, lawnBroad) * mix(.94, 1.05, lawnFine);
+        diffuseColor.rgb *= 1.0+lawnBlade*.045*(1.0-smoothstep(.025,.12,lawnFilter));
+        diffuseColor.rgb *= 1.0+lawnCut*.018*(1.0-smoothstep(2.0,6.0,lawnFilter));
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.02, .8), smoothstep(.6, .8, lawnBroad) * .45);`)
     }
-    material.customProgramCacheKey = () => key
+    material.customProgramCacheKey = () => key+'-metres-v2-'+worldScale
   }
   mottle(grass, 'miniature-lawn-v1')
   mottle(parkGrass, 'miniature-park-lawn-v1')

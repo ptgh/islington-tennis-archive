@@ -19,7 +19,7 @@ export function CourtDetail({venue,onBack,onVisit,coaching,onCoaching,onPlay,onM
       <div className={`access-label ${venue.access!=='public'?'restricted':''}`}><span/>{accessLabels[venue.access]}{venue.nearby?' · Outside Islington':''}</div>
       <h1 ref={heading} tabIndex={-1}>{venue.name}</h1>
       <p className="detail-area">{venue.area}</p>
-      <p className="detail-map-context">{venue.id==='highbury-fields'?'Highbury park and court footprints are mapped from the stored OSM snapshot.':'This venue is shown in illustrated map context; mapped footprint coverage currently covers Highbury Fields.'}</p>
+      <p className="detail-map-context">{venue.id==='spa-fields'?'The map uses the published venue location; a separate tennis court footprint is not recorded here.':'Mapped streets, parks, buildings and outdoor courts share the continuous Islington map. Indoor courts remain inside their halls.'}</p>
       <button className="court-illustration court-visit-button" onClick={onVisit} aria-label={(venue.access==='public'||venue.id==='barbican')?`Watch a miniature rally at ${venue.name}`:`Explore the miniature at ${venue.name}`}><div className="drawn-court" aria-hidden="true"><div className="singles"><div className="service-box"/></div><div className="court-net"/></div><span className="watch-label"><Icon name="play" size={14}/>{(venue.access==='public'||venue.id==='barbican')?'Watch a rally':'Explore the miniature'}</span></button>
       {onMappedHighbury&&<button className="mapped-highbury-open" onClick={onMappedHighbury}><Icon name="pin" size={16}/> Focus court groups on map <Icon name="arrow" size={15}/></button>}
       {venue.id==='islington-tennis-centre'&&<CentreProgramme/>}

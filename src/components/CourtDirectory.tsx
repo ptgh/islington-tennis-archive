@@ -5,7 +5,6 @@ import type { CourtAvailability } from './useCourtAvailability';
 import type { PlannerPreferences } from '../data/courtPlanner';
 
 interface Props {
-  mappedHighbury:boolean;
   planner:PlannerPreferences;onPlanner:(value:PlannerPreferences)=>void;plannerError:boolean;availability:CourtAvailability;compareIds:string[];onCompare:(id:string)=>void;onClearCompare:()=>void;
   facility:string;onFacility:(value:string)=>void;
   favourites:string[];onFavourite:(id:string)=>void;savedOnly:boolean;onSavedOnly:(value:boolean)=>void;saveError:boolean;
@@ -13,11 +12,11 @@ interface Props {
   filter:Filter; onFilter:(value:Filter)=>void;
   onSelect:(id:string)=>void; onAbout:()=>void;
 }
-export function CourtDirectory({facility,onFacility,results,allVenues,query,onQuery,filter,onFilter,onSelect,onAbout,favourites,onFavourite,savedOnly,onSavedOnly,saveError,mappedHighbury,planner,onPlanner,plannerError,availability,compareIds,onCompare,onClearCompare}:Props) {
+export function CourtDirectory({facility,onFacility,results,allVenues,query,onQuery,filter,onFilter,onSelect,onAbout,favourites,onFavourite,savedOnly,onSavedOnly,saveError,planner,onPlanner,plannerError,availability,compareIds,onCompare,onClearCompare}:Props) {
   return <>
     <div className="directory-heading">
       <h1 tabIndex={-1}>Find your <br/>next court.</h1>
-      <p>A local guide to your next hit.<br/>{mappedHighbury?'Local footprints mapped · OSM snapshot':'Illustrated context · two neighbourhoods mapped.'}</p>
+      <p>A local guide to your next hit.<br/>One connected map of Islington.</p>
     </div>
     <div className="directory-tools">
       <label className="search-box"><Icon name="search" size={19}/><input aria-label="Search courts or neighbourhoods" placeholder="Search courts or neighbourhoods" value={query} onChange={e=>onQuery(e.target.value)}/>{query && <button aria-label="Clear search" className="clear-search" onClick={()=>onQuery('')}><Icon name="close" size={15}/></button>}</label>

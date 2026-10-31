@@ -17,7 +17,8 @@ type Figure = {
 }
 
 /** Decorative, deterministic miniatures. These never represent live court use or vehicles. */
-export function createTownLife(courts: {center:THREE.Vector3;rotation:number;scale:number;halfLength?:number;groundY?:number;nightPlayable?:boolean}[], walks: THREE.Vector3[][], project: Project, exclusions:CourtArea[], transport = true) {
+export function createTownLife(courts: {center:THREE.Vector3;rotation:number;scale:number;halfLength?:number;groundY?:number;nightPlayable?:boolean}[], walks: THREE.Vector3[][], project: Project, exclusions:CourtArea[], transport = true, geographic = false) {
+  const routeLine = geographic ? (points:[number,number][])=>points : (points:[number,number][])=>busRouteLine(points,exclusions)
   const root = new THREE.Group()
   const activity = new THREE.Group()
   const buses = new THREE.Group()
@@ -252,7 +253,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const group = new THREE.Group()
     buses.add(group)
     // Same bent line as the drawn road, so buses never cross (or vanish at) a court.
-    const points = busRouteLine(route.points.map(([lng, lat]): [number, number] => { const p = project(lat, lng); return [p.x, p.z] }), exclusions).map(([x, z]) => new THREE.Vector3(x, .16, z))
+    const points = routeLine(route.points.map(([lng, lat]): [number, number] => { const p = project(lat, lng); return [p.x, p.z] })).map(([x, z]) => new THREE.Vector3(x, .16, z))
     const curve = new THREE.CurvePath<THREE.Vector3>()
     for (let i = 1; i < points.length; i++) curve.add(new THREE.LineCurve3(points[i - 1], points[i]))
     const length = curve.getLength()
@@ -317,7 +318,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   })
 
   // Keep small road users on road stretches away from the collection van's route.
-  const vanPoints=busRouteLine(busRoutes.find(route=>route.id==='19')!.points.map(([lng,lat]):[number,number]=>{const p=project(lat,lng);return [p.x,p.z]}),exclusions).map(([x,z])=>new THREE.Vector3(x,0,z))
+  const vanPoints=routeLine(busRoutes.find(route=>route.id==='19')!.points.map(([lng,lat]):[number,number]=>{const p=project(lat,lng);return [p.x,p.z]})).map(([x,z])=>new THREE.Vector3(x,0,z))
   const vanRoad=vanPoints.slice(1).map((point,i)=>new THREE.Line3(vanPoints[i],point))
   const closest=new THREE.Vector3()
   // `lane` is the offset to the left of travel: positive keeps to the left, as in the UK.

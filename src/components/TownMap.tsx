@@ -8,12 +8,12 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js'
-import { createTown, geoPosition } from '../scene/createTown'
-import type { MapVenue, TownWorld } from '../scene/types'
+import { geoPosition } from '../scene/createTown'
+import type { MapVenue } from '../scene/types'
 import { mappedServices } from '../data/hub'
 import { busRoutes } from '../data/busRoutes'
 import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
-import { courtAreas, highburyCourts } from '../scene/courtGeometry'
+import { highburyCourts } from '../scene/courtGeometry'
 import { mapStations } from '../data/transit'
 import { Icon } from './Icon'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
@@ -22,9 +22,8 @@ import { createViewShadowFitter } from '../scene/viewShadows'
 import { freeLabel, type NextFree } from '../data/freeCourts'
 import { cameraAvailability, type TrafficCamera } from '../data/trafficCameras'
 import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, collectOcclusionExclusions } from '../scene/renderQuality'
-import { createMappedCentre, mappedCentreBounds, mappedCentreCourtBounds } from '../scene/createMappedCentre'
-import { mappedNeighbourhoods, mappedCoverageAt, type MappedVenueId } from '../data/mapCoverage'
-import { createMappedHighbury, mappedHighburyGroups, mappedHighburyBounds, mappedHighburyCourtBounds } from '../scene/createMappedHighbury'
+import { createIslington, type IslingtonWorld } from '../scene/createIslington'
+import { boroughBounds, courtsNearVenue } from '../scene/boroughGeometry'
 import '../scene/TownMap.css'
 
 export interface TownMapHandle {
@@ -64,8 +63,6 @@ interface TownMapProps {
   onSelectService: (id: string) => void
   onReset?: () => void
   onReady?: () => void
-  mappedHighbury?: boolean
-  mappedVenueId?: MappedVenueId
   mappedOverview?: boolean
   cameras?: readonly TrafficCamera[]
   showCameras?: boolean
@@ -74,11 +71,10 @@ interface TownMapProps {
 }
 
 interface SceneHandle {
-  setMappedHighbury: (open: boolean) => void
   camera: THREE.OrthographicCamera
   controls: OrbitControls
   scene: THREE.Scene
-  world: TownWorld
+  world: IslingtonWorld
   sunlight: THREE.DirectionalLight
   ambient: THREE.HemisphereLight
   renderer: THREE.WebGLRenderer
@@ -91,25 +87,25 @@ interface SceneHandle {
   visitCourt: (id: string) => void
 }
 
-const MAPPED_COURT_ANCHOR = new THREE.Vector3(highburyCourts.reduce((sum,court)=>sum+court.x,0)/highburyCourts.length,.4,highburyCourts.reduce((sum,court)=>sum+court.z,0)/highburyCourts.length)
+
 const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, mappedHighbury = false, mappedVenueId = 'highbury-fields', mappedOverview = false, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, mappedOverview = false, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
   const stationRefs = useRef(new Map<string, HTMLDivElement>())
   const vanRef=useRef<HTMLButtonElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
-  const mappedGroupRefs = useRef(new Map<string, HTMLDivElement>())
   const cameraRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedHighbury, mappedVenueId, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedHighbury, mappedVenueId, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady,
+  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
+  const [mapStatus,setMapStatus]=useState('')
   const [ready, setReady] = useState(false)
   const [moving, setMoving] = useState(false)
 
@@ -127,7 +123,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const engine = engineRef.current
       if (!engine) return
       engine.cancelTravel()
-      engine.camera.zoom = Math.max(.55, engine.camera.zoom / 1.3)
+      engine.camera.zoom = Math.max(.1, engine.camera.zoom / 1.3)
       engine.camera.updateProjectionMatrix()
       engine.frame()
     },
@@ -179,7 +175,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = SCENE_TONE_MAPPING
     renderer.domElement.className = 'town-map__canvas'
-    renderer.domElement.setAttribute('aria-label', 'Interactive miniature map of Islington. Drag to pan, scroll or pinch to zoom, right-drag to rotate. Select court markers to discover venues.')
+    renderer.domElement.setAttribute('aria-label', 'Continuous geographic map of Islington. Drag to pan, scroll or pinch to zoom, right-drag to rotate. Select court markers to discover venues.')
     renderer.domElement.setAttribute('role', 'img')
     renderer.domElement.tabIndex = 0
     host.prepend(renderer.domElement)
@@ -188,8 +184,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const disposeEnvironment=addSkyEnvironment(renderer,scene)
     scene.environmentIntensity=runtimeRef.current.night?.07:.28
     scene.background = new THREE.Color(runtimeRef.current.night ? '#253940' : DAY_BACKGROUND)
-    scene.fog = new THREE.Fog(runtimeRef.current.night ? '#253940' : DAY_BACKGROUND, 900, 1900)
-    const camera = new THREE.OrthographicCamera(-300, 300, 200, -200, 1, 2400)
+    scene.fog = new THREE.Fog(runtimeRef.current.night ? '#253940' : DAY_BACKGROUND, 1400, 2800)
+    const camera = new THREE.OrthographicCamera(-300, 300, 200, -200, 1, 3400)
     const ambient = new THREE.HemisphereLight(runtimeRef.current.night ? '#a9bfda' : '#f7f2e9', runtimeRef.current.night ? '#263d44' : '#59634f', runtimeRef.current.night ? .95 : .88)
     scene.add(ambient)
     const sunlight = new THREE.DirectionalLight(runtimeRef.current.night ? '#b7cde4' : '#fff0dc', runtimeRef.current.night ? .8 : 2.8)
@@ -211,7 +207,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     controls.screenSpacePanning = false
     controls.minPolarAngle = Math.PI / 7
     controls.maxPolarAngle = Math.PI / 2.65
-    controls.minZoom = .55
+    controls.minZoom = .1
     controls.maxZoom = 60
     controls.panSpeed = 1
     controls.rotateSpeed = .5
@@ -220,15 +216,11 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
 
     let needsFrame = true
-    const world = createTown(venues, () => { needsFrame = true })
+    const world = createIslington(venues, () => { needsFrame = true })
     scene.add(world.root)
-    const mappedScenes = new Map<MappedVenueId, ReturnType<typeof createMappedHighbury>>()
     world.setNight(runtimeRef.current.night)
     const weatherWorld=createWeather();scene.add(weatherWorld.root)
-    const weatherClearance=courtAreas(venues).flatMap(area=>{
-      const c=Math.cos(area.rotation),s=Math.sin(area.rotation)
-      return [[0,0],[-area.halfWidth,-area.halfDepth],[-area.halfWidth,area.halfDepth],[area.halfWidth,-area.halfDepth],[area.halfWidth,area.halfDepth]].map(([x,z])=>new THREE.Vector3(area.x+x*c+z*s,0,area.z-x*s+z*c))
-    })
+    const weatherClearance=venues.map(venue=>geoPosition(venue.lat,venue.lng))
     // Ground the miniature with subtle contact occlusion. Colour stays at display
     // resolution, while the more expensive depth/AO buffers have a separate cap.
     const composer=new EffectComposer(renderer)
@@ -272,7 +264,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const left=!mobile&&panelVisible?panel!.right-bounds.left+28:24
       const right=width-(mobile?65:96)
       const top=mobile?156:112
-      const bottom=mobile&&panelVisible?panel!.top-bounds.top-28:height-(runtimeRef.current.mappedHighbury?230:112)
+      const bottom=mobile&&panelVisible?panel!.top-bounds.top-28:height-180
       return {left,right,top,bottom:Math.max(top+100,bottom)}
     }
     const travel=(point:THREE.Vector3,zoom:number,immediate=false)=>{
@@ -301,12 +293,9 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const venue=venues.find(item=>item.id===id)
       if(!venue)return
       const points:THREE.Vector3[]=[]
-      for(const area of courtAreas([venue])){
-        const c=Math.cos(area.rotation),s=Math.sin(area.rotation)
-        for(const x of [-area.halfWidth,area.halfWidth])for(const z of [-area.halfDepth,area.halfDepth])for(const y of [0,7]){
-          points.push(new THREE.Vector3(area.x+x*c+z*s,y,area.z-x*s+z*c))
-        }
-      }
+      const sourceCourts=courtsNearVenue(venue.lat,venue.lng)
+      for(const court of sourceCourts)for(const [x,z] of court.points)for(const y of [0,1.2])points.push(new THREE.Vector3(x,y,z))
+      if(!points.length){const point=geoPosition(venue.lat,venue.lng);for(const x of [-5,5])for(const z of [-5,5])points.push(point.clone().add(new THREE.Vector3(x,0,z)))}
       if(!points.length)return
       const center=new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3()).setY(0)
       const preview=camera.clone();preview.position.copy(center).add(CAMERA_OFFSET);preview.lookAt(center);preview.zoom=1
@@ -352,21 +341,18 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     }
     const reset = () => {
       cancelTravel()
-      if(runtimeRef.current.mappedHighbury){
-        const centre=runtimeRef.current.mappedVenueId==='islington-tennis-centre'
-        const bounds=centre?(runtimeRef.current.mappedOverview?mappedCentreBounds:mappedCentreCourtBounds):(runtimeRef.current.mappedOverview?mappedHighburyBounds:mappedHighburyCourtBounds)
+      {
+        const xs=highburyCourts.map(c=>c.x),zs=highburyCourts.map(c=>c.z)
+        const bounds=runtimeRef.current.mappedOverview?boroughBounds:{minX:Math.min(...xs)-12,maxX:Math.max(...xs)+12,minZ:Math.min(...zs)-12,maxZ:Math.max(...zs)+12}
         const center=new THREE.Vector3((bounds.minX+bounds.maxX)/2,0,(bounds.minZ+bounds.maxZ)/2),preview=camera.clone()
         preview.position.copy(center).add(CAMERA_OFFSET);preview.lookAt(center);preview.zoom=1;preview.updateProjectionMatrix();preview.updateMatrixWorld()
         const points=[bounds.minX-3,bounds.maxX+3].flatMap(x=>[bounds.minZ-3,bounds.maxZ+3].map(z=>new THREE.Vector3(x,0,z).project(preview)))
         const spanX=(Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x)))*width/2
         const spanY=(Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y)))*height/2
         const available=visibleMapFrame(),zoom=Math.min((available.right-available.left)*.94/spanX,(available.bottom-available.top)*.92/spanY)
-        travel(center,THREE.MathUtils.clamp(zoom,.55,12),true);return
+        travel(center,THREE.MathUtils.clamp(zoom,.1,12),true);return
       }
-      const mobile=width<=760
-      const highbury=world.courtFocusAnchors.get('highbury-fields')??geoPosition(51.55122,-.09902)
-      const showcase=highbury.clone().add(new THREE.Vector3(0,0,0))
-      travel(showcase,mobile?1.9:3.1,true)
+
     }
     const quality = createAdaptiveResolution(1000 / 60, runtimeRef.current.viewSettings.preset)
     let resolutionDirty = false
@@ -419,8 +405,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       weatherWorld.setKind(runtimeRef.current.weather)
       weatherWorld.setView(camera,camera.zoom,weatherClearance)
       world.setRain(runtimeRef.current.weather==='rain')
-      for(const mappedScene of mappedScenes.values()){mappedScene.setRain(runtimeRef.current.weather==='rain');mappedScene.setNight(runtimeRef.current.night)}
-      sunlight.shadow.normalBias=runtimeRef.current.mappedHighbury?.0055:.055
+      sunlight.shadow.normalBias=.0055
       updateSceneLight(sunlight, ambient, controls.target, 425, runtimeRef.current.lightingTime === null ? lightClock : new Date(runtimeRef.current.lightingTime), runtimeRef.current.night, runtimeRef.current.weather);
       if(!fitShadows(sunlight,camera)){
         const span=Math.max(32,520/Math.sqrt(camera.zoom))
@@ -429,32 +414,24 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       occlusion.blendIntensity=runtimeRef.current.night?.16:.44
       applySceneGrade(renderer,lens.uniforms,runtimeRef.current.night)
       renderer.shadowMap.needsUpdate=true
+      world.updateView(camera,camera.zoom,controls.target)
+      const mapMessage=world.status.failed?'Some street detail could not load. The complete base map remains available.':world.status.loading?'Loading street detail…':''
+      setMapStatus(previous=>previous===mapMessage?previous:mapMessage)
       composer.render()
       const runtime = runtimeRef.current
-      for (const venue of venues) project(runtime.mappedHighbury?(venue.id==='highbury-fields'?MAPPED_COURT_ANCHOR:geoPosition(venue.lat,venue.lng).setY(.4)):world.anchors.get(venue.id)!, markerRefs.current.get(venue.id), runtime.visibleIds.includes(venue.id)&&(!runtime.mappedHighbury||venue.id===runtime.mappedVenueId), 3)
-      for (const station of world.stations) project(station.position, stationRefs.current.get(station.name), !runtime.mappedHighbury||mappedCoverageAt(51.549-station.position.z/11100,station.position.x/6900-.115)===runtime.mappedVenueId)
-      for (const group of mappedHighburyGroups) project(new THREE.Vector3(group.x,.3,group.z),mappedGroupRefs.current.get(group.name),runtime.mappedHighbury&&runtime.mappedVenueId==='highbury-fields')
-      for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.4),cameraRefs.current.get(camera.id),runtime.showCameras&&(!runtime.mappedHighbury||mappedCoverageAt(camera.lat,camera.lng)===runtime.mappedVenueId),3)
-      project(world.vanPosition.clone().setY(4),vanRef.current,runtime.showShops&&!runtime.mappedHighbury)
-      for (const service of mappedServices) project(geoPosition(service.lat,service.lng).setY(5),shopRefs.current.get(service.id),runtime.showShops&&!runtime.mappedHighbury)
+      for (const venue of venues) project(world.anchors.get(venue.id)!,markerRefs.current.get(venue.id),runtime.visibleIds.includes(venue.id),3)
+      for (const station of world.stations) project(station.position,stationRefs.current.get(station.name),runtime.showTransit)
+      for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.15),cameraRefs.current.get(camera.id),runtime.showCameras,3)
+      project(world.vanPosition.clone().setY(.3),vanRef.current,runtime.showShops)
+      for(const service of mappedServices)project(geoPosition(service.lat,service.lng).setY(.3),shopRefs.current.get(service.id),runtime.showShops)
+
     }
-    const setMappedHighbury=(open:boolean)=>{
-      const wasOpen=[...mappedScenes.values()].some(view=>view.root.visible),id=runtimeRef.current.mappedVenueId
-      if(open&&!mappedScenes.has(id)){const view=id==='highbury-fields'?createMappedHighbury():createMappedCentre();mappedScenes.set(id,view);scene.add(view.root);transparentObjects.push(...collectOcclusionExclusions(view.root))}
-      renderer.domElement.setAttribute('aria-label',`${open?`Mapped ${mappedNeighbourhoods[id].name}`:'Illustrated map context'}. Drag to pan, scroll or pinch to zoom, right-drag to rotate. Select court markers for venue details.`)
-      world.root.visible=!open
-      occlusion.updateGtaoMaterial({radius:open?.16:1.6,thickness:open?.12:1.2})
-      for(const [key,view] of mappedScenes)view.root.visible=open&&key===id
-      if(open||wasOpen)reset()
-      frame()
-    }
-    const engine: SceneHandle = { setMappedHighbury, camera, controls, world, scene, sunlight, ambient, renderer, reset, resize, frame, focus, travel, cancelTravel, visitCourt }
+    const engine: SceneHandle = { camera, controls, world, scene, sunlight, ambient, renderer, reset, resize, frame, focus, travel, cancelTravel, visitCourt }
     engineRef.current = engine
     // Dev-only handle for pinned-camera render comparisons; stripped from production builds.
     if (import.meta.env.DEV) Object.assign(window, { __town: { engine, runtime: runtimeRef, composer, quality } })
     resize()
-    if(runtimeRef.current.mappedHighbury)setMappedHighbury(true)
-    else if(runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
+    if(runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
     else reset()
     const tick = (time: number) => {
       if (destroyed) return
@@ -475,8 +452,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       world.setWind(weatherWind(runtimeRef.current.weather,runtimeRef.current.windMph))
       if (runtimeRef.current.activityRunning) lightClock = new Date()
       // The parent defaults to paused for reduced motion; an explicit Run is respected.
-      const animateTrain = runtimeRef.current.trainRunning&&!runtimeRef.current.mappedHighbury
-      if(!runtimeRef.current.mappedHighbury)world.animate(time / 1000, animateTrain, runtimeRef.current.activityRunning, runtimeRef.current.showBuses&&animateTrain)
+      const animateTrain = runtimeRef.current.trainRunning
+      world.animate(time / 1000, animateTrain, runtimeRef.current.activityRunning, runtimeRef.current.showBuses&&animateTrain)
       // OrbitControls reports damping changes. A still map needs no GPU redraws.
       if (needsFrame || animateTrain || runtimeRef.current.activityRunning) {
         // Resizing clears the canvas: do it immediately before the next draw.
@@ -512,7 +489,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       if (event.key === 'ArrowRight') vector = right.multiplyScalar(step)
       if (vector) { event.preventDefault(); camera.position.add(vector); controls.target.add(vector); controls.update() }
       if (event.key === '+' || event.key === '=') { event.preventDefault(); camera.zoom = Math.min(60, camera.zoom * 1.2); camera.updateProjectionMatrix() }
-      if (event.key === '-') { event.preventDefault(); camera.zoom = Math.max(.55, camera.zoom / 1.2); camera.updateProjectionMatrix() }
+      if (event.key === '-') { event.preventDefault(); camera.zoom = Math.max(.1, camera.zoom / 1.2); camera.updateProjectionMatrix() }
       if (event.key === 'Home') { event.preventDefault(); if(runtimeRef.current.activeVisitId&&runtimeRef.current.onReset)runtimeRef.current.onReset();else reset() }
       frame()
     }
@@ -522,7 +499,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const contextLost = (event: Event) => { event.preventDefault(); setFailed(true) }
     renderer.domElement.addEventListener('webglcontextlost', contextLost)
     setReady(true)
-    runtimeRef.current.onReady?.()
+    world.ready.then(()=>{if(!destroyed)runtimeRef.current.onReady?.()})
     return () => {
       destroyed = true
       cancelAnimationFrame(animation)
@@ -541,7 +518,6 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       occlusion.gtaoMaterial.dispose();occlusion.blendMaterial.dispose()
       weatherWorld.dispose()
       world.dispose()
-      mappedScenes.forEach(view=>view.dispose())
       disposeEnvironment()
       sunlight.shadow.map?.dispose()
       renderer.dispose()
@@ -552,7 +528,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   }, [venues])
 
   useEffect(() => { engineRef.current?.frame() }, [viewSettings, suspended])
-  useEffect(() => { engineRef.current?.setMappedHighbury(mappedHighbury) }, [mappedHighbury, mappedVenueId, mappedOverview, ready])
+  useEffect(() => { engineRef.current?.reset() }, [mappedOverview, ready])
 
   useEffect(() => {
     const engine = engineRef.current
@@ -560,7 +536,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engine.world.setNight(night)
     engine.scene.environmentIntensity=night?.07:.28
     engine.scene.background = new THREE.Color(night ? '#253940' : DAY_BACKGROUND)
-    engine.scene.fog = new THREE.Fog(night ? '#253940' : DAY_BACKGROUND, 900, 1900)
+    engine.scene.fog = new THREE.Fog(night ? '#253940' : DAY_BACKGROUND, 1400, 2800)
     engine.sunlight.color.set(night ? '#b7cde4' : '#fff0dc')
     engine.sunlight.intensity = night ? .8 : 2.8
     engine.ambient.intensity = night ? .95 : .88
@@ -581,10 +557,10 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const engine = engineRef.current
     const venue = venues.find((item) => item.id === selectedId)
     if (!engine || !venue) return
-    const point = mappedHighbury?(venue.id==='highbury-fields'?MAPPED_COURT_ANCHOR:geoPosition(venue.lat,venue.lng)):engine.world.anchors.get(venue.id)??geoPosition(venue.lat, venue.lng)
+    const point = engine.world.anchors.get(venue.id)??geoPosition(venue.lat, venue.lng)
     engine.focus(point)
     engine.frame()
-  }, [selectedId, venues, mappedHighbury, mappedVenueId])
+  }, [selectedId, venues, ready])
 
   // Court pins describe; they don't promise a link. Once a court is selected its card is
   // already open, so the label is just the name (plus Better's free time when known).
@@ -614,7 +590,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
             <span className="town-pin__label">{venue.name}{pinSubline(venue.id)&&<span>{pinSubline(venue.id)}</span>}</span>
           </button>
         ))}
-        {mappedHighburyGroups.map(group => <div className="mapped-court-group" key={group.name} ref={element=>{if(element)mappedGroupRefs.current.set(group.name,element);else mappedGroupRefs.current.delete(group.name)}} style={{display:'none'}}>{group.name}</div>)}
+
         {cameras.map(camera => <button className={`town-pin town-pin--camera${camera.available===false?' town-pin--camera-offline':''}${selectedCameraId === camera.id ? ' town-pin--selected' : ''}`} key={camera.id} ref={element => { if (element) cameraRefs.current.set(camera.id,element); else cameraRefs.current.delete(camera.id) }} style={{display:'none'}} aria-label={`${camera.name}. Show TfL traffic camera. ${cameraAvailability(camera)}`} aria-pressed={selectedCameraId === camera.id} onClick={() => onSelectCamera?.(camera)}><span className="town-pin__number"><Icon name="camera" size={17}/></span><span className="town-pin__label">{camera.name}<span>TfL · {cameraAvailability(camera)} · refreshed still</span></span></button>)}
         {STATION_NAMES.map((name) => (
           <div className={`town-station${name === 'Highbury & Islington' || name === 'Angel' ? ' town-station--major' : ''}`} key={name} ref={(element) => { if (element) stationRefs.current.set(name, element); else stationRefs.current.delete(name) }} style={{ display: 'none' }}>
@@ -624,6 +600,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
         <button className="town-pin town-pin--shop" ref={vanRef} style={{display:'none'}} aria-label="Sweet Spot Stringer van. Follow the miniature" onClick={()=>{onSelectService('sweet-spot-stringer');const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),9);}}><span className="town-pin__number"><Icon name="bus" size={17}/></span><span className="town-pin__label">Sweet Spot Stringer<span>Follow the miniature van</span></span></button>
         {mappedServices.map(service=><button className={`town-pin town-pin--shop${selectedServiceId===service.id?' town-pin--selected':''}`} key={service.id} ref={element=>{if(element)shopRefs.current.set(service.id,element);else shopRefs.current.delete(service.id)}} style={{display:'none'}} aria-label={`${service.name}. Show shop details`} onClick={()=>onSelectService(service.id)}><span className="town-pin__number"><Icon name="bag" size={16}/></span><span className="town-pin__label">{service.name}</span></button>)}
       </div>
+      {mapStatus&&<div className="map-stream-status" role="status">{mapStatus}{mapStatus.startsWith('Some')&&<button onClick={()=>{engineRef.current?.world.retry();engineRef.current?.frame()}}>Retry</button>}</div>}
       <div className="town-map__vignette" aria-hidden="true" />
     </div>
   )

@@ -4,7 +4,7 @@ import {playOpportunities} from './play';
 import {places} from './places';
 import {busRoutes} from './busRoutes';
 import {mapStations,tubeConnections} from './transit';
-/** Content boundary for future boroughs. The illustrated scene remains Islington-specific. */
+/** Content boundary for future boroughs. The continuous geographic scene remains Islington-specific. */
 export const borough = {
   id:'islington',name:'Islington',timeZone:'Europe/London',
   venues,services:hubServices,play:playOpportunities,places,busRoutes,

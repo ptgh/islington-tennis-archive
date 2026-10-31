@@ -2,9 +2,9 @@ export type TrafficCamera = { id: string; name: string; lat: number; lng: number
 export type CameraScope = 'nearby' | 'london'
 export const CAMERA_DIRECTORY_URL = 'https://api.tfl.gov.uk/Place/Type/JamCam'
 export const CAMERA_REFRESH_MS = 3 * 60 * 1000
-/** Bounding box for the illustrated Islington area, including neighbouring streets.
+/** Bounding box for the continuous Islington source extract, including neighbouring streets.
  * This is not an administrative borough boundary. London-wide cameras remain listed. */
-export const CAMERA_MAP_BOUNDS = { south: 51.522, west: -.152, north: 51.577, east: -.078 }
+export const CAMERA_MAP_BOUNDS = { south: 51.516, west: -.152, north: 51.580, east: -.075 }
 export const cameraInMap = (camera: TrafficCamera) => camera.lat >= CAMERA_MAP_BOUNDS.south && camera.lat <= CAMERA_MAP_BOUNDS.north && camera.lng >= CAMERA_MAP_BOUNDS.west && camera.lng <= CAMERA_MAP_BOUNDS.east
 export const cameraMetadataUrl = (camera: TrafficCamera) => `https://api.tfl.gov.uk/Place/${encodeURIComponent(camera.id)}`
 
