@@ -7,7 +7,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}
 .app .directory-panel .court-detail{display:block}
 .app .directory-panel .detail-actions{position:relative}
 .app .places-panel,.app .weather-panel{width:min(320px,calc(var(--app-visible-width,100vw) - 38px));max-height:calc(var(--app-visible-height,100dvh) - 225px);overscroll-behavior:contain}
-.about-dialog,.tennis-atlas{position:fixed;left:calc(var(--app-visible-left,0px) + var(--app-visible-width,100vw)/2);top:calc(var(--app-visible-top,0px) + var(--app-visible-height,100dvh)/2);transform:translate(-50%,-50%);margin:0;max-width:calc(var(--app-visible-width,100vw) - 24px);max-height:calc(var(--app-visible-height,100dvh) - 24px)}
+.about-dialog,.tennis-atlas,.tennis-atlas.is-court-view{position:fixed;left:calc(var(--app-visible-left,0px) + var(--app-visible-width,100vw)/2);top:calc(var(--app-visible-top,0px) + var(--app-visible-height,100dvh)/2);transform:translate(-50%,-50%);margin:0;max-width:calc(var(--app-visible-width,100vw) - 24px);max-height:calc(var(--app-visible-height,100dvh) - 24px)}
 @media(min-width:761px){
  .app:has(.hub-navigation) .directory-panel:not(.has-detail){max-height:min(720px,calc(var(--app-visible-height,100dvh) - 185px));width:min(390px,calc(var(--app-visible-width,100vw) - 60px))}
  .app .directory-panel.has-detail{max-height:calc(var(--app-visible-height,100dvh) - 145px);width:min(390px,calc(var(--app-visible-width,100vw) - 60px))}
