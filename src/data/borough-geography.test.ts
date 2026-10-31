@@ -10,6 +10,22 @@ import { createIslington } from '../scene/createIslington.ts'
 import { venues } from './venues.ts'
 
 const dir=path.resolve('public')
+test('borough ground keeps horizontal texture projection and shared weather after cloning',()=>{
+ const materials=createBoroughMaterials()
+ try{
+  const shaders=[materials.road,materials.paving,materials.parkPath].map(material=>{
+   const shader={vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader,uniforms:{} as Record<string,{value:number}>}
+   material.onBeforeCompile(shader as Parameters<typeof material.onBeforeCompile>[0],{} as THREE.WebGLRenderer)
+   assert.match(shader.vertexShader,/architectureWorld\.xz \/ /,'ground projects onto the horizontal plane')
+   return shader
+  })
+  materials.finishes.setRain(true)
+  for(const shader of shaders)assert.equal(shader.uniforms.miniatureRainWetness.value,1)
+  materials.finishes.setRain(false)
+  for(const shader of shaders)assert.equal(shader.uniforms.miniatureRainWetness.value,0)
+  assert.equal(materials.paving.bumpScale,.0018,'borough relief retains its physical scale')
+ }finally{materials.dispose()}
+})
 test('one continuous extract contains the full boundary and every listed venue, including nearby clubs',()=>{
  assert.equal(boroughGeography.boundarySource,'https://api.openstreetmap.org/api/0.6/relation/51821/full')
  assert.deepEqual(boroughGeography.boundary[0],boroughGeography.boundary.at(-1))

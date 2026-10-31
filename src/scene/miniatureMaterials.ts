@@ -538,11 +538,11 @@ export function createMiniatureMaterials(worldScale=1) {
   }
   mottle(grass, 'miniature-lawn-v1')
   mottle(parkGrass, 'miniature-park-lawn-v1')
-  const asphalt = new THREE.MeshStandardMaterial({ color: '#96998f', map: asphaltMap, bumpMap: asphaltBump, bumpScale: .012, roughnessMap:asphaltRoughness, roughness: .97 })
-  const paving = new THREE.MeshStandardMaterial({ color: '#d8d0bd', map: pavingMap, bumpMap:pavingBump, bumpScale:.018, roughness: .98 })
+  const asphalt = new THREE.MeshStandardMaterial({ color: '#96998f', map: asphaltMap, bumpMap: asphaltBump, bumpScale: .012 * worldScale, roughnessMap:asphaltRoughness, roughness: .97 })
+  const paving = new THREE.MeshStandardMaterial({ color: '#d8d0bd', map: pavingMap, bumpMap:pavingBump, bumpScale:.018 * worldScale, roughness: .98 })
   // Horizontal materials keep a fixed grain and slab size across long road
   // strips, short access links and merged ground polygons.
-  architecturalUV(asphalt,true,24);architecturalUV(paving,true)
+  architecturalUV(asphalt,true,24 * worldScale,false,worldScale);architecturalUV(paving,true,6 * worldScale,false,worldScale)
   // Shared by world-UV clones in both scenes. Rain darkens porous ground and
   // reveals a restrained, uneven sky sheen without adding reflection passes.
   const rainWetness = { value: 0 }
@@ -552,7 +552,7 @@ export function createMiniatureMaterials(worldScale=1) {
       prepare.call(material, shader, renderer)
       shader.uniforms.miniatureRainWetness = rainWetness
       shader.vertexShader = 'varying vec2 wetGroundWorld;\n' + shader.vertexShader.replace('#include <project_vertex>', `
-        wetGroundWorld = architectureWorld.xz;
+        wetGroundWorld = architectureWorld.xz / ${worldScale.toFixed(3)};
         #include <project_vertex>`)
       shader.fragmentShader = `uniform float miniatureRainWetness;
         varying vec2 wetGroundWorld;
@@ -577,7 +577,7 @@ export function createMiniatureMaterials(worldScale=1) {
   parkPath.onBeforeCompile = (shader, renderer) => {
     preparePath.call(parkPath, shader, renderer)
     shader.vertexShader = 'varying vec2 pathMargin;\n' + shader.vertexShader.replace('#include <project_vertex>', `
-      float pathWidth = length(architectureModel[2].xyz);
+      float pathWidth = length(architectureModel[2].xyz) / ${worldScale.toFixed(3)};
       pathMargin = vec2(position.z * pathWidth, pathWidth * .5);
       #include <project_vertex>`)
     shader.fragmentShader = 'varying vec2 pathMargin;\n' + shader.fragmentShader.replace('#include <color_fragment>', `

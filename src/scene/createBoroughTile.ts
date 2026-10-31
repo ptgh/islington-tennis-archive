@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { createMiniatureMaterials, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
+import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
 import { createFootprintRoof } from './footprintRoof.ts'
 import { buildingHeight, containsPoint, roofBounds, boroughCourts, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
 
@@ -11,19 +11,22 @@ export function createBoroughMaterials() {
  const roofs=['#7d8881','#90998c','#7d8d89','#9ba093'].map(c=>cloneWorldArchitecturalFinish(finishes.slate,c,true,.1))
  const plain=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.94})
  const glass=cloneWorldArchitecturalFinish(finishes.glazing,'#46665e',false,.1)
- const paving=cloneWorldArchitecturalFinish(finishes.paving,'#c6bfab',false,.1)
- const road=cloneWorldArchitecturalFinish(finishes.asphalt,'#838a7f',false,.1)
+ // Ground finishes already use horizontal UVs at borough scale; retain their
+ // shared wetness uniform and path margins instead of replacing the shader.
+ const paving=cloneArchitecturalFinish(finishes.paving,'#c6bfab')
+ const parkPath=cloneArchitecturalFinish(finishes.parkPath,'#c6bfab')
+ const road=cloneArchitecturalFinish(finishes.asphalt,'#838a7f')
  const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4'),water=plain('#779c97')
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
- return {finishes,brick,roofs,glass,paving,road,trim,stone,door,trunk,metal,white,water,box,circle,
+ return {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle,
  setNight(night:boolean){glass.emissiveIntensity=night?.65:0;glass.color.set(night?'#e0bd7d':'#46665e')},
- dispose(){[...brick,...roofs,glass,paving,road,trim,stone,door,trunk,metal,white,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose()}}
+ dispose(){[...brick,...roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
 export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
  const root=new THREE.Group();root.name='Islington geographic cell'
- const {finishes,brick,roofs,glass,paving,road,trim,stone,door,trunk,metal,white,water,box,circle}=materials
+ const {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle}=materials
  const batches=new Map<THREE.Material,THREE.BufferGeometry[]>(),instances=new Map<THREE.Material,THREE.Matrix4[]>(),caps=new Map<THREE.Material,THREE.Matrix4[]>()
  const transform=new THREE.Object3D()
  function part(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number,angle=0,target=instances){transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,angle,0);transform.updateMatrix();const list=target.get(m)??[];list.push(transform.matrix.clone());target.set(m,list)}
@@ -44,9 +47,10 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
   for(let i=1;i<f.points.length;i++){
    const a=f.points[i-1],b=f.points[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);if(len<.001)continue
    const angle=-Math.atan2(dz,dx),x=(a[0]+b[0])/2,z=(a[1]+b[1])/2
-   part(paving,x,.003,z,len,.004,width+(walking?.03:.28),angle)
+   const ground=walking&&data.parks.some(park=>containsPoint(x,z,park.points)&&!park.holes?.some(hole=>containsPoint(x,z,hole)))?parkPath:paving
+   part(ground,x,.003,z,len,.004,width+(walking?.03:.28),angle)
    if(!walking)part(road,x,.007,z,len,.004,width,angle)
-   for(const p of [a,b]){const key=`${p[0]},${p[1]},${width}`;if(!junctions.has(key)){junctions.add(key);part(paving,p[0],.006,p[1],width+(walking?.03:.28),1,width+(walking?.03:.28),0,caps);if(!walking)part(road,p[0],.01,p[1],width,1,width,0,caps)}}
+   for(const p of [a,b]){const key=`${p[0]},${p[1]},${width}`;if(!junctions.has(key)){junctions.add(key);part(ground,p[0],.006,p[1],width+(walking?.03:.28),1,width+(walking?.03:.28),0,caps);if(!walking)part(road,p[0],.01,p[1],width,1,width,0,caps)}}
    if(!walking&&width>=.75)for(let t=.3;t<len-.2;t+=.9)part(white,a[0]+dx*t/len,.011,a[1]+dz*t/len,.23,.001,.014,angle)
   }
  }
