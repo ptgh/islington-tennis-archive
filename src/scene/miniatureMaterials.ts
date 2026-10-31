@@ -595,8 +595,10 @@ export function createMiniatureMaterials(worldScale=1) {
   // A high cutout threshold erases it at distance; one blended plane suffices.
   const net = new THREE.MeshStandardMaterial({ color: '#506d61', alphaMap: netAlpha, alphaTest: .02, transparent:true,opacity:.85,depthWrite:false,forceSinglePass:true,side: THREE.DoubleSide, roughness: .95 })
   const foliage = new THREE.MeshStandardMaterial({
-    color: '#ffffff', map: foliageMap, bumpMap: foliageBump, bumpScale: .075,
-    roughness: .94, vertexColors: true, side: THREE.DoubleSide,
+    // Bump relief is a physical length: the borough is ten times smaller than
+    // the metre-based clubs. Keep leaf grain soft at either scene scale.
+    color: '#ffffff', map: foliageMap, bumpMap: foliageBump, bumpScale: .028 * worldScale,
+    roughness: .92, vertexColors: true, side: THREE.DoubleSide,
   })
   // Animatein the vertex shader so every crown moves without rebuilding
   // thousands of instance matrices. The depth pass uses the same deformation.

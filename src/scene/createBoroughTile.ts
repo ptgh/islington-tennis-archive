@@ -89,13 +89,17 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
   detailedBuildings++
  }
  const crowns:THREE.Matrix4[]=[]
- function tree(x:number,z:number,index:number){
-  const size=.56+(index%7)*.045
+ function tree(x:number,z:number,index:number,source=false){
+  // Stable source IDs vary illustrative mature canopies without moving mapped
+  // trunks or consuming the decorative planting stream. Keep three lobes.
+  const seed=Math.abs(Math.sin(index*12.9898)*43758.5453)%1
+  const size=source?.78+seed*.38:.56+(index%7)*.045
+  const breadth=source?.88+seed*.22:1
   part(trunk,x,size*.38,z,.035,size*.76,.035)
   // Layered, offset lobes retain the softer established tree silhouette.
-  for(let lobe=0;lobe<3;lobe++){const angle=lobe*2.399+index;transform.position.set(x+Math.cos(angle)*size*.15,size*(.78+lobe*.11),z+Math.sin(angle)*size*.15);transform.scale.set(size*.38,size*.46,size*.38);transform.rotation.set(0,index*2.399,0);transform.updateMatrix();crowns.push(transform.matrix.clone())}
+  for(let lobe=0;lobe<3;lobe++){const angle=lobe*2.399+index;transform.position.set(x+Math.cos(angle)*size*.15,size*(.78+lobe*.11),z+Math.sin(angle)*size*.15);transform.scale.set(size*.38*breadth,size*.46,size*.38*breadth);transform.rotation.set(0,index*2.399,0);transform.updateMatrix();crowns.push(transform.matrix.clone())}
  }
- data.trees.forEach((f,i)=>tree(f.points[0][0],f.points[0][1],i))
+ data.trees.forEach(f=>tree(f.points[0][0],f.points[0][1],Number(f.id),true))
  // Additional planting is decorative and stays within the mapped park perimeter,
  // outside footprints/courts/paths; no invented streets or park shapes.
  let planted=0
