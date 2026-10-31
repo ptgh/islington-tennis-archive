@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
 import { createFootprintRoof } from './footprintRoof.ts'
+import { boroughRoadProfile, boroughStreetEdges } from './boroughStreetEdges.ts'
 import { buildingHeight, containsPoint, roofBounds, boroughCourts, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
 
 /** Shared, owned finishes keep streamed cells consistent with the established miniature. */
@@ -43,8 +44,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
  for(const f of data.water)polygon(f,water,0)
  const junctions=new Set<string>()
  for(const f of data.roads){
-  const walking=['footway','path','pedestrian','steps','cycleway','bridleway'].includes(f.kind??'')
-  const width=walking?.18:['primary','secondary','tertiary','trunk','primary_link','secondary_link'].includes(f.kind??'')?.75:f.kind==='service'?.32:.5
+  const {walking,width}=boroughRoadProfile(f.kind)
   for(let i=1;i<f.points.length;i++){
    const a=f.points[i-1],b=f.points[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);if(len<.001)continue
    const angle=-Math.atan2(dz,dx),x=(a[0]+b[0])/2,z=(a[1]+b[1])/2
@@ -54,6 +54,11 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
    for(const p of [a,b]){const key=`${p[0]},${p[1]},${width}`;if(!junctions.has(key)){junctions.add(key);part(ground,p[0],.006,p[1],width+(walking?.03:.28),1,width+(walking?.03:.28),0,caps);if(!walking)part(road,p[0],.01,p[1],width,1,width,0,caps)}}
    if(!walking&&width>=.75)for(let t=.3;t<len-.2;t+=.9)part(white,a[0]+dx*t/len,.011,a[1]+dz*t/len,.23,.001,.014,angle)
   }
+ }
+ // Reuse the owned stone/box instance batch: no extra material or draw pass.
+ for(const {a,b,width} of boroughStreetEdges(data.roads)){
+  const dx=b[0]-a[0],dz=b[1]-a[1]
+  part(stone,(a[0]+b[0])/2,.015,(a[1]+b[1])/2,Math.hypot(dx,dz),.012,width,-Math.atan2(dz,dx))
  }
  for(const f of data.railways)for(let i=1;i<f.points.length;i++){
   const a=f.points[i-1],b=f.points[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz),angle=-Math.atan2(dz,dx)

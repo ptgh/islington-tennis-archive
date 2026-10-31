@@ -1,6 +1,33 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {streetEdgePieces,type StreetSegment} from '../scene/streetNetwork.ts'
+import {boroughRoadProfile,boroughStreetEdges} from '../scene/boroughStreetEdges.ts'
+
+test('borough kerbs preserve source roads and leave carriageways and footpath connections open',()=>{
+ const roads=[
+  {id:1,kind:'residential',points:[[-6,0],[6,0]]},
+  {id:2,kind:'secondary',points:[[-4,-5],[-4,5]]},
+  {id:3,kind:'footway',points:[[4,0],[4,2]]},
+  {id:4,kind:'secondary',points:[[0,0],[0,3]]},
+ ],before=structuredClone(roads),edges=boroughStreetEdges(roads)
+ assert.deepEqual(roads,before)
+ assert.ok(edges.length>4,'junctions split edges rather than covering their openings')
+ for(const edge of edges)for(let i=0;i<=20;i++){
+  const x=edge.a[0]+(edge.b[0]-edge.a[0])*i/20,z=edge.a[1]+(edge.b[1]-edge.a[1])*i/20
+  for(const road of roads){
+   const [a,b]=road.points,dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz),along=((x-a[0])*dx+(z-a[1])*dz)/length
+   for(const center of [a,b])assert.ok(Math.hypot(x-center[0],z-center[1])>=boroughRoadProfile(road.kind).width/2+edge.width/2-1e-8,'rounded road ends stay clear too')
+   if(along<0||along>length)continue
+   const across=Math.abs(-(x-a[0])*dz+(z-a[1])*dx)/length
+   assert.ok(across>=boroughRoadProfile(road.kind).width/2+edge.width/2-1e-8,'the whole kerb stays outside the road or path')
+  }
+ }
+ assert.ok(edges.some(edge=>Math.abs(edge.a[1]+.262)<1e-8&&edge.a[0]<4&&edge.b[0]>4),'the non-meeting side of the footpath stays continuous')
+})
+
+test('walking-only and degenerate source lines do not acquire kerbs',()=>{
+ assert.deepEqual(boroughStreetEdges([{id:1,kind:'path',points:[[0,0],[5,5]]},{id:2,kind:'service',points:[[2,2],[2,2]]}]),[])
+})
 
 test('raised kerbs leave the full width of a crossing road open',()=>{
  const crossing:StreetSegment={a:[0,-20],b:[0,20],width:6}
