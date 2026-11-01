@@ -246,7 +246,7 @@ function createFoliageGeometry(shadow = false) {
     { x: -.42, y: .02, z: -.30, sx: .55, sy: .59, sz: .54 },
     { x: .20, y: -.13, z: -.46, sx: .56, sy: .54, sz: .57 },
   ]
-  const positions:number[]=[],normals:number[]=[],uvs:number[]=[],tints:number[]=[]
+  const positions:number[]=[],normals:number[]=[],uvs:number[]=[],tints:number[]=[],leafKinds:number[]=[]
   const crownSurfaces:THREE.Triangle[][]=[]
   const unit = shadow?new THREE.IcosahedronGeometry(1,0):new THREE.SphereGeometry(1,6,4)
   const point = (direction:THREE.Vector3, cluster:typeof clusters[number], index:number, lift=0) => {
@@ -265,7 +265,7 @@ function createFoliageGeometry(shadow = false) {
       const direction=new THREE.Vector3().fromBufferAttribute(attribute,i),p=point(direction,cluster,index)
       attribute.setXYZ(i,p.x,p.y,p.z)
       // Shade each branch mass, with lighter new growth on its upper surface.
-      const light=.74+(direction.y+1)*.105+p.y*.035
+      const light=.68+(direction.y+1)*.14+p.y*.035
       colors.set([light,Math.min(1,light+.025),light*.93],i*3)
     }
     geometry.setAttribute('color',new THREE.BufferAttribute(colors,3))
@@ -284,7 +284,7 @@ function createFoliageGeometry(shadow = false) {
       if(buried)continue
       for(let i=face;i<face+3;i++){
         positions.push(p.getX(i),p.getY(i),p.getZ(i));normals.push(n.getX(i),n.getY(i),n.getZ(i))
-        uvs.push(uv.getX(i),uv.getY(i));tints.push(color.getX(i),color.getY(i),color.getZ(i))
+        uvs.push(uv.getX(i),uv.getY(i));tints.push(color.getX(i),color.getY(i),color.getZ(i));leafKinds.push(0)
       }
     }
     crownSurfaces.push(surface)
@@ -294,8 +294,9 @@ function createFoliageGeometry(shadow = false) {
   const normal=new THREE.Vector3(),edge=new THREE.Vector3(),up=new THREE.Vector3(0,1,0)
   // Folded leaves follow the individual masses, including the recesses between
   // them. No floating outer shell or extra transparent rendering pass.
-  for(let i=0;i<(shadow?0:72);i++){
-    const index=i%clusters.length,j=Math.floor(i/clusters.length),count=Math.ceil((72-index)/clusters.length)
+  const leafCount=120
+  for(let i=0;i<(shadow?0:leafCount);i++){
+    const index=i%clusters.length,j=Math.floor(i/clusters.length),count=Math.ceil((leafCount-index)/clusters.length)
     const y=1-(j+.5)*2/count,angle=j*2.399963229728653+index*.7,radius=Math.sqrt(1-y*y)
     const direction=new THREE.Vector3(Math.cos(angle)*radius,y,Math.sin(angle)*radius)
     // Attach to the actual faceted crown, rather than the ideal ellipsoid above
@@ -317,14 +318,14 @@ function createFoliageGeometry(shadow = false) {
     const along=new THREE.Vector3().crossVectors(across,leafNormal).normalize()
     across.applyAxisAngle(leafNormal,noise(i,8,109)*Math.PI)
     along.applyAxisAngle(leafNormal,noise(i,8,109)*Math.PI)
-    const width=.055+noise(i,4,117)*.035,length=.09+noise(i,3,123)*.06
+    const width=.065+noise(i,4,117)*.035,length=.12+noise(i,3,123)*.06
     const points=[
-      center.clone().addScaledVector(along,length),
-      center.clone().addScaledVector(across,width).addScaledVector(leafNormal,-.018),
-      center.clone().addScaledVector(along,-length),
-      center.clone().addScaledVector(across,-width).addScaledVector(leafNormal,.025),
+      center.clone().addScaledVector(along,length).addScaledVector(leafNormal,.05),
+      center.clone().addScaledVector(across,width).addScaledVector(leafNormal,.018),
+      center.clone().addScaledVector(along,-length*.35),
+      center.clone().addScaledVector(across,-width).addScaledVector(leafNormal,.05),
     ]
-    const light=.78+noise(i,2,131)*.2,coordinates=[[.5,1],[1,.5],[.5,0],[0,.5]]
+    const light=.82+noise(i,2,131)*.18,coordinates=[[.5,1],[1,.5],[.5,0],[0,.5]]
     for(const face of [[0,1,2],[0,2,3]]){
       normal.subVectors(points[face[1]],points[face[0]])
       edge.subVectors(points[face[2]],points[face[0]])
@@ -333,7 +334,7 @@ function createFoliageGeometry(shadow = false) {
         const p=points[index];positions.push(p.x,p.y,p.z)
         normals.push(normal.x,normal.y,normal.z)
         uvs.push(coordinates[index][0],coordinates[index][1])
-        tints.push(light,Math.min(1,light+.025),light*.92)
+        tints.push(light,Math.min(1,light+.04),light*.92);leafKinds.push(1)
       }
     }
   }
@@ -342,6 +343,7 @@ function createFoliageGeometry(shadow = false) {
   crown.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3))
   crown.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2))
   crown.setAttribute('color',new THREE.Float32BufferAttribute(tints,3))
+  crown.setAttribute('foliageLeaf',new THREE.Float32BufferAttribute(leafKinds,1))
   crown.computeBoundingSphere()
   return crown
 }
@@ -458,6 +460,8 @@ export function createMiniatureMaterials(worldScale=1) {
     return [height, height, height]
   }, false)
   foliageBump.repeat.copy(foliageMap.repeat)
+  const foliageAlpha=surface(128,(x,y)=>{const a=Math.round(leafPixel(x,y).cover*255);return [a,a,a]},false)
+  foliageAlpha.repeat.copy(foliageMap.repeat)
 
   const brick = new THREE.MeshStandardMaterial({
     color: '#ffffff', map: brickMap, bumpMap: brickBump, bumpScale: .022, roughness: .92,
@@ -599,7 +603,7 @@ export function createMiniatureMaterials(worldScale=1) {
   const foliage = new THREE.MeshStandardMaterial({
     // Bump relief is a physical length: the borough is ten times smaller than
     // the metre-based clubs. Keep leaf grain soft at either scene scale.
-    color: '#ffffff', map: foliageMap, bumpMap: foliageBump, bumpScale: .028 * worldScale,
+    color: '#ffffff', map: foliageMap, alphaMap:foliageAlpha, alphaTest:.18, bumpMap: foliageBump, bumpScale: .028 * worldScale,
     roughness: .92, vertexColors: true, side: THREE.DoubleSide,
   })
   // Animatein the vertex shader so every crown moves without rebuilding
@@ -637,7 +641,22 @@ export function createMiniatureMaterials(worldScale=1) {
     material.customProgramCacheKey = () => 'miniature-crown-wind-v4'
   }
   wind(foliage)
-  const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide })
+  const prepareFoliage=foliage.onBeforeCompile
+  foliage.onBeforeCompile=(shader,renderer)=>{
+    prepareFoliage.call(foliage,shader,renderer)
+    shader.vertexShader='attribute float foliageLeaf;\nvarying float leafTransmission;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n leafTransmission=foliageLeaf;')
+    shader.fragmentShader='varying float leafTransmission;\n'+shader.fragmentShader
+    // Reuse each light's already-shadowed radiance. Thin leaves gain a little
+    // transmitted light without another shadow lookup, glow pass or draw call.
+    const lighting=THREE.ShaderChunk.lights_fragment_begin.replaceAll(
+      'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );',
+      `RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );
+       reflectedLight.directDiffuse += diffuseColor.rgb * directLight.color * (.018 + .102 * leafTransmission) * pow(max(dot(-geometryNormal,directLight.direction),0.0),2.0);`
+    )
+    shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',lighting)
+  }
+  foliage.customProgramCacheKey=()=> 'miniature-crown-wind-leaf-light-v5'
+  const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaMap:foliageAlpha, alphaTest:.18, side: THREE.DoubleSide })
   wind(foliageDepth)
   const foliageGeometry = createFoliageGeometry()
   // Low planting needs a shaded leaf mass, not the full tree-crown silhouette.
@@ -648,6 +667,7 @@ export function createMiniatureMaterials(worldScale=1) {
     shrubColors.set([light,Math.min(1,light+.025),light*.93],i*3)
   }
   shrubGeometry.setAttribute('color',new THREE.BufferAttribute(shrubColors,3))
+  shrubGeometry.setAttribute('foliageLeaf',new THREE.Float32BufferAttribute(new Float32Array(shrubPositions.count),1))
   // Crowns cast shadows through 100-triangle single-sided stand-ins: leaf cards are
   // invisible at shadow-map resolution, and full crowns made foliage shadows ~4x
   // the GPU cost of drawing the crowns themselves (measured 14ms vs 3ms).
@@ -656,7 +676,7 @@ export function createMiniatureMaterials(worldScale=1) {
   wind(foliageShadowDepth)
   const foliageShadowProxy = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
   const materials = [brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing]
-  const textures = [brickMap, brickBump, slateMap, slateBump, slateRoughness, grassMap, parkMap, asphaltMap, asphaltBump, asphaltRoughness, pavingMap, pavingBump, foliageMap, foliageBump, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha, renderMap, renderBump, metalRoofMap, metalRoofBump, membraneMap, metalRoofRoughness, membraneRoughness]
+  const textures = [brickMap, brickBump, slateMap, slateBump, slateRoughness, grassMap, parkMap, asphaltMap, asphaltBump, asphaltRoughness, pavingMap, pavingBump, foliageMap, foliageBump, foliageAlpha, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha, renderMap, renderBump, metalRoofMap, metalRoofBump, membraneMap, metalRoofRoughness, membraneRoughness]
   let disposed = false
 
   return {

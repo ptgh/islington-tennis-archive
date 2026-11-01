@@ -127,6 +127,11 @@ test('layered foliage stays deterministic, bounded and within the existing geome
  assert.equal(normals.count,positions.count)
  assert.equal(geometry.getAttribute('uv').count,positions.count)
  assert.equal(geometry.getAttribute('color').count,positions.count)
+ const leafKinds=geometry.getAttribute('foliageLeaf')
+ assert.equal(leafKinds.count,positions.count)
+ assert.ok(Array.from(leafKinds.array).every(n=>n===0||n===1))
+ assert.ok(Array.from(leafKinds.array).filter(n=>n===1).length/6>=60,'overlapping folded leaves supply silhouette detail')
+ assert.ok(Array.from(first.shrubGeometry.getAttribute('foliageLeaf').array).every(n=>n===0),'low planting stays a shaded mass')
  for(let i=0;i<positions.count;i++){
   const values=[positions.getX(i),positions.getY(i),positions.getZ(i),normals.getX(i),normals.getY(i),normals.getZ(i)]
   assert.ok(values.every(Number.isFinite))
@@ -134,9 +139,16 @@ test('layered foliage stays deterministic, bounded and within the existing geome
   assert.ok(Math.abs(Math.hypot(...values.slice(3))-1)<1e-5)
  }
  assert.deepEqual(positions.array,second.foliageGeometry.getAttribute('position').array)
+ const alpha=first.foliage.alphaMap!
+ assert.equal(first.foliageDepth.alphaMap,alpha,'visible and full-depth leaf cutouts share their owned mask')
+ assert.equal(first.foliageShadowDepth.alphaTest,0,'low-poly shadow proxies keep the cheap opaque pass')
+ const pixels=(alpha.image as {data:Uint8Array}).data
+ let coverage=0;for(let i=1;i<pixels.length;i+=4)coverage+=pixels[i]/255
+ assert.ok(coverage/(pixels.length/4)>first.foliage.alphaTest,'distant averaged mip levels retain the crown')
+ let alphaReleased=0;alpha.addEventListener('dispose',()=>alphaReleased++)
  let released=0;geometry.addEventListener('dispose',()=>released++)
  first.dispose();first.dispose();second.dispose()
- assert.equal(released,1)
+ assert.equal(released,1);assert.equal(alphaReleased,1)
 });
 test('lens finish keeps a sharp centre band and soft tilt-shift edges',async()=>{
  const {createLensFinish,LENS_FINISH}=await import('../scene/renderQuality.ts');
@@ -144,3 +156,16 @@ test('lens finish keeps a sharp centre band and soft tilt-shift edges',async()=>
  assert.ok(LENS_FINISH.band>0&&LENS_FINISH.band<.5);
  assert.ok(lens.uniforms.blur.value>0&&lens.uniforms.vignette.value<.5);
 });
+
+test('foliage transmission retains wind and uses the existing shadowed direct light',()=>{
+ const finishes=createMiniatureMaterials(.1)
+ try{
+  const shader={vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader,uniforms:{}}
+  finishes.foliage.onBeforeCompile(shader as Parameters<typeof finishes.foliage.onBeforeCompile>[0],{} as THREE.WebGLRenderer)
+  assert.match(shader.vertexShader,/attribute float foliageLeaf/)
+  assert.match(shader.vertexShader,/miniatureWindTime/)
+  assert.match(shader.fragmentShader,/directLight.color \* \(.018 \+ .102 \* leafTransmission\)/)
+  assert.match(shader.fragmentShader,/directLight.color \*= .*getShadow/,'existing shadow attenuation remains ahead of the leaf light')
+  assert.equal(finishes.foliage.transparent,false,'leaves add no transparent rendering pass')
+ }finally{finishes.dispose()}
+})
