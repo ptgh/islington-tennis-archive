@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
 import { createFootprintRoof } from './footprintRoof.ts'
+import { addCaledonianClockTower } from './caledonianClockTower.ts'
 import { boroughRoadProfile, boroughStreetEdges } from './boroughStreetEdges.ts'
 import { buildingHeight, containsPoint, roofBounds, boroughCourts, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
 
@@ -68,6 +69,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
  let detailedBuildings=0
  for(const f of data.buildings){
   const id=Number(f.id),height=buildingHeight(f.tags),bounds=roofBounds(f.points),modern=bounds.width>2.2||['industrial','warehouse','commercial'].includes(f.tags?.building??'')
+  if(addCaledonianClockTower(f,height,{stone:trim,dark:door,dial:white,roof:roofs[0],polygon,part,collect})){detailedBuildings++;continue}
   const palette=Math.abs(id)%brick.length;polygon(f,brick[palette],.012,height)
   const pitched=!modern&&!f.holes?.length&&f.tags?.['roof:shape']!=='flat'&&bounds.width>.3
   if(pitched){const g=createFootprintRoof(f.points,bounds,height+.012,Math.min(.3,bounds.width*.30));collect(roofs[Math.abs(id)%roofs.length],g)}else polygon(f,roofs[Math.abs(id)%roofs.length],height+.015)
@@ -121,7 +123,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
   }
  }
  const owned:THREE.BufferGeometry[]=[]
- for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':roofs.includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=brick.includes(material as THREE.MeshStandardMaterial)||roofs.includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
+ for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':roofs.includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===trim||brick.includes(material as THREE.MeshStandardMaterial)||roofs.includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
  function batch(geometry:THREE.BufferGeometry,material:THREE.Material,matrices:THREE.Matrix4[],shadows=false){if(!matrices.length)return;const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.castShadow=shadows;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);return mesh}
  for(const [material,matrices] of instances)batch(box,material,matrices,material===trunk)
  for(const [material,matrices] of caps)batch(circle,material,matrices)
