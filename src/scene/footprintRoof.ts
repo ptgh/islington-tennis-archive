@@ -35,3 +35,28 @@ export function createFootprintRoof(points: number[][], bounds: { x: number; z: 
   geometry.computeVertexNormals()
   return geometry
 }
+
+/** Close the roof perimeter against its source wall, including edges crossing
+ * the ridge. A rectangular gable would overhang concave/angled footprints. */
+export function createFootprintGables(points:number[][],bounds:{x:number;z:number;width:number;angle:number},height:number,rise:number){
+ const vertices:number[]=[],uv:number[]=[],c=Math.cos(bounds.angle),s=Math.sin(bounds.angle)
+ const across=([x,z]:number[])=>(x-bounds.x)*c-(z-bounds.z)*s
+ const top=(p:number[])=>height+rise*Math.max(0,1-Math.abs(across(p))/(bounds.width/2))
+ const signed=points.slice(1).reduce((sum,b,i)=>sum+points[i][0]*b[1]-b[0]*points[i][1],0)
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i],ax=across(a),bx=across(b),cuts=[a]
+  if(ax*bx<0){const t=ax/(ax-bx);cuts.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t])}
+  cuts.push(b)
+  for(let j=1;j<cuts.length;j++){
+   const p=cuts[j-1],q=cuts[j],py=top(p),qy=top(q),length=Math.hypot(q[0]-p[0],q[1]-p[1])
+   if(Math.max(py,qy)-height<.000001||length<.000001)continue
+   const face=[[p[0],height,p[1],0],[q[0],height,q[1],length],[q[0],qy,q[1],length],[p[0],py,p[1],0]]
+   for(const triangle of [[0,1,2],[0,2,3]]){
+    if((triangle[1]===1?qy:py)-height<.000001)continue
+    if(signed>0)triangle.reverse()
+    for(const index of triangle){const [x,y,z,u]=face[index];vertices.push(x,y,z);uv.push(u/6,y/6)}
+   }
+  }
+ }
+ const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.computeVertexNormals();return geometry
+}

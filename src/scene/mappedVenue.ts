@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import geography from '../data/iconic-geography.json' with { type: 'json' }
 import { cloneArchitecturalFinish } from './miniatureMaterials.ts'
 import type { createMiniatureMaterials } from './miniatureMaterials'
-import { createFootprintRoof } from './footprintRoof.ts'
+import { createFootprintRoof, createFootprintGables } from './footprintRoof.ts'
 import { mappedRailwayParts } from './mappedRailway.ts'
 import { clubCourtSurface, type ClubCourtSurface } from './clubSurfaces.ts'
 
@@ -290,31 +290,28 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     if(coverage>.60 && b.width<32 && f.tags['roof:shape']!=='flat' && (!inVenue || clubhouse)) {
       const roofRise=Math.min(3.3,b.width*.30)
       collect(createFootprintRoof(f.points,b,height+.04,roofRise),mat(roofTone,'roof'))
-      // Roof ridge runs along the long axis of each real footprint.
+      collect(createFootprintGables(f.points,b,height+.04,roofRise),mat(colour,'brick'))
+      for(let edge=1;edge<f.points.length;edge++)segment(f.points[edge-1],f.points[edge],.18,height+.03,'#4d5e56',.14)
+      // Furniture fits the mapped outline and sits on the same roof slope.
       place(b.x,b.z,b.angle+Math.PI/2,1,()=>{
-        const width=b.depth,depth=b.width,rise=Math.min(3.3,depth*.36)
+        const width=b.depth,depth=b.width
         for(const side of [-1,1]) {
-          // A triangular prism closes both gable ends; roof surfaces carry slate relief.
-          const roofShape=new THREE.Shape([new THREE.Vector2(-depth/2,0),new THREE.Vector2(0,rise),new THREE.Vector2(depth/2,0)])
-          if(side===1 && coverage>.94){
-            const gable=new THREE.ExtrudeGeometry(roofShape,{depth:.18,bevelEnabled:false})
-            gable.rotateY(Math.PI/2);gable.translate(-width/2,height,0)
-            const m=new THREE.Matrix4().makeRotationY(b.angle+Math.PI/2);m.setPosition(b.x,0,b.z);gable.applyMatrix4(m)
-            collect(gable,mat(colour,'brick'))
-          }
-          box(0,height-.02,side*(depth/2+.15),width+.3,.12,.18,'#4d5e56')
           for(let d=-width/2+3;d<width/2-2;d+=6) {
-            box(d,height+1.0,side*depth*.26,1.2,1.3,1.4,'#d6d0bf')
-            box(d,height+1.0,side*(depth*.26+.73),.76,.92,.12,'#456b63')
-            box(d,height+1.72,side*depth*.26,1.42,.18,1.65,roofTone)
+            if(!roofDetailFits(f.points,b,side*depth*.26,-d,1.65,1.42))continue
+            const y=height+.04+roofRise*.48+.4
+            box(d,y,side*depth*.26,1.2,1.3,1.4,'#d6d0bf')
+            box(d,y,side*(depth*.26+.73),.76,.92,.12,'#456b63')
+            box(d,y+.72,side*depth*.26,1.42,.18,1.65,roofTone)
           }
         }
         const chimneys=Math.max(1,Math.floor(width/9))
         for(let j=0;j<chimneys;j++) {
           const x=-width/2+(j+.5)*width/chimneys
-          box(x,height+rise*.8,-depth*.15,.85,2.1,1.0,colour)
-          box(x,height+rise*.8+1.08,-depth*.15,1.05,.16,1.2,'#d6d0bf')
-          for(const dx of [-.23,.23])box(x+dx,height+rise*.8+1.43,-depth*.15,.18,.56,.18,'#aa7355')
+          if(!roofDetailFits(f.points,b,-depth*.15,-x,1.2,1.05))continue
+          const y=height+.04+roofRise*.7+.6
+          box(x,y,-depth*.15,.85,2.1,1.0,colour)
+          box(x,y+1.08,-depth*.15,1.05,.16,1.2,'#d6d0bf')
+          for(const dx of [-.23,.23])box(x+dx,y+1.43,-depth*.15,.18,.56,.18,'#aa7355')
         }
       })
     } else {
