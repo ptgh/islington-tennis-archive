@@ -20,7 +20,9 @@ test('clouds use owned soft density maps with shaded cores and transparent edges
  assert.ok(sprite.isSprite);
  const map=(sprite.material as THREE.SpriteMaterial).map!;
  const data=map.image.data as Uint8Array,alpha=Array.from(data).filter((_,i)=>i%4===3);
- assert.ok(alpha.includes(0)&&alpha.some(a=>a>150)&&alpha.some(a=>a>0&&a<80));
+ assert.ok(alpha.includes(0)&&alpha.some(a=>a>100)&&alpha.some(a=>a>0&&a<80));
+ assert.ok(Math.max(...alpha)<180,'overlapping cloud cards retain a translucent core');
+ for(let i=0;i<256;i++)for(const [x,y] of [[i,0],[i,255],[0,i],[255,i]])assert.equal(data[(y*256+x)*4+3],0,'all card borders fade to transparency');
  let disposed=0;map.addEventListener('dispose',()=>disposed++);weather.dispose();assert.equal(disposed,1);
 });
 test('cloud footprints stay fixed while rain animates and pausing freezes drops',()=>{
@@ -57,3 +59,20 @@ test('wind steepens rain trajectories without moving their ground anchors',()=>{
   assert.ok(Array.from(rain.geometry.attributes.position.array).every(Number.isFinite));
  }finally{weather.dispose();}
 });
+
+
+test('soft cloud banks retain court clearance and close-up fading without moving their anchors',()=>{
+ const weather=createWeather(),banks=weather.root.children[0],bank=banks.children[0]
+ try{
+  weather.setKind('cloud')
+  const camera=new THREE.OrthographicCamera(-500,500,500,-500,.1,2000);camera.position.set(0,600,700);camera.lookAt(0,0,0);camera.updateMatrixWorld()
+  const top=(bank.children[1] as THREE.Sprite).material as THREE.SpriteMaterial
+  const before=bank.position.toArray()
+  weather.setView(camera,1,[]);const open=top.opacity
+  assert.ok(open>0&&open<=.38)
+  weather.setView(camera,6,[]);assert.ok(top.opacity<open*.3,'nearby surfaces stay visible')
+  const direction=new THREE.Vector3(0,0,-1).transformDirection(camera.matrixWorld),ground=bank.position.clone().addScaledVector(direction,-bank.position.y/direction.y)
+  weather.setView(camera,1,[ground]);assert.ok(top.opacity<open*.2,'a court behind a bank clears the veil')
+  assert.deepEqual(bank.position.toArray(),before)
+ }finally{weather.dispose()}
+})

@@ -21,13 +21,18 @@ export function createWeather() {
     let density=0;
     for(const [cx,cy,rx,ry] of [[-.28,-.08,.24,.17],[-.13,.12,.20,.27],[.08,.05,.25,.24],[.30,-.10,.18,.15],[.02,-.17,.34,.13]])density+=Math.exp(-(((u-cx)/rx)**2+((v-cy)/ry)**2)*2);
     const texture=field(x,y,31)*.55+field(x,y,12)*.3+field(x,y,5)*.15;
-    const alpha=THREE.MathUtils.smoothstep(density+(texture-.5)*.7,.16,.95);
-    const shade=190+y/size*47+(texture-.5)*20,offset=(y*size+x)*4;
+    // Gradual optical density keeps overlapping layers airy instead of
+    // flattening their centres into bright opaque ribbons. Feather every
+    // texture border so rotating a bank never reveals its rectangular card.
+    const edge=1-THREE.MathUtils.smoothstep(Math.max(Math.abs(u),Math.abs(v)),.38,.50);
+    const alpha=(1-Math.exp(-Math.max(0,density+(texture-.5)*.32)*.9))*.78*edge;
+    const shade=209+y/size*20+(texture-.5)*12,offset=(y*size+x)*4;
     pixels.set([shade,shade+2,shade+3,alpha*235],offset);
   }
   const cloudMap=new THREE.DataTexture(pixels,size,size,THREE.RGBAFormat);
+  cloudMap.name='Soft optical-density clouds';
   cloudMap.colorSpace=THREE.SRGBColorSpace;cloudMap.magFilter=THREE.LinearFilter;cloudMap.minFilter=THREE.LinearMipmapLinearFilter;cloudMap.generateMipmaps=true;cloudMap.needsUpdate=true;
-  const cloudMaterial = new THREE.SpriteMaterial({map:cloudMap,color:'#eef0ee',transparent:true,opacity:.64,depthWrite:false,fog:true});
+  const cloudMaterial = new THREE.SpriteMaterial({map:cloudMap,color:'#eef0ee',transparent:true,opacity:.38,depthWrite:false,fog:true});
   const underside = cloudMaterial.clone();underside.color.set('#8c9a9f');
   const cells = [{x:90,z:-120,s:1},{x:-140,z:60,s:.9},{x:190,z:180,s:.85},{x:-70,z:-300,s:1.1},{x:35,z:340,s:.85}];
   const banks:{group:THREE.Group;top:THREE.SpriteMaterial;bottom:THREE.SpriteMaterial}[]=[];
@@ -75,8 +80,8 @@ export function createWeather() {
       }
       const acrossCourt=visibleCourts.some(p=>p.x>left-.07&&p.x<right+.07&&p.y>top-.1&&p.y<bottom+.1&&p.z>-1&&p.z<1);
       const clearance=acrossCourt?.14:1;
-      bank.top.opacity=.64*distanceFade*clearance;
-      bank.bottom.opacity=(kind==='rain'?.24:.12)*distanceFade*clearance;
+      bank.top.opacity=.38*distanceFade*clearance;
+      bank.bottom.opacity=(kind==='rain'?.16:.08)*distanceFade*clearance;
     }
     rainMaterial.opacity=THREE.MathUtils.lerp(.48,.22,THREE.MathUtils.smoothstep(zoom,2,8));
   }
