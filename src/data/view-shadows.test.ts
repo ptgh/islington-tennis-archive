@@ -48,3 +48,26 @@ test('small camera pans retain a world-anchored shadow texel grid',()=>{
   const after=projected()
   assert.ok(Math.abs(before.x-after.x)<1e-9&&Math.abs(before.y-after.y)<1e-9,'a sub-texel pan does not drag the shadow grid')
 })
+
+test('metre-scale club close-ups retain roof shadows when panning away from the fixed sun target',()=>{
+  const fit=createViewShadowFitter(),light=new THREE.DirectionalLight()
+  light.shadow.mapSize.set(4096,4096)
+  light.position.set(-400,600,450)
+  light.shadow.camera.far=1600
+  for(const aspect of [.46,1.6])for(const target of [new THREE.Vector3(-149,0,82),new THREE.Vector3(173,0,27)]){
+    const span=Math.max(430,(aspect<1?560:620)/aspect)
+    const view=new THREE.OrthographicCamera(-span*aspect/2,span*aspect/2,span/2,-span/2,.5,2400)
+    view.position.copy(target).add(new THREE.Vector3(420,510,680));view.lookAt(target)
+    view.zoom=4;view.updateProjectionMatrix()
+    assert.equal(fit(light,view),true)
+    light.shadow.updateMatrices(light)
+    const shadow=light.shadow.camera
+    assert.ok((shadow.right-shadow.left)*(shadow.top-shadow.bottom)<860*960,'close-up texels are concentrated without increasing the texture budget')
+    const direction=view.getWorldDirection(new THREE.Vector3())
+    for(const height of [0,30,60])for(const x of [-1,1])for(const y of [-1,1]){
+      const point=new THREE.Vector3(x,y,-1).unproject(view)
+      point.addScaledVector(direction,(height-point.y)/direction.y).project(shadow)
+      assert.ok(Math.abs(point.x)<1&&Math.abs(point.y)<1&&Math.abs(point.z)<1,'visible club roofs and ground retain shadow coverage')
+    }
+  }
+})

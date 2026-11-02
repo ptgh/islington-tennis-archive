@@ -23,6 +23,7 @@ import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLen
 import { createClubSurfaces, type ClubCourtSurface } from '../scene/clubSurfaces'
 import { createAntialiasedBeauty } from '../scene/antialiasedBeauty'
 import { createCourtNetGeometries } from '../scene/courtNet'
+import { createViewShadowFitter } from '../scene/viewShadows'
 import './IconicCourtView.css'
 
 // Club scenes were authored brighter than the town (1.18 vs 1.0 under ACES).
@@ -417,7 +418,9 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   scene.add(sun, sun.target, ambient)
   let windTime = 0, clock = new Date(), lastNight: boolean | undefined
   const lightTarget = new THREE.Vector3(0, 0, id === 'wimbledon' ? 15 : 0)
+  const fitShadows = createViewShadowFitter()
   return { scene, occlusionExclusions: collectOcclusionExclusions(scene), weatherClearance: matches.map(match => match.center),
+    fitShadows(camera: THREE.OrthographicCamera) { fitShadows(sun, camera) },
     animate(delta: number, running: boolean, night: boolean, weather: WeatherSceneKind, lightingTime: number | null, windMph?:number) {
       life.setNight(night)
       life.animate(delta, running, false)
@@ -557,6 +560,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       if (quality.setPreset(state.viewSettings.preset)) applyResolution()
       applyViewFocus(lens.uniforms, state.viewSettings.sharp)
       world.animate(0, false, state.night, state.weather, state.lightingTime, state.windMph)
+      world.fitShadows(camera)
       weatherWorld.setKind(state.weather)
       weatherWorld.setView(camera, camera.zoom, world.weatherClearance)
       applySceneGrade(renderer, lens.uniforms, state.night, ICONIC_DAY_LIFT)
