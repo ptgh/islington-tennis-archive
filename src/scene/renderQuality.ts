@@ -13,6 +13,24 @@ export function collectOcclusionExclusions(root: THREE.Object3D) {
   return objects
 }
 
+/** Streamed worlds attach complete, immutable groups at the root. Scan each
+ * group once, refresh membership on arrival/eviction, and release evicted refs.
+ * Camera culling only changes visibility, so it never requires another scan. */
+export function createOcclusionExclusionTracker(root: THREE.Group) {
+  const cached = new Map<THREE.Object3D, THREE.Object3D[]>()
+  let children: THREE.Object3D[] = [], objects: THREE.Object3D[] = []
+  return () => {
+    if (children.length === root.children.length && children.every((child, i) => child === root.children[i])) return objects
+    children = [...root.children]
+    for (const child of cached.keys()) if (child.parent !== root) cached.delete(child)
+    objects = children.flatMap(child => {
+      if (!cached.has(child)) cached.set(child, collectOcclusionExclusions(child))
+      return cached.get(child)!
+    })
+    return objects
+  }
+}
+
 /** Supersample on capable displays without allocating unbounded retina buffers. */
 export function scenePixelRatio(width: number, height: number, deviceRatio: number, qualityScale = 1) {
   const compact = width <= 760

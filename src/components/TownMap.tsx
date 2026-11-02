@@ -21,7 +21,7 @@ import { SHADOW_PROXY_LAYER } from '../scene/miniatureMaterials'
 import { createViewShadowFitter } from '../scene/viewShadows'
 import { freeLabel, type NextFree } from '../data/freeCourts'
 import { cameraAvailability, type TrafficCamera } from '../data/trafficCameras'
-import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, collectOcclusionExclusions } from '../scene/renderQuality'
+import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, createOcclusionExclusionTracker } from '../scene/renderQuality'
 import { createIslington, type IslingtonWorld } from '../scene/createIslington'
 import { boroughBounds, courtsNearVenue } from '../scene/boroughGeometry'
 import '../scene/TownMap.css'
@@ -230,14 +230,16 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     occlusion.updatePdMaterial({lumaPhi:5,depthPhi:1,normalPhi:3,radius:4,samples:8})
     const sizeOcclusion=occlusion.setSize.bind(occlusion)
     occlusion.setSize=(w:number,h:number)=>{
+      // Rotation can cross the phone breakpoint without rebuilding the pass.
+      occlusion.updateGtaoMaterial({samples:host.clientWidth>760?16:8})
       const ratio=Math.min(host.clientWidth>760?.8:.55,Math.sqrt(1800000/(w*h)))
       sizeOcclusion(Math.max(1,Math.ceil(w*ratio)),Math.max(1,Math.ceil(h*ratio)))
     }
-    const transparentObjects=collectOcclusionExclusions(world.root)
+    const transparentObjects=createOcclusionExclusionTracker(world.root)
     const drawOcclusion=occlusion.render.bind(occlusion)
     occlusion.render=(renderer,writeBuffer,readBuffer)=>{
       const weatherVisible=weatherWorld.root.visible
-      const visible=transparentObjects.filter(object=>object.visible)
+      const visible=transparentObjects().filter(object=>object.visible)
       weatherWorld.root.visible=false;visible.forEach(object=>{object.visible=false})
       try{drawOcclusion(renderer,writeBuffer,readBuffer,0,false)}
       finally{weatherWorld.root.visible=weatherVisible;visible.forEach(object=>{object.visible=true})}

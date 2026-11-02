@@ -5,8 +5,8 @@ import {createWeather} from '../scene/createWeather.ts';
 import {weatherWind,lightCycle} from '../scene/sceneAtmosphere.ts';
 import {DEFAULT_VIEW_SETTINGS} from './viewQuality.ts';
 
-test('High is the default and forecast wind controls bounded tree sway',()=>{
- assert.equal(DEFAULT_VIEW_SETTINGS.preset,'high');
+test('Balanced is the default and forecast wind controls bounded tree sway',()=>{
+ assert.equal(DEFAULT_VIEW_SETTINGS.preset,'balanced');
  assert.ok(weatherWind('rain',18)>weatherWind('rain',3));
  assert.ok(weatherWind('cloud',100)<=.34);
  assert.ok(weatherWind('rain',0)<weatherWind('clear'));

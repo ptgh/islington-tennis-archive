@@ -169,3 +169,27 @@ test('foliage transmission retains wind and uses the existing shadowed direct li
   assert.equal(finishes.foliage.transparent,false,'leaves add no transparent rendering pass')
  }finally{finishes.dispose()}
 })
+
+test('streamed occlusion exclusions follow cell arrival and eviction without rescanning retained cells',async()=>{
+ const {createOcclusionExclusionTracker}=await import('../scene/renderQuality.ts')
+ const root=new THREE.Group(),first=new THREE.Group(),second=new THREE.Group(),replacement=new THREE.Group()
+ const geometry=new THREE.PlaneGeometry(),leaf=new THREE.MeshBasicMaterial({alphaTest:.3}),solid=new THREE.MeshBasicMaterial()
+ const canopy=new THREE.Mesh(geometry,leaf),wall=new THREE.Mesh(geometry,solid),hidden=new THREE.Mesh(geometry,leaf),next=new THREE.Mesh(geometry,leaf)
+ first.add(canopy,wall);second.add(hidden);replacement.add(next);hidden.visible=false
+ let scans=0;const traverse=first.traverse.bind(first)
+ first.traverse=callback=>{scans++;traverse(callback)}
+ const exclusions=createOcclusionExclusionTracker(root)
+ try{
+  assert.deepEqual(exclusions(),[])
+  root.add(first)
+  const initial=exclusions();assert.deepEqual(initial,[canopy]);assert.equal(scans,1)
+  assert.equal(exclusions(),initial,'unchanged membership reuses the cached list')
+  root.add(second);assert.deepEqual(exclusions(),[canopy,hidden]);assert.equal(scans,1,'cell arrival does not rescan existing geometry')
+  first.visible=false;assert.deepEqual(exclusions(),[canopy,hidden]);assert.equal(scans,1)
+  assert.equal(hidden.visible,false,'tracking never changes visibility')
+  root.remove(first);root.add(replacement)
+  assert.deepEqual(exclusions(),[hidden,next],'equal-count replacement removes evicted cell references')
+  root.remove(second,replacement);assert.deepEqual(exclusions(),[])
+  root.add(first);assert.deepEqual(exclusions(),[canopy]);assert.equal(scans,2,'a reattached group is scanned afresh after eviction')
+ }finally{geometry.dispose();leaf.dispose();solid.dispose()}
+})

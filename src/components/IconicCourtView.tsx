@@ -520,6 +520,8 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     occlusion.updatePdMaterial({ lumaPhi: 5, depthPhi: 1, normalPhi: 3, radius: 4, samples: 8 })
     const sizeOcclusion = occlusion.setSize.bind(occlusion)
     occlusion.setSize = (w: number, h: number) => {
+      // Cached club worlds retain this pass across viewport and orientation changes.
+      occlusion.updateGtaoMaterial({ samples: element.clientWidth > 760 ? 16 : 8 })
       const ratio = Math.min(element.clientWidth > 760 ? .75 : .5, Math.sqrt(1600000 / (w * h)))
       sizeOcclusion(Math.max(1, Math.ceil(w * ratio)), Math.max(1, Math.ceil(h * ratio)))
     }
