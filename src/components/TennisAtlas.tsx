@@ -5,6 +5,7 @@ import { AtlasMiniature } from './AtlasMiniature';
 const IconicCourtView = lazy(() => import('./IconicCourtView').then(module => ({ default: module.IconicCourtView })));
 import { ATLAS_CHECKED, LTA_CALENDAR, iconicClubs, upcomingTournaments, tournamentDates, tournamentStatus, type IconicClubId, type Tournament, type TournamentFilter } from '../data/tennisAtlas';
 import type { WeatherSceneKind } from '../scene/createWeather';
+import { tournamentCalendar } from '../data/tournamentCalendar';
 import './TennisAtlas.css';
 
 type AtlasView = 'london' | 'season' | 'court';
@@ -70,6 +71,7 @@ function TourMap({events,selected,onSelect,onHome}:{events:Tournament[];selected
 }
 
 function EventDetails({event,today,onClub}:{event:Tournament;today:string;onClub:(id:IconicClubId)=>void}) {
+  const calendar = tournamentCalendar(event);
   return <article className="atlas-event-detail" aria-label="Selected tournament">
     <span className={`atlas-surface ${event.surface.toLowerCase()}`}><span/>{event.surface} · {event.category}</span>
     <h3>{event.name}</h3><p className="atlas-event-venue">{event.venue}<br/>{event.city}, {event.country}</p>
@@ -77,6 +79,7 @@ function EventDetails({event,today,onClub}:{event:Tournament;today:string;onClub
     <span className={`atlas-status ${event.status}`}>{tournamentStatus(event,today)}</span>
     <p>{event.dateNote}</p>
     <a className="primary-button" href={event.url} target="_blank" rel="noreferrer">Official tournament <Icon name="external" size={16}/></a>
+    {calendar&&<div className="atlas-calendar-download"><a className="text-button" href={`data:text/calendar;charset=utf-8,${encodeURIComponent(calendar)}`} download={`${event.id}.ics`}>Download calendar (.ics) <Icon name="arrow" size={16}/></a><small>All-day tournament dates · saved copy, not a live subscription.</small></div>}
     {event.clubId&&<button className="text-button" onClick={()=>{if(event.clubId)onClub(event.clubId);}}>Explore the club miniature <Icon name="arrow" size={16}/></button>}
     <a className="atlas-source" href={event.source} target="_blank" rel="noreferrer">Date source <Icon name="external" size={13}/></a>
   </article>;

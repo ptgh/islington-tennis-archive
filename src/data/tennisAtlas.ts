@@ -1,7 +1,7 @@
-/** Curated event records, checked against the linked official sources on 3 October 2026.
+/** Curated event records, checked against the linked official sources on 2 November 2026.
  * Dates are local event dates, not live match schedules. Keep unconfirmed editions undated.
  */
-export const ATLAS_CHECKED = '3 October 2026';
+export const ATLAS_CHECKED = '2 November 2026';
 export const LTA_CALENDAR = 'https://www.lta.org.uk/fan-zone/event-calendar/';
 
 export type IconicClubId = 'wimbledon' | 'queens';

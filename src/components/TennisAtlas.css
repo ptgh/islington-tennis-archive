@@ -92,6 +92,7 @@
 .atlas-status{display:inline-block;border:1px solid #d3ddc6;background:#edf1e2;border-radius:20px;font-size:12px;padding:3px 10px}
 .atlas-status.provisional,.atlas-status.unconfirmed{background:#f3edde;border-color:#e5d8bb;color:#816936}
 .atlas-event-detail .text-button{margin-top:12px;min-height:36px}
+.atlas-calendar-download small{display:block;font-size:11px;line-height:1.6;color:#65795f}
 .atlas-calendar{padding:29px 30px 20px;border-top:1px solid var(--line)}
 .atlas-calendar-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-bottom:18px}
 .atlas-filters{display:flex;gap:5px;flex-wrap:wrap}
