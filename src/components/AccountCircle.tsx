@@ -5,13 +5,15 @@ import { Icon } from './Icon';
 import { HittingPartners } from './HittingPartners';
 import './AccountCircle.css';
 
-export function AccountCircle({ venues, onRacquets, onPartners }: {
+export function AccountCircle({ venues, onRacquets, onPartners, openRequest = 0 }: {
+  openRequest?: number;
   venues: { id: string; name: string }[];
   onRacquets: () => void;
   onPartners: () => void;
 }) {
   const [signedIn, setSignedIn] = useState(false);
   const [open, setOpen] = useState(false);
+  useEffect(() => { if (openRequest) setOpen(true); }, [openRequest]);
   const trigger = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {

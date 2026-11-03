@@ -30,3 +30,5 @@
 }
 @media(min-width:761px) and (min-height:761px){.directory-panel{max-height:min(690px,calc(100dvh - 320px))}.directory-panel.has-detail{max-height:calc(100dvh - 184px)}}
 @media(min-width:1500px){.directory-heading h1{font-size:62px}.directory-tools{padding-top:20px}.results-heading{padding-top:17px}.directory-footer{padding-top:14px;padding-bottom:17px}}
+
+button[aria-label^="Close"]:focus-visible{outline:2px solid #64816e;outline-offset:2px}

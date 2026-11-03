@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { pedestrianPaths } from './pedestrianPaths.ts'
 import { busRoutes } from '../data/busRoutes.ts'
+import roadRoutes from '../data/borough-transport.json' with {type:'json'}
 import { inCourtArea, busRouteLine, type CourtArea } from './courtGeometry.ts'
 import { createMiniatureCyclist } from './miniatureCyclist.ts'
 
@@ -213,6 +214,9 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   if (!transport) return {
     root,
     setActivity(visible: boolean) { activity.visible = visible },
+    startBusRide(_id: string, _near: THREE.Vector3) { return false },
+    busPosition(_id: string, _target: THREE.Vector3) { return false },
+    rideProgress():{id:string;progress:number;walkMetres:number}|null {return null},
     setBuses(visible: boolean) { buses.visible = visible },
     setBusRoute(_id: string | null) {},
     setNight(night: boolean) {
@@ -253,7 +257,9 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const group = new THREE.Group()
     buses.add(group)
     // Same bent line as the drawn road, so buses never cross (or vanish at) a court.
-    const points = routeLine(route.points.map(([lng, lat]): [number, number] => { const p = project(lat, lng); return [p.x, p.z] })).map(([x, z]) => new THREE.Vector3(x, .16, z))
+    const source=geographic?(roadRoutes as Record<string,number[][]>)[route.id]:undefined
+    group.visible=!geographic||!!source?.length
+    const points = (source?.length?source.map(([x,z]):[number,number]=>[x*10,z*10]):routeLine(route.points.map(([lng, lat]): [number, number] => { const p = project(lat, lng); return [p.x, p.z] }))).map(([x, z]) => new THREE.Vector3(x, .16, z))
     const curve = new THREE.CurvePath<THREE.Vector3>()
     for (let i = 1; i < points.length; i++) curve.add(new THREE.LineCurve3(points[i - 1], points[i]))
     const length = curve.getLength()
@@ -267,7 +273,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
       const a = points[i]
       transform.position.copy(a).add(point).multiplyScalar(.5).setY(.19)
       const blocked=Array.from({length:Math.ceil(a.distanceTo(point))+1},(_,j)=>a.clone().lerp(point,j/Math.max(1,Math.ceil(a.distanceTo(point))))).some(p=>inCourtArea(p.x,p.z,exclusions,.15));
-      transform.scale.set(blocked?0:a.distanceTo(point) + .15, .045, .12)
+      transform.scale.set(blocked?0:a.distanceTo(point) + .15, .045, geographic?1.2:.12)
       transform.rotation.y = -Math.atan2(point.z - a.z, point.x - a.x)
       transform.updateMatrix(); ribbon.setMatrixAt(i, transform.matrix)
     })
@@ -314,7 +320,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     const otherBus = bus.clone(true)
     group.add(otherBus)
     otherBus.traverse(node=>{if(node instanceof THREE.Mesh&&node.geometry===wheelGeometry)busWheels.push(node)})
-    return { id: route.id, group, vehicles: [bus, otherBus], curve, length, ribbon, offset: .25 + index * .18 }
+    return { id: route.id, group, vehicles: [bus, otherBus], curve, length, ribbon, supported:!geographic||!!source?.length, offset: .25 + index * .18 }
   })
 
   // Keep small road users on road stretches away from the collection van's route.
@@ -443,20 +449,22 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   }
 
   let previousBusTime=0
+  let ride:{id:string;start:number;end:number;elapsed:number;duration:number;walkMetres:number}|null=null
   function updateBuses(time: number) {
     const delta=Math.min(.1,Math.max(0,time-previousBusTime));previousBusTime=time
     for (const route of routes) {
       route.vehicles.forEach((bus, index) => {
-        const phase=(route.offset*2+index+time*7.2/route.length)%2
-        const direction=phase<1?1:-1,t=phase<1?phase:2-phase
+        const phase=((route.offset*2+index+time*7.2/route.length)%2+2)%2
+        let direction=phase<1?1:-1,t=phase<1?phase:2-phase
+        if(index===0&&ride?.id===route.id){t=THREE.MathUtils.lerp(ride.start,ride.end,Math.min(1,ride.elapsed/ride.duration));direction=Math.sign(ride.end-ride.start)||1}
         const p=route.curve.getPoint(t),tangent=route.curve.getTangentAt(Math.min(.99999,Math.max(.00001,t)))
         // A continuous lane swing at either end replaces the old shrink/respawn.
-        const lane=.72*Math.tanh(Math.sin(phase*Math.PI)*30)
+        const lane=geographic?0:.72*Math.tanh(Math.sin(phase*Math.PI)*30)
         p.x+=tangent.z*lane;p.z-=tangent.x*lane
         const dx=p.x-bus.position.x,dz=p.z-bus.position.z
         const heading=dx*dx+dz*dz>1e-8&&delta>0?Math.atan2(dx,dz):Math.atan2(tangent.x*direction,tangent.z*direction)
         bus.rotation.y+=Math.atan2(Math.sin(heading-bus.rotation.y),Math.cos(heading-bus.rotation.y))*(delta>0?Math.min(1,delta*7):1)
-        bus.position.copy(p);bus.scale.setScalar(.3)
+        bus.position.copy(p);bus.scale.setScalar(geographic?1.8:.3)
       })
     }
     for (const wheel of busWheels) wheel.rotation.x = time * 7.2 / .28
@@ -468,17 +476,41 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   return {
     root,
     setActivity(visible: boolean) { activity.visible = visible },
+    startBusRide(id: string, near: THREE.Vector3) {
+      const route=routes.find(route=>route.id===id)
+      if(!route?.supported)return false
+      const local=root.worldToLocal(near.clone())
+      let nearest=0,distance=Infinity
+      for(let i=0;i<=400;i++){
+        const t=i/400,d=route.curve.getPoint(t).distanceToSquared(local)
+        if(d<distance){nearest=t;distance=d}
+      }
+      // Begin a short ride before the closest approach to the court, on the
+      // existing route. The tour clock stops the bus at that road-side approach.
+      const span=Math.min(220/route.length,.25),start=nearest>=span?nearest-span:nearest+span
+      ride={id,start,end:nearest,elapsed:0,duration:45,walkMetres:Math.round(Math.sqrt(distance)/10)*10}
+      updateBuses(busTime)
+      return true
+    },
+    rideProgress(){return ride?{id:ride.id,progress:Math.min(1,ride.elapsed/ride.duration),walkMetres:ride.walkMetres}:null},
+    busPosition(id: string, target: THREE.Vector3) {
+      const bus = routes.find(route => route.id === id)?.vehicles[0]
+      if (!bus) return false
+      root.updateMatrixWorld(true)
+      bus.getWorldPosition(target)
+      return true
+    },
     setBuses(visible: boolean) { buses.visible = visible },
     setBusRoute(id: string | null) {
       for (const route of routes) {
-        route.group.visible = id === null || route.id === id
+        route.group.visible = route.supported&&(id === null || route.id === id)
         route.ribbon.visible = id === route.id
       }
     },
     setNight(night: boolean) { busGlass.emissiveIntensity = night ? .55 : .08;busHeadlamp.emissiveIntensity=night?1:.03;busTailLamp.emissiveIntensity=night?.65:.02 },
     animate(delta: number, runActivity: boolean, runBuses: boolean) {
       if (runActivity && activity.visible) { activityTime += delta; updateActivity(activityTime);updateTraffic(delta) }
-      if (runBuses && buses.visible) { busTime += delta; updateBuses(busTime) }
+      if (runBuses && buses.visible) { busTime += delta;if(ride)ride.elapsed+=delta; updateBuses(busTime) }
     },
   }
 }

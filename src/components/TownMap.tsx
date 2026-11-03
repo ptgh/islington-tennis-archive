@@ -11,7 +11,6 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js'
 import { geoPosition } from '../scene/createTown'
 import type { MapVenue } from '../scene/types'
 import { mappedServices } from '../data/hub'
-import { busRoutes } from '../data/busRoutes'
 import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
 import { highburyCourts } from '../scene/courtGeometry'
 import { mapStations } from '../data/transit'
@@ -22,7 +21,7 @@ import { createViewShadowFitter } from '../scene/viewShadows'
 import { freeLabel, type NextFree } from '../data/freeCourts'
 import { cameraAvailability, type TrafficCamera } from '../data/trafficCameras'
 import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, createOcclusionExclusionTracker } from '../scene/renderQuality'
-import { createIslington, type IslingtonWorld } from '../scene/createIslington'
+import { createIslington, type IslingtonWorld, type BusRideStatus } from '../scene/createIslington'
 import { boroughBounds, courtsNearVenue } from '../scene/boroughGeometry'
 import '../scene/TownMap.css'
 
@@ -34,7 +33,7 @@ export interface TownMapHandle {
   visitCourt: (id: string) => void
   locate: (lat: number, lng: number, zoom?: number) => void
   visitVan: () => void
-  followRoute: (id: string) => void
+  followRoute: (id: string) => boolean
 }
 
 interface TownMapProps {
@@ -50,6 +49,7 @@ interface TownMapProps {
   visibleIds: string[]
   night: boolean
   lightingTime: number | null
+  naturalTime?: boolean
   weather: WeatherSceneKind
   windMph?: number
   showTransit: boolean
@@ -84,6 +84,7 @@ interface SceneHandle {
   focus: (point: THREE.Vector3) => void
   travel: (point: THREE.Vector3, zoom: number) => void
   cancelTravel: () => void
+  followRoute: (id: string) => boolean
   visitCourt: (id: string) => void
 }
 
@@ -92,22 +93,24 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, mappedOverview = false, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, mappedOverview = false, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
   const stationRefs = useRef(new Map<string, HTMLDivElement>())
   const vanRef=useRef<HTMLButtonElement>(null)
+  const busPinRef=useRef<HTMLDivElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
   const cameraRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady,
+  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
   const [mapStatus,setMapStatus]=useState('')
   const [ready, setReady] = useState(false)
   const [moving, setMoving] = useState(false)
+  const [busRide,setBusRide]=useState<BusRideStatus|null>(null)
 
   useImperativeHandle(forwardedRef, () => ({
     visitVan(){const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),55);},
@@ -130,14 +133,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     reset() { engineRef.current?.reset() },
     visitCourt(id) { engineRef.current?.visitCourt(id) },
     locate(lat,lng,zoom=18) { engineRef.current?.travel(geoPosition(lat,lng),zoom) },
-    followRoute(id) {
-      const route=busRoutes.find(r=>r.id===id)
-      if(!route)return
-      const points=route.points.map(([lng,lat])=>geoPosition(lat,lng))
-      if(!points.length)return
-      const bounds=new THREE.Box3().setFromPoints(points)
-      engineRef.current?.travel(bounds.getCenter(new THREE.Vector3()),.95)
-    },
+    followRoute(id) { return engineRef.current?.followRoute(id) ?? false },
     rotate() {
       const engine = engineRef.current
       if (!engine) return
@@ -258,7 +254,10 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const fitShadows=createViewShadowFitter()
     const raycaster = new THREE.Raycaster()
     let journey: {start:number;fromPosition:THREE.Vector3;toPosition:THREE.Vector3;fromTarget:THREE.Vector3;toTarget:THREE.Vector3;fromZoom:number;toZoom:number}|null=null
-    const cancelTravel=()=>{journey=null}
+    let followedRoute: string | null = null
+    let lastRideUpdate=0
+    const followedPosition = new THREE.Vector3(), followedPrevious = new THREE.Vector3(), followedDelta = new THREE.Vector3()
+    const cancelTravel=()=>{journey=null;followedRoute=null;setBusRide(null)}
     const visibleMapFrame=()=>{
       const mobile=width<=760, bounds=host.getBoundingClientRect()
       const panel=host.parentElement?.querySelector('.directory-panel')?.getBoundingClientRect()
@@ -270,10 +269,11 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const bottom=mobile&&panelVisible?panel!.top-bounds.top-28:height-180
       return {left,right,top,bottom:Math.max(top+100,bottom)}
     }
-    const travel=(point:THREE.Vector3,zoom:number,immediate=false)=>{
+    const travel=(point:THREE.Vector3,zoom:number,immediate=false,offset=CAMERA_OFFSET)=>{
+      followedRoute=null
+      setBusRide(null)
       const available=visibleMapFrame()
       const x=(available.left+available.right)/2, y=(available.top+available.bottom)/2
-      const offset=CAMERA_OFFSET
       const previewCamera=camera.clone()
       previewCamera.position.copy(point).add(offset)
       previewCamera.lookAt(point)
@@ -291,6 +291,16 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       }
       journey={start:performance.now(),fromPosition:camera.position.clone(),toPosition:position,fromTarget:controls.target.clone(),toTarget:target,fromZoom:camera.zoom,toZoom:zoom}
       needsFrame=true
+    }
+    const insideSource=(p:THREE.Vector3)=>p.x>=boroughBounds.minX&&p.x<=boroughBounds.maxX&&p.z>=boroughBounds.minZ&&p.z<=boroughBounds.maxZ
+    const followRoute=(id:string)=>{
+      cancelTravel()
+      if(!world.startBusRide(id)||!world.busPosition(id,followedPosition)||!insideSource(followedPosition))return false
+      travel(followedPosition,45,false,new THREE.Vector3(180,650,180))
+      followedPrevious.copy(followedPosition)
+      followedRoute=id
+      setBusRide(world.busRideStatus())
+      return true
     }
     const visitCourt=(id:string,immediate=false)=>{
       const venue=venues.find(item=>item.id===id)
@@ -352,8 +362,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
         const points=[bounds.minX-3,bounds.maxX+3].flatMap(x=>[bounds.minZ-3,bounds.maxZ+3].map(z=>new THREE.Vector3(x,0,z).project(preview)))
         const spanX=(Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x)))*width/2
         const spanY=(Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y)))*height/2
-        const available=visibleMapFrame(),zoom=Math.min((available.right-available.left)*.94/spanX,(available.bottom-available.top)*.92/spanY)
-        travel(center,THREE.MathUtils.clamp(zoom,.1,12),true);return
+        const available=visibleMapFrame(),zoom=runtimeRef.current.mappedOverview?Math.min(width*1.35/spanX,height*1.35/spanY):Math.min((available.right-available.left)*.98/spanX,(available.bottom-available.top)*.96/spanY)
+        travel(center,THREE.MathUtils.clamp(zoom,runtimeRef.current.mappedOverview ? .1 : 4.5,18),true);return
       }
 
     }
@@ -409,7 +419,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       weatherWorld.setView(camera,camera.zoom,weatherClearance)
       world.setRain(runtimeRef.current.weather==='rain')
       sunlight.shadow.normalBias=.0055
-      updateSceneLight(sunlight, ambient, controls.target, 425, runtimeRef.current.lightingTime === null ? lightClock : new Date(runtimeRef.current.lightingTime), runtimeRef.current.night, runtimeRef.current.weather);
+      updateSceneLight(sunlight, ambient, controls.target, 425, runtimeRef.current.lightingTime === null ? lightClock : new Date(runtimeRef.current.lightingTime), runtimeRef.current.night, runtimeRef.current.weather, runtimeRef.current.naturalTime || runtimeRef.current.lightingTime !== null);
       if(!fitShadows(sunlight,camera)){
         const span=Math.max(32,520/Math.sqrt(camera.zoom))
         sunlight.shadow.camera.left=-span;sunlight.shadow.camera.right=span;sunlight.shadow.camera.top=span;sunlight.shadow.camera.bottom=-span;sunlight.shadow.camera.updateProjectionMatrix()
@@ -426,10 +436,12 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       for (const station of world.stations) project(station.position,stationRefs.current.get(station.name),runtime.showTransit)
       for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.15),cameraRefs.current.get(camera.id),runtime.showCameras,3)
       project(world.vanPosition.clone().setY(.3),vanRef.current,runtime.showShops)
+      const ride=world.busRideStatus()
+      if(ride&&world.busPosition(ride.id,followedPosition))project(followedPosition.clone().setY(.65),busPinRef.current,!!followedRoute&&runtime.showBuses&&ride.progress<1)
       for(const service of mappedServices)project(geoPosition(service.lat,service.lng).setY(.3),shopRefs.current.get(service.id),runtime.showShops)
 
     }
-    const engine: SceneHandle = { camera, controls, world, scene, sunlight, ambient, renderer, reset, resize, frame, focus, travel, cancelTravel, visitCourt }
+    const engine: SceneHandle = { camera, controls, world, scene, sunlight, ambient, renderer, reset, resize, frame, focus, travel, cancelTravel, followRoute, visitCourt }
     engineRef.current = engine
     // Dev-only handle for pinned-camera render comparisons; stripped from production builds.
     if (import.meta.env.DEV) Object.assign(window, { __town: { engine, runtime: runtimeRef, composer, quality } })
@@ -457,6 +469,26 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       // The parent defaults to paused for reduced motion; an explicit Run is respected.
       const animateTrain = runtimeRef.current.trainRunning
       world.animate(time / 1000, animateTrain, runtimeRef.current.activityRunning, runtimeRef.current.showBuses&&animateTrain)
+      if(followedRoute&&!journey){
+        if(!runtimeRef.current.showBuses)cancelTravel()
+        else if(world.busPosition(followedRoute,followedPosition)){
+          // Follow the same vehicle without rebuilding its camera or drawing twice.
+          if(!insideSource(followedPosition)){cancelTravel()}
+          else {
+            followedDelta.subVectors(followedPosition,followedPrevious)
+            camera.position.add(followedDelta);controls.target.add(followedDelta)
+            followedPrevious.copy(followedPosition)
+            needsFrame=true
+            const ride=world.busRideStatus()
+            if(ride&&time-lastRideUpdate>250){setBusRide(ride);lastRideUpdate=time}
+            if(ride?.progress===1){
+              // Finish at the nearest court, while the bus remains on its road.
+              visitCourt(ride.destinationId)
+              setBusRide(ride)
+            }
+          }
+        }
+      }
       // OrbitControls reports damping changes. A still map needs no GPU redraws.
       if (needsFrame || animateTrain || runtimeRef.current.activityRunning) {
         // Resizing clears the canvas: do it immediately before the next draw.
@@ -546,9 +578,10 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engine.ambient.color.set(night ? '#a9bfda' : '#f7f2e9')
     engine.ambient.groundColor.set(night ? '#263d44' : '#59634f')
     engine.frame()
-  }, [night, lightingTime, ready])
+  }, [night, lightingTime, naturalTime, ready])
 
   useEffect(() => {
+    if(!busRouteId)engineRef.current?.cancelTravel()
     engineRef.current?.world.setTransit(true)
     engineRef.current?.world.setBuses(showBuses)
     engineRef.current?.world.setBusRoute(busRouteId)
@@ -577,6 +610,14 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   return (
     <div className={`town-map${night ? ' town-map--night' : ''}${moving ? ' town-map--moving' : ''}`} ref={hostRef}>
       {failed && <div className="town-map__fallback" role="status"><strong>The miniature map couldn’t start.</strong><span>You can still discover every court and open booking links in the directory.</span></div>}
+      {busRide&&<section className="bus-tour" aria-label="Bus tour">
+        <div className="bus-tour__heading"><Icon name="bus" size={21}/><strong>Route {busRide.id} · {busRide.progress===1?'Courts in view':'On the way'}</strong><button className="icon-button" aria-label="End bus tour" onClick={()=>engineRef.current?.cancelTravel()}><Icon name="close" size={17}/></button></div>
+        <p>{venues.find(v=>v.id===busRide.destinationId)?.name}</p>
+        <progress aria-label="Bus tour progress" max={1} value={busRide.progress}/>
+        <small>{busRide.progress===1?`The bus stays on the road, about ${busRide.walkMetres} m from the court (straight-line estimate).`:!activityRunning?'Tour paused · use Play world to continue.':'Follow the coloured road line to the courts.'} Illustrative tour.</small>
+        <div className="bus-tour__actions"><button onClick={()=>engineRef.current?.followRoute(busRide.id)}>Replay tour</button><button onClick={()=>{engineRef.current?.cancelTravel();onSelect(busRide.destinationId)}}>Court details <Icon name="arrow" size={14}/></button></div>
+      </section>}
+      {busRide&&<div ref={busPinRef} className="bus-tour-marker" aria-hidden="true" style={{display:'none'}}><span><Icon name="bus" size={14}/> {busRide.id}</span></div>}
       <div className="town-map__labels" aria-label="Courts on the map">
         {venues.map((venue, index) => (
           <button

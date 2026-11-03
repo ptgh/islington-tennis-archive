@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { createBoroughLife, createBoroughLifeAssets } from './createBoroughLife.ts'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
 import { createFootprintRoof } from './footprintRoof.ts'
@@ -19,11 +20,25 @@ export function createBoroughMaterials() {
  const paving=cloneArchitecturalFinish(finishes.paving,'#c6bfab')
  const parkPath=cloneArchitecturalFinish(finishes.parkPath,'#c6bfab')
  const road=cloneArchitecturalFinish(finishes.asphalt,'#838a7f')
- const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4'),water=plain('#779c97')
+ const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4')
+ const water=new THREE.MeshStandardMaterial({color:'#709b94',roughness:.36,metalness:.15})
+ water.name='Borough canal water'
+ const waterTime={value:0},waterWind={value:0}
+ water.onBeforeCompile=shader=>{
+  shader.uniforms.boroughWaterTime=waterTime;shader.uniforms.boroughWaterWind=waterWind
+  shader.vertexShader='varying vec2 waterWorld;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n waterWorld=(modelMatrix*vec4(transformed,1.0)).xz;')
+  shader.fragmentShader='varying vec2 waterWorld;\nuniform float boroughWaterTime;\nuniform float boroughWaterWind;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+   float ripples=sin(dot(waterWorld,vec2(13.0,5.0))-boroughWaterTime*.9)+sin(dot(waterWorld,vec2(-7.0,18.0))+boroughWaterTime*.6);
+   diffuseColor.rgb*=.98+ripples*(.035+boroughWaterWind*.3);
+  `)
+ }
+ water.customProgramCacheKey=()=> 'borough-canal-ripples-v1'
+ const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
- return {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle,
+ return {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle,lifeAssets,
+ animateSurfaces(time:number,wind:number){waterTime.value=time;waterWind.value=wind},
  setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
- dispose(){[...brick,...roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose()}}
+ dispose(){[...brick,...roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
@@ -130,6 +145,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
  const leaves=batch(finishes.foliageGeometry,finishes.foliage,crowns)
  crowns.forEach((_,i)=>leaves?.setColorAt(i,new THREE.Color(['#6a854f','#7f965c','#5f7e4d','#8b9f62'][i%4])))
  const proxies=batch(finishes.foliageShadowGeometry,finishes.foliageShadowProxy,crowns,true);if(proxies){proxies.layers.set(SHADOW_PROXY_LAYER);proxies.customDepthMaterial=finishes.foliageShadowDepth}
+ const life=createBoroughLife(data,materials.lifeAssets);root.add(life.root)
  root.userData.coverage={buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted}
- return {root,dispose(){owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
+ return {root,life,dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
 }

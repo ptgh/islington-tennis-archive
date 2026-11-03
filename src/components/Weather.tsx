@@ -2,13 +2,34 @@ import { SelectField } from './SelectField';
 import { Icon } from './Icon';
 import {useEffect,useState} from 'react';
 import type {WeatherSceneKind} from '../scene/createWeather';
-import {parseForecast,WEATHER_URL,weatherKind,weatherLabel,type ForecastHour} from '../data/weather';
+import {fetchForecast,weatherKind,weatherLabel,type ForecastHour} from '../data/weather';
 const hourLabel=(time:number)=>new Intl.DateTimeFormat('en-GB',{weekday:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'}).format(time);
 export function Weather({onWeather,open,onOpenChange:setOpen}:{onWeather:(kind:WeatherSceneKind,windMph?:number)=>void;open:boolean;onOpenChange:(open:boolean)=>void}){
   const [enabled,setEnabled]=useState(true),[hours,setHours]=useState<ForecastHour[]>([]),[status,setStatus]=useState(''),[refresh,setRefresh]=useState(0),[selected,setSelected]=useState(0),[effects,setEffects]=useState(true),[demo,setDemo]=useState(false),[fetched,setFetched]=useState(0);
-  useEffect(()=>{const controller=new AbortController();let alive=true;const timeout=setTimeout(()=>controller.abort(),12000);setStatus('Loading forecast…');
-    fetch(WEATHER_URL,{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{if(alive){setHours(parseForecast(data));setSelected(0);setFetched(Date.now());setStatus('');}}).catch(()=>{if(alive){setHours([]);setStatus('Forecast unavailable. Try again shortly.');}}).finally(()=>clearTimeout(timeout));return()=>{alive=false;controller.abort();clearTimeout(timeout);};
-  },[refresh]);
+  useEffect(()=>{
+    const controller=new AbortController();let alive=true
+    const timeout=setTimeout(()=>controller.abort(),24000)
+    setStatus('Loading forecast…')
+    fetchForecast(controller.signal).then(rows=>{
+      if(!alive)return
+      const fetchedAt=Date.now()
+      setHours(rows);setSelected(0);setFetched(fetchedAt);setStatus('')
+      try{localStorage.setItem('islington-tennis:forecast',JSON.stringify({hours:rows,fetchedAt}))}catch{/* Forecast works without storage. */}
+    }).catch(()=>{
+      if(!alive)return
+      let cached:ForecastHour[]=[];let fetchedAt=0
+      try{
+        const value=JSON.parse(localStorage.getItem('islington-tennis:forecast')??'null')
+        if(value&&Date.now()-value.fetchedAt>=0&&Date.now()-value.fetchedAt<3*3600000&&Array.isArray(value.hours)){
+          cached=value.hours.filter((h:ForecastHour)=>h&&['time','temperature','rain','wind','code'].every(key=>typeof h[key as keyof ForecastHour]==='number'&&Number.isFinite(h[key as keyof ForecastHour]))&&h.time>=Date.now()-3600000)
+          fetchedAt=value.fetchedAt
+        }
+      }catch{/* No usable saved forecast. */}
+      setHours(cached);setSelected(0);setFetched(cached.length?fetchedAt:0)
+      setStatus(cached.length?'Live refresh unavailable · Showing the last saved forecast.':'Forecast unavailable. Check your connection and refresh to try again.')
+    }).finally(()=>clearTimeout(timeout))
+    return()=>{alive=false;controller.abort();clearTimeout(timeout)}
+  },[refresh])
   useEffect(()=>{
     const update=()=>{if(!document.hidden)setRefresh(value=>value+1);};
     const timer=window.setInterval(update,15*60*1000);

@@ -71,7 +71,7 @@
 }
 @media (max-width:760px){
  .ask-dialog{left:12px;right:12px;top:auto;bottom:calc(100dvh - var(--guide-viewport-height,100dvh) - var(--guide-viewport-top,0px) + max(12px,env(safe-area-inset-bottom)));width:auto;height:min(620px,calc(var(--guide-viewport-height,100dvh) - max(18px,env(safe-area-inset-top)) - max(24px,env(safe-area-inset-bottom))));border-radius:20px;background:var(--guide-glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:var(--guide-shadow);flex-direction:column}
- .ask-threads{display:flex;width:auto;min-width:0;min-height:52px;border-right:0;border-bottom:1px solid var(--line);padding:8px 10px;flex-direction:row;align-items:center;gap:8px;background:transparent}
+ .ask-threads{display:none;width:auto;min-width:0;min-height:52px;border-right:0;border-bottom:1px solid var(--line);padding:8px 10px;flex-direction:row;align-items:center;gap:8px;background:transparent}
  .ask-threads ul{min-width:0;flex-direction:row;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
  .ask-threads li{flex-shrink:0}
  .ask-thread-open{max-width:140px;padding:10px;font-size:11px}

@@ -106,3 +106,22 @@ test('Stringer movement stays at a bounded physical speed after extended map ani
   assert.ok(maximum<.012,`van step ${maximum} exceeds the five-metres-per-second route speed`)
  }finally{world.dispose()}
 })
+
+test('bus follow anchors share the rendered vehicle position and freeze with world motion',()=>{
+ const world=createIslington(venues),point=new THREE.Vector3(),before=new THREE.Vector3()
+ try{
+  assert.equal(world.startBusRide('missing'),false)
+  assert.equal(world.startBusRide('19'),true)
+  world.busPosition('19',point)
+  assert.ok(point.distanceTo(world.anchors.get('highbury-fields')!)<30,'ride begins near the courts on the existing route')
+  assert.equal(world.busPosition('missing',point),false)
+  assert.equal(world.busPosition('19',before),true)
+  assert.ok(before.toArray().every(Number.isFinite))
+  for(let frame=1;frame<=120;frame++)world.animate(frame/60,true,true,true)
+  assert.equal(world.busPosition('19',point),true)
+  assert.ok(point.distanceTo(before)>.1,'the selected vehicle actually travels')
+  before.copy(point)
+  world.animate(3,false,false,false);world.busPosition('19',point)
+  assert.ok(point.distanceTo(before)<1e-9,'pause freezes the vehicle and its follow anchor')
+ }finally{world.dispose()}
+})

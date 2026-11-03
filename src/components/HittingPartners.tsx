@@ -30,6 +30,10 @@ export function HittingPartners({ venues, onBack, onRacquets, account = false, i
   </div>;
 }
 
+function readSavedFrame() {
+  try { return parseRacquetProfile(localStorage.getItem(RACQUET_PROFILE_KEY)); } catch { return parseRacquetProfile(null); }
+}
+
 function SignIn({ initialMode }: { initialMode: 'in' | 'up' }) {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'in' | 'up'>(initialMode); const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false);
@@ -38,7 +42,7 @@ function SignIn({ initialMode }: { initialMode: 'in' | 'up' }) {
     try {
     const { data, error } = mode === 'in'
       ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
-      : await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: window.location.origin } });
+      : await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: window.location.origin, data: { racquet_frame: readSavedFrame() } } });
     if (error) setMsg(error.message);
     else if (mode === 'up' && !data.session) setMsg('Check your email to confirm your account, then sign in.');
     } catch { setMsg('Couldn’t connect. Please try again.'); }

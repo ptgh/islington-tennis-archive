@@ -51,14 +51,15 @@ export function skyPosition(date: Date, location = LONDON) {
 
 /** Actual date-led sun/moon positions. Explicit Day at night previews noon;
  * explicit Night during daylight previews midnight on the same UTC date. */
-export function lightCycle(date: Date, night: boolean, weather: WeatherSceneKind) {
+export function lightCycle(date: Date, night: boolean, weather: WeatherSceneKind, honorTime = false) {
   let sky = skyPosition(date)
-  const preview = night ? sky.sun.y > 0 : sky.sun.y <= 0
+  const preview = !honorTime && (night ? sky.sun.y > 0 : sky.sun.y <= 0)
   if (preview) {
     const override = new Date(date)
     override.setUTCHours(night ? 0 : 12, 0, 0, 0)
     sky = skyPosition(override)
   }
+  const daylight = honorTime ? THREE.MathUtils.smoothstep(sky.sun.y, Math.sin(-6*RAD), Math.sin(6*RAD)) : 1
   const cloud = weather === 'clear' ? 0 : weather === 'cloud' ? .5 : .8
   const elevation = Math.max(0, night ? sky.moon.y : sky.sun.y)
   const moonlight = Math.pow(sky.illumination, 2) * Math.sqrt(elevation) * (1 - cloud * .85)
@@ -70,8 +71,8 @@ export function lightCycle(date: Date, night: boolean, weather: WeatherSceneKind
   direction.normalize()
   return {
     direction,
-    direct: night ? 1.05 * moonlight : (1.7 + Math.sqrt(elevation) * 1.1) * (weather === 'clear' ? 1 : weather === 'cloud' ? .33 : .12),
-    ambient: night ? .48 + moonlight * .35 : .88 + cloud * .22,
+    direct: night ? 1.05 * moonlight : (1.7 + Math.sqrt(elevation) * 1.1) * (weather === 'clear' ? 1 : weather === 'cloud' ? .33 : .12) * daylight,
+    ambient: night ? .48 + moonlight * .35 : .48 + (.4 + cloud * .22) * daylight,
     warmth: night ? 0 : Math.pow(1 - elevation, 3),
     illumination: sky.illumination,
     moonAboveHorizon: sky.moon.y > 0,
@@ -79,8 +80,8 @@ export function lightCycle(date: Date, night: boolean, weather: WeatherSceneKind
   }
 }
 
-export function updateSceneLight(sun: THREE.DirectionalLight, ambient: THREE.HemisphereLight, target: THREE.Vector3, distance: number, date: Date, night: boolean, weather: WeatherSceneKind) {
-  const cycle = lightCycle(date, night, weather)
+export function updateSceneLight(sun: THREE.DirectionalLight, ambient: THREE.HemisphereLight, target: THREE.Vector3, distance: number, date: Date, night: boolean, weather: WeatherSceneKind, honorTime = false) {
+  const cycle = lightCycle(date, night, weather, honorTime)
   sun.position.copy(target).addScaledVector(cycle.direction, distance)
   sun.target.position.copy(target)
   sun.intensity = cycle.direct

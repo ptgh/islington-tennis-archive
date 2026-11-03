@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { supabase } from '../integrations/supabase/client'
 import { Icon } from './Icon'
 import { FieldPicker, type FieldPickerOption } from './FieldPicker'
 import { emptyRacquetProfile, parseRacquetProfile, RACQUET_PROFILE_KEY, racquetPlayers, racquets, UTR_SOURCE, GRIP_SIZE_SOURCE, wilsonStrings, luxilonStrings, WILSON_STRINGS_SOURCE, LUXILON_STRINGS_SOURCE, type Racquet, type RacquetProfile } from '../data/racquets'
@@ -49,7 +50,7 @@ function RacquetMedia({ racquet, featured = false }: { racquet: Racquet; feature
   </span>
 }
 
-export function RacquetStudio({ onClose, initialView = 'collection', onPartners }: { onClose: () => void; initialView?: 'collection' | 'my-frame'; onPartners: () => void }) {
+export function RacquetStudio({ onClose, initialView = 'collection', onPartners, onAccount }: { onAccount: () => void; onClose: () => void; initialView?: 'collection' | 'my-frame'; onPartners: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const rail = useRef<HTMLDivElement>(null)
   const storyPanel = useRef<HTMLElement>(null)
@@ -60,6 +61,31 @@ export function RacquetStudio({ onClose, initialView = 'collection', onPartners 
   const [view, setView] = useState<'collection' | 'my-frame'>(initialView)
   const [storyName, setStoryName] = useState<string | null>(null)
   const [profile, setProfile] = useState<RacquetProfile>(() => { try { return parseRacquetProfile(localStorage.getItem(RACQUET_PROFILE_KEY)) } catch { return { ...emptyRacquetProfile } } })
+  const [signedIn, setSignedIn] = useState(false)
+  const [accountStatus, setAccountStatus] = useState('')
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const { data } = await supabase.auth.getUser()
+        if (active) setSignedIn(!!data.user)
+      } catch { if (active) setSignedIn(false) }
+    }
+    void load()
+    return () => { active = false }
+  }, [])
+  async function loadAccountFrame() {
+    setAccountStatus('Loading your account frame…')
+    try {
+      const { data, error } = await supabase.auth.getUser()
+      if (error || !data.user) throw Error()
+      const frame = data.user.user_metadata.racquet_frame
+      if (!frame) { setAccountStatus('No frame saved to this account yet.'); return }
+      setProfile(parseRacquetProfile(JSON.stringify(frame)));setSaved(false);setSaveError(false)
+      setAccountStatus('Account frame loaded. Save my frame to keep it in this browser too.')
+    } catch { setAccountStatus('Could not load your account frame. Please try again.') }
+  }
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState(false)
   const options = racquets.filter(r => r.era === era && (family === 'All' || r.family === family))
@@ -95,17 +121,28 @@ export function RacquetStudio({ onClose, initialView = 'collection', onPartners 
     setSelectedId(first.id)
     rail.current?.scrollTo({ left:0, behavior:'smooth' })
   }
-  function update(key: keyof RacquetProfile, value: string) { setProfile(p => ({ ...p, [key]:value })); setSaved(false); setSaveError(false) }
+  function update(key: keyof RacquetProfile, value: string) { setProfile(p => ({ ...p, [key]:value })); setSaved(false); setSaveError(false); setAccountStatus('') }
   function chooseStrings(value: string) {
     setProfile(p => ({ ...p, stringSource:value === 'other' ? 'other' : luxilonStrings.some(s => s === value) ? 'luxilon' : value ? 'wilson' : '', strings:value === 'other' ? '' : value }))
-    setSaved(false); setSaveError(false)
+    setSaved(false); setSaveError(false); setAccountStatus('')
   }
-  function save() {
+  async function save() {
+    setSaving(true);setAccountStatus('')
+    let browserSaved = true
     try { localStorage.setItem(RACQUET_PROFILE_KEY, JSON.stringify(profile)); window.dispatchEvent(new Event('racquet-profile-updated')); setSaved(true); setSaveError(false) }
-    catch { setSaved(false); setSaveError(true) }
+    catch { browserSaved=false; setSaved(false); setSaveError(true) }
+    if (signedIn) {
+      try {
+        const { error } = await supabase.auth.updateUser({ data: { racquet_frame: profile } })
+        if (error) throw error
+        setAccountStatus('Your frame is saved to your account.')
+      } catch { setAccountStatus('Account save failed. Please try Save my frame again.') }
+    }
+    setSaving(false)
+    return browserSaved
   }
   function clear() {
-    try { localStorage.removeItem(RACQUET_PROFILE_KEY); window.dispatchEvent(new Event('racquet-profile-updated')); setProfile({ ...emptyRacquetProfile }); setSaved(false); setSaveError(false) }
+    try { localStorage.removeItem(RACQUET_PROFILE_KEY); window.dispatchEvent(new Event('racquet-profile-updated')); setProfile({ ...emptyRacquetProfile }); setSaved(false); setSaveError(false); setAccountStatus('') }
     catch { setSaveError(true) }
   }
   function addSelected() { update('racquetId', selected.id); setView('my-frame') }
@@ -157,8 +194,10 @@ export function RacquetStudio({ onClose, initialView = 'collection', onPartners 
           {profile.stringSource === 'other'&&<label>Another string<input value={profile.strings} maxLength={80} onChange={e=>update('strings',e.target.value)} placeholder="Brand and string, if you know it"/></label>}
           <label>String tension, if known<input value={profile.tension} maxLength={30} onChange={e=>update('tension',e.target.value)} placeholder="E.g. 52 lb / 24 kg"/></label>
           <label>Your little detail<textarea value={profile.note} maxLength={160} onChange={e=>update('note',e.target.value)} placeholder="What makes this setup yours?" rows={3}/></label>
-          <div className="racquet-profile-actions"><button className="primary-button" type="submit">Save my frame <Icon name="arrow" size={16}/></button><button className="racquet-clear" type="button" onClick={clear}>Clear card</button></div>
-          <p className="racquet-save-status" role="status">{saveError?'Could not save in this browser. Your edits are still here.':saved?'Your frame is saved in this browser.':'No account needed.'}</p>
+          <div className="racquet-profile-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save my frame'} <Icon name="arrow" size={16}/></button><button className="racquet-clear" type="button" disabled={saving} onClick={clear}>{signedIn ? 'Clear browser card' : 'Clear card'}</button></div>
+          <p className="racquet-save-status" role="status">{saveError?'Could not save in this browser. Your edits are still here.':saved?'Your frame is saved in this browser.':signedIn?'Save to this browser and your account.':'No account needed.'}</p>
+          {accountStatus && <p className="racquet-save-status" role="status">{accountStatus}</p>}
+          {signedIn ? <button type="button" className="text-button" disabled={saving} onClick={loadAccountFrame}>Load my account frame</button> : <div className="access-note"><p>Keep your setup with an account. Save your frame here, then sign up with your email to keep it for another visit.</p><button type="button" className="text-button" onClick={()=>{save().then(ok=>{if(ok)onAccount()})}}>Sign up or sign in with email <Icon name="arrow" size={16}/></button></div>}
         </form>
       </section>}
     </div>

@@ -421,13 +421,13 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   const fitShadows = createViewShadowFitter()
   return { scene, occlusionExclusions: collectOcclusionExclusions(scene), weatherClearance: matches.map(match => match.center),
     fitShadows(camera: THREE.OrthographicCamera) { fitShadows(sun, camera) },
-    animate(delta: number, running: boolean, night: boolean, weather: WeatherSceneKind, lightingTime: number | null, windMph?:number) {
+    animate(delta: number, running: boolean, night: boolean, weather: WeatherSceneKind, lightingTime: number | null, windMph?:number, naturalTime=false) {
       life.setNight(night)
       life.animate(delta, running, false)
       if (running) { windTime += delta; clock = new Date() }
       finishes.setWind(windTime, weatherWind(weather,windMph))
       finishes.setRain(weather==='rain')
-      updateSceneLight(sun, ambient, lightTarget, 850, lightingTime === null ? clock : new Date(lightingTime), night, weather)
+      updateSceneLight(sun, ambient, lightTarget, 850, lightingTime === null ? clock : new Date(lightingTime), night, weather, naturalTime || lightingTime !== null)
       if (night !== lastNight) {
         courtLighting.setNight(night)
         scene.background = new THREE.Color(night ? '#253940' : id === 'wimbledon' ? '#dce7d5' : '#e4e8d7')
@@ -453,10 +453,10 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   }
 }
 
-export function IconicCourtView({ viewSettings, onViewSettings, active = true, clubId, event, onBack, onHome, onSwitch, night, motionRunning, weather, windMph, onNight, onMotion, lightingTime, onLightingTime }: { viewSettings: ViewSettings; onViewSettings: (settings: ViewSettings) => void; active?: boolean; clubId: IconicClubId; event?: Tournament; onBack: () => void; onHome: () => void; onSwitch: (id: IconicClubId) => void; night: boolean; lightingTime: number | null; onLightingTime: (time: number | null) => void; motionRunning: boolean; weather: WeatherSceneKind; windMph?: number; onNight: () => void; onMotion: () => void }) {
-  const runtime = useRef({ viewSettings, active, night, motionRunning, weather, windMph, lightingTime })
+export function IconicCourtView({ viewSettings, onViewSettings, active = true, clubId, event, onBack, onHome, onSwitch, night, motionRunning, weather, windMph, naturalTime = false, onNight, onMotion, lightingTime, onLightingTime }: { viewSettings: ViewSettings; onViewSettings: (settings: ViewSettings) => void; active?: boolean; naturalTime?:boolean; clubId: IconicClubId; event?: Tournament; onBack: () => void; onHome: () => void; onSwitch: (id: IconicClubId) => void; night: boolean; lightingTime: number | null; onLightingTime: (time: number | null) => void; motionRunning: boolean; weather: WeatherSceneKind; windMph?: number; onNight: () => void; onMotion: () => void }) {
+  const runtime = useRef({ viewSettings, active, night, motionRunning, weather, windMph, naturalTime, lightingTime })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtime.current = { viewSettings, active, night, motionRunning, weather, windMph, lightingTime,
+  runtime.current = { viewSettings, active, night, motionRunning, weather, windMph, naturalTime, lightingTime,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const host = useRef<HTMLDivElement>(null)
   const engine = useRef<SceneHandle | null>(null)
@@ -561,7 +561,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       if (!state.active) return
       if (quality.setPreset(state.viewSettings.preset)) applyResolution()
       applyViewFocus(lens.uniforms, state.viewSettings.sharp)
-      world.animate(0, false, state.night, state.weather, state.lightingTime, state.windMph)
+      world.animate(0, false, state.night, state.weather, state.lightingTime, state.windMph, state.naturalTime)
       world.fitShadows(camera)
       weatherWorld.setKind(state.weather)
       weatherWorld.setView(camera, camera.zoom, world.weatherClearance)
@@ -657,7 +657,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       if (document.hidden || !onScreen || !runtime.current.active) { previous = time; quality.pause(); return }
       const state = runtime.current
       // Update activity only when drawing it; camera gestures remain immediate.
-      const stateKey = `${state.night}-${state.weather}-${state.windMph}-${state.motionRunning}-${state.lightingTime}`
+      const stateKey = `${state.night}-${state.weather}-${state.windMph}-${state.motionRunning}-${state.lightingTime}-${state.naturalTime}`
       // RAF timestamps may round two 60 Hz refreshes to 33.3 ms. Accept that
       // boundary instead of waiting a third refresh and falsely detecting load.
       if ((textureDirty || journey || state.motionRunning || stateKey !== atmosphere) && time - rendered >= 1000 / 30 - .5) {
@@ -671,7 +671,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
         }
         const delta = previous ? Math.min(.08, (time - previous) / 1000) : 0
         previous = time
-        world.animate(delta, state.motionRunning, state.night, state.weather, state.lightingTime, state.windMph)
+        world.animate(delta, state.motionRunning, state.night, state.weather, state.lightingTime, state.windMph, state.naturalTime)
         weatherWorld.setKind(state.weather)
         weatherWorld.animate(time / 1000, state.motionRunning, weatherWind(state.weather, state.windMph))
         // Keep the previous image until the new buffers can be drawn immediately.

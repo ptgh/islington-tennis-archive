@@ -18,3 +18,16 @@ export function parseForecast(value:unknown,now=Date.now()):ForecastHour[]{
 }
 export function weatherKind(code:number){return code>=51&&code<=67||code>=80&&code<=82||code>=95?'rain':code>=71&&code<=77||code===85||code===86?'snow':code>=2?'cloud':'clear';}
 export function weatherLabel(code:number){return code>=95?'Thunderstorms':code>=51&&code<=57?'Drizzle':weatherKind(code)==='rain'?'Rain / showers':weatherKind(code)==='snow'?'Snow':code===45||code===48?'Fog':code===3?'Overcast':code===2?'Partly cloudy':'Clear / mostly clear';}
+
+/** Retry transient network/provider failures once, including stale cached responses. */
+export async function fetchForecast(signal: AbortSignal, request: typeof fetch = fetch): Promise<ForecastHour[]> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await request(WEATHER_URL, { signal, cache: 'no-store' });
+      if (!response.ok) throw new Error('Forecast unavailable');
+      return parseForecast(await response.json());
+    } catch (error) {
+      if (signal.aborted || attempt >= 1) throw error;
+    }
+  }
+}

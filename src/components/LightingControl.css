@@ -1,7 +1,7 @@
 .lighting-control{display:flex;gap:5px;position:relative;align-items:center}
 .app-header:has(.lighting-popover){z-index:8}
 .lighting-control .lighting-trigger{min-width:0;padding:10px 11px;font-size:11px}
-.lighting-control .lighting-popover{position:absolute;top:calc(100% + 10px);right:0;width:min(285px,calc(100vw - 32px));padding:17px;border:1px solid #d9e1ce;border-radius:15px;background:#faf9f1;color:#315844;box-shadow:0 12px 40px #1c382b40;z-index:12;white-space:normal}
+.lighting-control .lighting-popover{position:absolute;top:calc(100% + 10px);right:0;width:min(285px,calc(var(--app-visible-width,100vw) - 32px));padding:17px;border:1px solid #d9e1ce;border-radius:15px;background:#faf9f1;color:#315844;box-shadow:0 12px 40px #1c382b40;z-index:12;white-space:normal}
 .lighting-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .lighting-heading strong{font:23px/1.1 var(--serif);font-weight:400}
 .lighting-control .lighting-heading button{padding:5px;box-shadow:none;background:transparent}
@@ -14,3 +14,10 @@
 .lighting-popover p{margin:12px 0;font-size:11px;line-height:1.5;color:#62765e}
 .lighting-control .lighting-reset{padding:4px 0;border-radius:0;box-shadow:none;background:transparent;text-decoration:underline;text-underline-offset:3px;font-size:11px}
 .lighting-reset:disabled{opacity:.45;cursor:default}
+
+.lighting-almanac{display:flex;gap:10px;margin:15px 0 12px;padding-top:12px;border-top:1px solid #d9e1ce}.lighting-almanac>div{flex:1}.lighting-almanac dt{font-size:10px;color:#62765e}.lighting-almanac dd{margin:3px 0 0}.lighting-control .lighting-almanac button{font:22px var(--serif);padding:2px 0;border-bottom:1px solid #b9c7ad;border-radius:0;background:transparent;box-shadow:none;color:var(--ink)}.lighting-moon{display:flex;gap:10px;align-items:center}.lighting-moon>span{font-size:29px;line-height:1}.lighting-moon strong{display:block;font-size:12px;font-weight:500}.lighting-moon small{display:block;font-size:10px;line-height:1.6;color:#62765e;margin-top:3px}.lighting-control .lighting-estimate{font-size:9px;margin:10px 0}.lighting-control .lighting-popover{max-height:calc(var(--app-visible-height,100dvh) - 100px);overflow-y:auto;overscroll-behavior:contain}
+
+.lighting-control .lighting-date{display:block;font:12px var(--sans,Arial,sans-serif);color:var(--ink);padding:8px;border:1px solid #d9e1ce;border-radius:7px;background:var(--paper);width:100%;margin:7px 0 13px}
+@media(max-width:760px){.app-header .lighting-control .lighting-popover{position:fixed;top:calc(var(--app-visible-top,0px) + 77px);right:calc(100vw - var(--app-visible-left,0px) - var(--app-visible-width,100vw) + 16px)}}
+/* Leave room for the club dialog header and its map controls. */
+@media(max-width:760px){.atlas-court-world .lighting-control{position:static}.atlas-court-world .lighting-popover{max-height:calc(var(--app-visible-height,100dvh) - 290px)}}

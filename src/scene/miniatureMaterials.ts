@@ -522,7 +522,11 @@ export function createMiniatureMaterials(worldScale=1) {
         #ifdef USE_BUMPMAP
           vBumpMapUv = lawnWorld / 6.0;
         #endif`)
+      shader.uniforms.miniatureLawnTime=windTime
+      shader.uniforms.miniatureLawnWind=windStrength
       shader.fragmentShader = `varying vec2 lawnWorld;
+        uniform float miniatureLawnTime;
+        uniform float miniatureLawnWind;
         float lawnHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float lawnNoise(vec2 p) {
           vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -536,11 +540,13 @@ export function createMiniatureMaterials(worldScale=1) {
         float lawnBlade=lawnNoise(lawnWorld*46.0)*2.0-1.0;
         float lawnCut=sin(dot(lawnWorld,vec2(.80,.60))*1.35);
         diffuseColor.rgb *= mix(.86, 1.10, lawnBroad) * mix(.94, 1.05, lawnFine);
-        diffuseColor.rgb *= 1.0+lawnBlade*.045*(1.0-smoothstep(.025,.12,lawnFilter));
-        diffuseColor.rgb *= 1.0+lawnCut*.018*(1.0-smoothstep(2.0,6.0,lawnFilter));
+        diffuseColor.rgb *= 1.0+lawnBlade*.065*(1.0-smoothstep(.025,.12,lawnFilter));
+        diffuseColor.rgb *= 1.0+lawnCut*.027*(1.0-smoothstep(2.0,6.0,lawnFilter));
+        float lawnGust=sin(dot(lawnWorld,vec2(.28,.17))-miniatureLawnTime*.9);
+        diffuseColor.rgb *= 1.0+lawnGust*min(.025,miniatureLawnWind/${worldScale.toFixed(3)}*.075)*(1.0-smoothstep(2.0,8.0,lawnFilter));
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.02, .8), smoothstep(.6, .8, lawnBroad) * .45);`)
     }
-    material.customProgramCacheKey = () => key+'-metres-v2-'+worldScale
+    material.customProgramCacheKey = () => key+'-metres-gust-v3-'+worldScale
   }
   mottle(grass, 'miniature-lawn-v1')
   mottle(parkGrass, 'miniature-park-lawn-v1')
