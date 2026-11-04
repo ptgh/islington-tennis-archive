@@ -245,7 +245,6 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
   const busShell=new RoundedBoxGeometry(1,1,1,2,.04)
   const wheelGeometry = new THREE.CylinderGeometry(.28, .28, .15, 12)
   const busHubGeometry=new THREE.CylinderGeometry(.12,.12,.165,8)
-  const busWheels: THREE.Mesh[] = []
   const busParts=new Map<THREE.Group,Map<string,{geometry:THREE.BufferGeometry;material:THREE.Material;matrices:THREE.Matrix4[]}>>()
   const busTransform=new THREE.Object3D()
   function busPart(parent: THREE.Group, material: THREE.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number,geometry:THREE.BufferGeometry=box) {
@@ -296,7 +295,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
         wheel.rotation.z = Math.PI / 2
         wheel.position.set(side * .76, .3, z)
         wheel.add(new THREE.Mesh(busHubGeometry,busCream))
-        bus.add(wheel); busWheels.push(wheel)
+        bus.add(wheel)
       }
     }
     for (const y of [.95, 1.94]) busPart(bus, busGlass, 0, y, 2.413, 1.2, .56, .025)
@@ -322,7 +321,6 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
     bus.scale.setScalar(0)
     const otherBus = bus.clone(true)
     group.add(otherBus)
-    otherBus.traverse(node=>{if(node instanceof THREE.Mesh&&node.geometry===wheelGeometry)busWheels.push(node)})
     return { id: route.id, group, vehicles: [bus, otherBus], clocks:[0,0], curve, length, ribbon, supported:!geographic||!!source?.length, offset: .25 + index * .18 }
   })
 
@@ -476,11 +474,12 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
           bus.userData.passingOffset=move.offset;advanced=move.advanced;rotation=move.pose.heading;p.x=move.pose.x*10;p.z=move.pose.z*10
         }
         if(advanced){route.clocks[index]=clock;if(riding&&ride)ride.elapsed+=delta}
+        const scale=geographic?1.5:.3,distance=advanced&&bus.scale.x!==0?bus.position.distanceTo(p):0
+        for(const child of bus.children)if(child instanceof THREE.Mesh&&child.geometry===wheelGeometry)child.rotation.x+=distance/(scale*.28)
         bus.rotation.y=rotation
-        bus.position.copy(p);bus.scale.setScalar(geographic?1.5:.3)
+        bus.position.copy(p);bus.scale.setScalar(scale)
       })
     }
-    for (const wheel of busWheels) wheel.rotation.x = time * 7.2 / .28
   }
 
   let busTime = 0

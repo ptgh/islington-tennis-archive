@@ -41,17 +41,26 @@ test('bus tours pause, complete at a real court, stop there, and replay from the
   assert.equal(world.startBusRide('139'),false)
   for(const id of ['19','30','43','393']){
    assert.equal(world.startBusRide(id),true)
+   const wheelAngles=()=>{
+    const position=new THREE.Vector3();world.busPosition(id,position)
+    const angles:number[]=[]
+    world.root.traverse(o=>{if(o.name==='Miniature bus'&&o.getWorldPosition(new THREE.Vector3()).distanceTo(position)<1e-8)for(const child of o.children)if(child instanceof THREE.Mesh&&child.geometry instanceof THREE.CylinderGeometry&&child.geometry.parameters.radiusTop===.28)angles.push(child.rotation.x)})
+    return angles
+   }
+   const startingWheels=wheelAngles();assert.equal(startingWheels.length,4)
    assert.equal(world.busRideStatus()?.progress,0)
    world.animate(0,false,false,false);assert.equal(world.busRideStatus()?.progress,0)
    // The world consumes a bounded frame delta, not wall-clock jumps.
    for(let frame=1;frame<=920;frame++)world.animate(frame*.05,true,true,true)
    assert.equal(world.busRideStatus()?.progress,1)
+   const arrivedWheels=wheelAngles();assert.notDeepEqual(arrivedWheels,startingWheels,'moving bus wheels did not turn')
    const target=world.anchors.get(world.busRideStatus()!.destinationId)!
    world.busPosition(id,arrived)
    assert.ok(arrived.distanceTo(target)<100,'tour has no nearby court')
    assert.ok(Math.abs(arrived.distanceTo(target)*10-world.busRideStatus()!.walkMetres)<6,'remaining distance must describe the actual road-to-court gap')
    assert.equal(venues.find(v=>v.id===world.busRideStatus()!.destinationId)?.access,'public','default tours should finish at public tennis venues')
    world.animate(47,true,true,true);world.busPosition(id,point);assert.ok(point.distanceTo(arrived)<1e-8,'arrived bus drove away')
+   assert.deepEqual(wheelAngles(),arrivedWheels,'arrived bus wheels kept turning')
    assert.equal(world.startBusRide(id),true);assert.equal(world.busRideStatus()?.progress,0)
    // Reset monotonic scene time between independent tours.
    world.animate(0,false,false,false)

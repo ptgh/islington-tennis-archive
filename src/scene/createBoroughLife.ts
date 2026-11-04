@@ -72,6 +72,11 @@ export function createBoroughLifeAssets() {
  const lamps=new THREE.MeshBasicMaterial({vertexColors:true,toneMapped:false})
  const poolGeometry=new THREE.CircleGeometry(.22,16);poolGeometry.rotateX(-Math.PI/2)
  const poolMaterial=new THREE.MeshBasicMaterial({color:'#edd393',transparent:true,opacity:.16,depthWrite:false})
+ poolMaterial.onBeforeCompile=shader=>{
+  shader.vertexShader='varying vec2 lampPoolUv;\n'+shader.vertexShader.replace('#include <uv_vertex>','#include <uv_vertex>\nlampPoolUv = uv;')
+  shader.fragmentShader='varying vec2 lampPoolUv;\n'+shader.fragmentShader.replace('#include <alphamap_fragment>','#include <alphamap_fragment>\nvec2 poolRadius = (lampPoolUv - 0.5) * 2.0;\ndiffuseColor.a *= pow(max(0.0, 1.0 - dot(poolRadius, poolRadius)), 2.0);')
+ }
+ poolMaterial.customProgramCacheKey=()=> 'borough-soft-lamp-pool-v1'
  return {geometry,material,lamps,poolGeometry,poolMaterial,dispose(){Object.values(geometry).forEach(g=>g.dispose());material.dispose();lamps.dispose();poolGeometry.dispose();poolMaterial.dispose()}}
 }
 export type BoroughLifeAssets=ReturnType<typeof createBoroughLifeAssets>
@@ -170,7 +175,7 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
     }
    }
   })
-  lampSites.forEach((p,i)=>{put(streetlights,i,p.x,.015,p.z,p.heading);put(bulbs,i,p.x+Math.sin(p.heading)*.1,.495,p.z+Math.cos(p.heading)*.1,p.heading);bulbs?.setColorAt(i,color.set('#f7dda1'));put(pools,i,p.x,.016,p.z)})
+  lampSites.forEach((p,i)=>{put(streetlights,i,p.x,.015,p.z,p.heading);put(bulbs,i,p.x+Math.sin(p.heading)*.1,.495,p.z+Math.cos(p.heading)*.1,p.heading);bulbs?.setColorAt(i,color.set('#f7dda1'));put(pools,i,p.x+Math.sin(p.heading)*.1,.016,p.z+Math.cos(p.heading)*.1)})
   if(bulbs)bulbs.visible=night;if(pools)pools.visible=night
   foxes&&(foxes.visible=night)
   birds&&(birds.visible=!night);wings&&(wings.visible=!night)
