@@ -58,3 +58,16 @@ test('bus tours pause, complete at a real court, stop there, and replay from the
   }
  }finally{world.dispose()}
 })
+test('the Highbury tour completes with sourced neighbourhood traffic loaded',async()=>{
+ const originalFetch=globalThis.fetch
+ globalThis.fetch=async(input)=>new Response(fs.readFileSync('public'+String(input),'utf8'))
+ const world=createIslington(venues)
+ try{
+  await world.ready
+  while(world.status.loading)await new Promise(resolve=>setImmediate(resolve))
+  assert.ok(world.status.loaded>0);assert.equal(world.status.failed,0)
+  world.setBusRoute('19');assert.equal(world.startBusRide('19'),true)
+  for(let frame=1;frame<=2400&&world.busRideStatus()!.progress<1;frame++)world.animate(frame*.05,true,true,true)
+  assert.equal(world.busRideStatus()?.progress,1,'tour stuck behind neighbourhood traffic')
+ }finally{world.dispose();globalThis.fetch=originalFetch}
+})

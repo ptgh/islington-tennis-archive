@@ -16,6 +16,7 @@ export function createTrafficSpace(){
  const poses=new Map<string,TrafficPose>();let next=0
  return {
   scope(){return `traffic-${next++}:`},
+  clear(id:string,pose:TrafficPose){for(const [other,p] of poses)if(other!==id&&trafficOverlaps(pose,p))return false;return true},
   move(id:string,pose:TrafficPose){
    const previous=poses.get(id),turn=previous?Math.atan2(Math.sin(pose.heading-previous.heading),Math.cos(pose.heading-previous.heading)):0
    const steps=previous?Math.min(24,Math.max(1,Math.ceil((Math.hypot(pose.x-previous.x,pose.z-previous.z)+Math.abs(turn)*pose.halfLength)/.04))):1
@@ -30,3 +31,19 @@ export function createTrafficSpace(){
  }
 }
 export type TrafficSpace=ReturnType<typeof createTrafficSpace>
+
+/** Pass a stopped road user only through clear space in the other lane. The
+ * sideways step holds route progress; returning left checks the road ahead. */
+export function moveRoadTraffic(space:TrafficSpace,id:string,current:TrafficPose,next:TrafficPose,offset:number,delta:number){
+ const rightX=Math.cos(next.heading),rightZ=-Math.sin(next.heading)
+ const shifted=(amount:number)=>({...next,x:next.x+rightX*amount,z:next.z+rightZ*amount})
+ const ahead={...next,x:next.x+Math.sin(next.heading)*.8,z:next.z+Math.cos(next.heading)*.8}
+ if(offset!==0&&space.clear(id,ahead)&&space.move(id,next))return {pose:next,offset:0,advanced:true}
+ const forward=shifted(offset)
+ if(space.move(id,forward))return {pose:forward,offset,advanced:true}
+ const passing=Math.max(-.25,offset-Math.max(0,delta)*.15),step=passing-offset
+ if(step===0)return null
+ const sideways={...current,x:current.x+rightX*step,z:current.z+rightZ*step}
+ if(space.move(id,sideways))return {pose:sideways,offset:passing,advanced:false}
+ return null
+}

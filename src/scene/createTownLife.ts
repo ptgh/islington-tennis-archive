@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { pedestrianPaths } from './pedestrianPaths.ts'
 import { busRoutes } from '../data/busRoutes.ts'
 import roadRoutes from '../data/borough-transport.json' with {type:'json'}
-import type { TrafficSpace } from './trafficSpace.ts'
+import { moveRoadTraffic,type TrafficSpace } from './trafficSpace.ts'
 import { inCourtArea, busRouteLine, type CourtArea } from './courtGeometry.ts'
 import { createMiniatureCyclist } from './miniatureCyclist.ts'
 
@@ -468,9 +468,15 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
         p.x+=tangent.z*lane;p.z-=tangent.x*lane
         const heading=Math.atan2(tangent.x*direction,tangent.z*direction)
         const angle=bus.rotation.y+Math.atan2(Math.sin(heading-bus.rotation.y),Math.cos(heading-bus.rotation.y))*(delta>0?Math.min(1,delta*7):1)
-        if(trafficSpace&&!trafficSpace.move(trafficScope+route.id+':'+index,{x:p.x*.1,z:p.z*.1,heading:angle,halfWidth:.112,halfLength:.37}))return
-        route.clocks[index]=clock;if(riding&&ride)ride.elapsed+=delta
-        bus.rotation.y=angle
+        let advanced=true,rotation=angle
+        if(trafficSpace){
+          const next={x:p.x*.1,z:p.z*.1,heading:angle,halfWidth:.112,halfLength:.37},current={...next,x:bus.position.x*.1,z:bus.position.z*.1,heading:bus.rotation.y}
+          const move=bus.scale.x===0?(trafficSpace.move(trafficScope+route.id+':'+index,next)?{pose:next,offset:0,advanced:true}:null):moveRoadTraffic(trafficSpace,trafficScope+route.id+':'+index,current,next,bus.userData.passingOffset??0,delta)
+          if(!move)return
+          bus.userData.passingOffset=move.offset;advanced=move.advanced;rotation=move.pose.heading;p.x=move.pose.x*10;p.z=move.pose.z*10
+        }
+        if(advanced){route.clocks[index]=clock;if(riding&&ride)ride.elapsed+=delta}
+        bus.rotation.y=rotation
         bus.position.copy(p);bus.scale.setScalar(geographic?1.5:.3)
       })
     }
@@ -495,7 +501,7 @@ export function createTownLife(courts: {center:THREE.Vector3;rotation:number;sca
       // Begin a short ride before the closest approach to the court, on the
       // existing route. The tour clock stops the bus at that road-side approach.
       const span=Math.min(220/route.length,.25),start=nearest>=span?nearest-span:nearest+span
-      trafficSpace?.release(trafficScope+id+':0')
+      trafficSpace?.release(trafficScope+id+':0');route.vehicles[0].userData.passingOffset=0
       let clearStart=start
       if(trafficSpace){
         let placed=false
