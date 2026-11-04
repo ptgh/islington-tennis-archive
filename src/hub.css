@@ -22,3 +22,5 @@
   .app .directory-panel .court-detail,.app .directory-panel .detail-scroll{overflow:visible}
   .app .directory-panel .detail-actions{position:relative}
 }
+.coaching-search #coach-search,.coaching-search #coach-search:focus,.coaching-search #coach-search:focus-visible{border:0;outline:none;box-shadow:none;border-radius:0;background:transparent;padding-left:0}
+.coaching-search:has(#coach-search:focus-visible)>label{color:var(--ink);font-weight:600}

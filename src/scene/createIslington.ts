@@ -8,6 +8,7 @@ import { createTownLife } from './createTownLife.ts'
 import type { TownWorld, MapVenue } from './types.ts'
 import { projectPoint } from './courtGeometry.ts'
 import roadRoutes from '../data/borough-transport.json' with {type:'json'}
+import { createTrafficSpace } from './trafficSpace.ts'
 
 const project=(lat:number,lng:number)=>{const [x,z]=projectPoint(lng,lat);return new THREE.Vector3(x,0,z)}
 const sourceUrl=(path:string)=>`${import.meta.env?.BASE_URL??'/'}${path}`
@@ -36,9 +37,10 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
  const surround=new THREE.Mesh(surroundGeometry,surroundMaterial);surround.position.copy(base.position).setY(-.04);surround.receiveShadow=true;root.add(surround)
  const courts=createBoroughCourts(materials,invalidate);root.add(courts.root)
  const stations=mapStations.map(s=>({name:s.name,position:project(s.lat,s.lng).setY(.12),lines:s.lines}))
- const transport=createTownLife([],[],(lat,lng)=>project(lat,lng).multiplyScalar(10),[],true,true)
+ const traffic=createTrafficSpace()
+ const transport=createTownLife([],[],(lat,lng)=>project(lat,lng).multiplyScalar(10),[],true,true,traffic)
  transport.root.scale.setScalar(.1);root.add(transport.root)
- const gear=createGear((lat,lng)=>project(lat,lng).multiplyScalar(10),[],true);gear.root.scale.setScalar(.1);gear.van.scale.setScalar(1);root.add(gear.root)
+ const gear=createGear((lat,lng)=>project(lat,lng).multiplyScalar(10),[],true,traffic);gear.root.scale.setScalar(.1);gear.van.scale.setScalar(.7);root.add(gear.root)
  const vanPosition=new THREE.Vector3();gear.root.updateMatrixWorld(true);gear.van.getWorldPosition(vanPosition)
  const loaded=new Map<string,{tile:Tile;used:number}>(),loading=new Map<string,AbortController>(),failed=new Set<string>(),queue:Cell[]=[]
  const status={loading:0,failed:0,loaded:0};root.userData.streaming=status;root.userData.source={checked:boroughGeography.checked,counts:boroughGeography.counts,cells:boroughGeography.cells.length}
@@ -54,7 +56,7 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
    const controller=new AbortController();let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;controller.abort()},15000);loading.set(cell.id,controller);notify()
    fetch(sourceUrl(cell.url),{signal:controller.signal}).then(r=>{if(!r.ok)throw Error('Map cell unavailable');return r.json()}).then((data:BoroughCell)=>{
     if(disposed||!desired.has(cell.id))return
-    const tile=createBoroughTile(data,materials);tile.life.setNight(night);tile.life.root.visible=detailLife;tile.root.userData.cellId=cell.id;root.add(tile.root);loaded.set(cell.id,{tile,used:++revision});failed.delete(cell.id);readyResolve();evict()
+    const tile=createBoroughTile(data,materials,traffic);tile.life.setNight(night);tile.life.root.visible=detailLife;tile.root.userData.cellId=cell.id;root.add(tile.root);loaded.set(cell.id,{tile,used:++revision});failed.delete(cell.id);readyResolve();evict()
    }).catch(error=>{if(!disposed&&(error.name!=='AbortError'||timedOut))failed.add(cell.id)}).finally(()=>{clearTimeout(timeout);loading.delete(cell.id);if(!disposed&&desired.has(cell.id)&&!loaded.has(cell.id)&&!failed.has(cell.id)&&!queue.some(c=>c.id===cell.id))queue.push(cell);notify();if(!disposed){readyResolve();pump()}})
   }
   notify()
@@ -64,7 +66,7 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
  function updateView(camera:THREE.Camera,zoom:number,target:THREE.Vector3){
   if(disposed)return
   detailLife=zoom>=3.5
-  for(const item of loaded.values())item.tile.life.root.visible=detailLife
+  for(const item of loaded.values()){item.tile.life.root.visible=detailLife;if(!detailLife||!item.tile.root.visible)item.tile.life.clearTraffic()}
   // At overview scale the complete source-derived map replaces subpixel facade
   // detail. At court/street scale actual footprint geometry overlays that same map.
   matrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);frustum.setFromProjectionMatrix(matrix)

@@ -1,6 +1,6 @@
 .town-map{position:absolute;inset:0;overflow:hidden;background:#aab894;isolation:isolate;touch-action:none}
 .town-map__canvas{display:block;width:100%;height:100%;cursor:grab;outline:none;touch-action:none}
-.town-map__canvas:focus-visible{outline:3px solid #f8f5df;outline-offset:-7px}
+.town-map__canvas:focus-visible{outline:none}
 .town-map--moving .town-map__canvas{cursor:grabbing}
 .town-map__labels{position:absolute;inset:0;pointer-events:none;z-index:2}
 .town-map__vignette{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 60% 46%,transparent 62%,rgba(35,43,35,.10));}

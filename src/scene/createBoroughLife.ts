@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { lifePaths, lifePose, type LifeRoute } from './boroughLifePaths.ts'
+import { lifePaths, lifePose, inPolygon, type LifeRoute } from './boroughLifePaths.ts'
 import type { BoroughCell } from './boroughGeometry.ts'
+import { createTrafficSpace,type TrafficSpace } from './trafficSpace.ts'
 
-type Model = 'car'|'person'|'leg'|'arm'|'fox'|'bird'|'wing'|'boat'|'train'|'signal'|'lamp'
+type Model = 'car'|'cycle'|'motorbike'|'streetlight'|'person'|'leg'|'arm'|'fox'|'bird'|'wing'|'boat'|'train'|'signal'|'lamp'
 /** Small, shared coloured meshes: cells own only instance buffers, not finishes. */
 export function createBoroughLifeAssets() {
  const geometry={} as Record<Model,THREE.BufferGeometry>
@@ -31,6 +32,18 @@ export function createBoroughLifeAssets() {
  // Limb geometry starts at its joint, so a stride never detaches from the body.
  model('leg',p=>p('#384b4a',0,-.035,0,.019,.07,.023))
  model('arm',p=>p('#d6ad82',0,-.0325,0,.014,.065,.017))
+ for(const kind of ['cycle','motorbike'] as const)model(kind,p=>{
+  const motor=kind==='motorbike'
+  for(const z of [-.075,.075]){p('#303d39',0,.037,z,motor?.03:.014,.037,.037,true);p('#b9b8a7',0,.037,z,.009,.027,.027,true)}
+  p(motor?'#59776b':'#b79156',0,.065,0,.025,.025,.11)
+  for(const z of [-.045,.045])p('#a9ae9f',0,.065,z,.012,.07,.012,false,z<0?-.65:.65)
+  p('#3a4740',0,.10,-.025,.05,.012,.045);p('#536b70',0,.15,-.025,.048,.06,.035,false,.35)
+  p('#d5ab85',0,.198,-.005,.022,.024,.024,true);p(motor?'#dad8c4':'#c5ac6a',0,.214,-.005,.028,.017,.027,true)
+  p('#3c4a47',0,.085,.07,.08,.008,.012)
+  for(const x of [-.027,.027]){p('#3d514d',x,.091,-.005,.018,.065,.022,false,-.4);p('#d5ab85',x,.14,.035,.014,.07,.014,false,.8)}
+  if(motor){p('#547361',0,.09,.035,.065,.045,.065,true);p('#eee5b6',0,.105,.095,.025,.025,.01)}
+ })
+ model('streetlight',p=>{p('#56685d',0,.25,0,.018,.5,.018);p('#56685d',0,.49,.05,.02,.018,.12);p('#e6d9b3',0,.48,.10,.05,.015,.06)})
  model('fox',p=>{
   p('#b76b36',0,.053,0,.043,.045,.10,true);p('#c47c43',0,.084,.054,.035,.033,.04,true)
   p('#e2c6a4',0,.071,.08,.021,.018,.035);p('#302e29',0,.075,.099,.012,.01,.008)
@@ -57,20 +70,24 @@ export function createBoroughLifeAssets() {
  model('lamp',p=>p('#ffffff',0,0,0,.045,.045,.018,true))
  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8})
  const lamps=new THREE.MeshBasicMaterial({vertexColors:true,toneMapped:false})
- return {geometry,material,lamps,dispose(){Object.values(geometry).forEach(g=>g.dispose());material.dispose();lamps.dispose()}}
+ const poolGeometry=new THREE.CircleGeometry(.22,16);poolGeometry.rotateX(-Math.PI/2)
+ const poolMaterial=new THREE.MeshBasicMaterial({color:'#edd393',transparent:true,opacity:.16,depthWrite:false})
+ return {geometry,material,lamps,poolGeometry,poolMaterial,dispose(){Object.values(geometry).forEach(g=>g.dispose());material.dispose();lamps.dispose();poolGeometry.dispose();poolMaterial.dispose()}}
 }
 export type BoroughLifeAssets=ReturnType<typeof createBoroughLifeAssets>
 
 /** Deterministic, bounded life on source roads, paths, water and surface rail.
  * Illustrative activity, never a live animal, vessel or vehicle feed. */
-export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets) {
+export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traffic:TrafficSpace=createTrafficSpace()) {
  const root=new THREE.Group();root.name='Borough local life'
  const routes=lifePaths(data),transform=new THREE.Object3D(),color=new THREE.Color()
+ const scope=traffic.scope(),clocks=new Map<string,number>()
  const meshes:THREE.InstancedMesh[]=[]
  function batch(name:Model,count:number){
   if(!count)return null
   const mesh=new THREE.InstancedMesh(assets.geometry[name],name==='lamp'?assets.lamps:assets.material,count)
   mesh.name=`Borough ${name}`;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  mesh.instanceMatrix.array.fill(0)
   mesh.castShadow=['car','boat','train'].includes(name);mesh.receiveShadow=name!=='lamp'
   // Cells already perform view culling; moving instances must not retain their
   // initial tiny bounding sphere and disappear partway through their journey.
@@ -78,6 +95,16 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets) {
  }
  const cars=batch('car',routes.cars.length),people=batch('person',routes.walkers.length),foxes=batch('fox',routes.foxes.length),birds=batch('bird',routes.birds.length),wings=batch('wing',routes.birds.length*2),boats=batch('boat',routes.boats.length),trains=batch('train',routes.train?3:0)
  const legs=batch('leg',routes.walkers.length*2),arms=batch('arm',routes.walkers.length*2)
+ const cycleRoutes=routes.cars.length>1?routes.cars.slice(1,2):[],motorRoutes=routes.cars.length>2?routes.cars.slice(2,3):[]
+ const cycles=batch('cycle',cycleRoutes.length),motors=batch('motorbike',motorRoutes.length)
+ const lampSites=routes.cars.flatMap(r=>{
+  const dx=(r.b[0]-r.a[0])/r.length,dz=(r.b[1]-r.a[1])/r.length
+  return [.25,.75].map((t,i)=>{const side=i?1:-1,offset=r.width/2+.08;return {x:r.a[0]+dx*r.length*t-dz*offset*side,z:r.a[1]+dz*r.length*t+dx*offset*side,heading:Math.atan2(-dz*side,dx*side)}})
+ }).filter(p=>![...data.buildings,...data.water].some(f=>inPolygon(p.x,p.z,f)))
+ const streetlights=batch('streetlight',lampSites.length),bulbs=batch('lamp',lampSites.length)
+ if(bulbs)bulbs.name='Borough streetlight bulbs'
+ const pools=lampSites.length?new THREE.InstancedMesh(assets.poolGeometry,assets.poolMaterial,lampSites.length):null
+ if(pools){pools.name='Borough streetlight pools';pools.frustumCulled=false;root.add(pools);meshes.push(pools)}
  const signalRoutes=routes.cars.filter(r=>r.width>=.75).slice(0,1),signals=batch('signal',signalRoutes.length*2),lamps=batch('lamp',signalRoutes.length*6)
  const headings=new Map<string,number>()
  let time=0,railTime=0,night=false
@@ -92,12 +119,18 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets) {
  }
  function draw(delta:number,activity=true){
   const roadDelta=activity?delta:0
+  function vehicle(mesh:THREE.InstancedMesh|null,r:LifeRoute,i:number,key:string,speed:number,halfWidth:number,halfLength:number){
+   const clock=(clocks.get(key)??0)+roadDelta,p=lifePose(r,clock,speed,key.startsWith('car')?5:2),dx=(r.b[0]-r.a[0])/r.length,dz=(r.b[1]-r.a[1])/r.length
+   const yaw=headings.get(key)??p.heading,angle=yaw+Math.atan2(Math.sin(p.heading-yaw),Math.cos(p.heading-yaw))*Math.min(1,roadDelta*6)
+   const offset=(p.forward?-1:1)*Math.min(.125,r.width*.25),x=p.x-dz*offset,z=p.z+dx*offset
+   if(traffic.move(scope+key,{x,z,heading:angle,halfWidth,halfLength})){clocks.set(key,clock);headings.set(key,angle);put(mesh,i,x,.015,z,angle)}
+  }
   routes.cars.forEach((r,i)=>{
-   const p=run(cars,r,i,.50,.015,'car',roadDelta,5),dx=(r.b[0]-r.a[0])/r.length,dz=(r.b[1]-r.a[1])/r.length
-   const offset=(p.forward?1:-1)*Math.min(.11,r.width*.18)*(p.stopped?0:1)
-   put(cars,i,p.x-dz*offset,.015,p.z+dx*offset,headings.get('car'+i))
+   vehicle(cars,r,i,'car'+i,.50,.103,.20)
    cars?.setColorAt(i,color.set(['#e3b872','#c7d0bf','#9fb8ba'][r.seed%3]))
   })
+  cycleRoutes.forEach((r,i)=>vehicle(cycles,r,i,'cycle'+i,.24,.045,.12))
+  motorRoutes.forEach((r,i)=>vehicle(motors,r,i,'motor'+i,.40,.05,.12))
   routes.walkers.forEach((r,i)=>{
    const y=.015+Math.abs(Math.sin(time*7+i))*.004,p=run(people,r,i,.13,y,'person',roadDelta),yaw=headings.get('person'+i)??p.heading
    const stride=Math.sin(time*7+i)*.42
@@ -126,7 +159,7 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets) {
    for(let i=0;i<3;i++){const offset=(i-1)*1.28;put(trains,i,p.x+dx*offset,.02,p.z+dz*offset,angle)}
   }
   signalRoutes.forEach((r,i)=>{
-   const p=lifePose(r,time,.5,5),dx=(r.b[0]-r.a[0])/r.length,dz=(r.b[1]-r.a[1])/r.length
+   const carIndex=routes.cars.indexOf(r),p=lifePose(r,clocks.get('car'+carIndex)??0,.5,5),dx=(r.b[0]-r.a[0])/r.length,dz=(r.b[1]-r.a[1])/r.length
    for(const end of [0,1]){
     const point=end?r.b:r.a,side=end?1:-1,x=point[0]-dz*(r.width/2+.1)*side,z=point[1]+dx*(r.width/2+.1)*side
     put(signals,i*2+end,x,.015,z)
@@ -137,11 +170,13 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets) {
     }
    }
   })
+  lampSites.forEach((p,i)=>{put(streetlights,i,p.x,.015,p.z,p.heading);put(bulbs,i,p.x+Math.sin(p.heading)*.1,.495,p.z+Math.cos(p.heading)*.1,p.heading);bulbs?.setColorAt(i,color.set('#f7dda1'));put(pools,i,p.x,.016,p.z)})
+  if(bulbs)bulbs.visible=night;if(pools)pools.visible=night
   foxes&&(foxes.visible=night)
   birds&&(birds.visible=!night);wings&&(wings.visible=!night)
   for(const mesh of meshes){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true}
  }
  draw(1)
- root.userData.counts={cars:routes.cars.length,people:routes.walkers.length,foxes:routes.foxes.length,birds:routes.birds.length,narrowboats:routes.boats.length,trains:routes.train?1:0,signals:signalRoutes.length*2}
- return {root,routes,setNight(value:boolean){night=value;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){meshes.forEach(m=>m.dispose());root.clear()}}
+ root.userData.counts={cars:routes.cars.length,cycles:cycleRoutes.length,motorbikes:motorRoutes.length,streetlights:lampSites.length,people:routes.walkers.length,foxes:routes.foxes.length,birds:routes.birds.length,narrowboats:routes.boats.length,trains:routes.train?1:0,signals:signalRoutes.length*2}
+ return {root,routes,clearTraffic(){traffic.release(scope);for(const mesh of [cars,cycles,motors])if(mesh){mesh.instanceMatrix.array.fill(0);mesh.instanceMatrix.needsUpdate=true}},setNight(value:boolean){night=value;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night);bulbs&&(bulbs.visible=night);pools&&(pools.visible=night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){traffic.release(scope);meshes.forEach(m=>m.dispose());root.clear()}}
 }

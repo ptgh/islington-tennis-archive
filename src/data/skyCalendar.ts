@@ -6,6 +6,13 @@ const ISLINGTON={lat:51.54,lng:-.105}
 export const MOON_PHASES=['New moon','Waxing crescent','First quarter','Waxing gibbous','Full moon','Waning gibbous','Last quarter','Waning crescent'] as const
 export const MOON_SYMBOLS=['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'] as const
 const illumination=(time:number)=>skyPosition(new Date(time),ISLINGTON).illumination
+/** Approximate true compass bearing, clockwise from north; east +X, south +Z. */
+export function moonPosition(date:Date){
+ const {moon}=skyPosition(date,ISLINGTON),bearing=(Math.atan2(moon.x,-moon.z)*180/Math.PI+360)%360
+ const elevation=Math.asin(Math.max(-1,Math.min(1,moon.y)))*180/Math.PI
+ const compass=['N','NE','E','SE','S','SW','W','NW'][Math.round(bearing/45)%8]
+ return {bearing,elevation,compass,aboveHorizon:elevation>0}
+}
 
 /** Estimated solar crossings of the apparent horizon (-0.833 degrees), using
  * the scene's existing orbital model and the London civil day, including DST.

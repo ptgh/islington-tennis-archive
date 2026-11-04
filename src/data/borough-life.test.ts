@@ -6,6 +6,7 @@ import { createBoroughLife,createBoroughLifeAssets } from '../scene/createBoroug
 import { inPolygon,lifePaths,lifePose } from '../scene/boroughLifePaths.ts'
 import { boroughGeography,boroughCourts,type BoroughCell } from '../scene/boroughGeometry.ts'
 import { createBoroughMaterials } from '../scene/createBoroughTile.ts'
+import { createTrafficSpace } from '../scene/trafficSpace.ts'
 const source=(id:string):BoroughCell=>JSON.parse(fs.readFileSync('public/'+boroughGeography.cells.find(c=>c.id===id)!.url,'utf8'))
 
 test('local actors use bounded source paths and keep off buildings and courts',()=>{
@@ -78,6 +79,23 @@ test('evicting one activity cell does not dispose another cell’s shared models
  let disposed=0;assets.geometry.car.addEventListener('dispose',()=>disposed++)
  a.dispose();assert.equal(disposed,0);b.animate(.5,true,true);b.dispose();assert.equal(disposed,0)
  assets.dispose();assert.equal(disposed,1)
+})
+test('bicycles and motorbikes move, street lamps switch on at night, and hidden cells release traffic',()=>{
+ const assets=createBoroughLifeAssets(),space=createTrafficSpace(),life=createBoroughLife(source('1_-1'),assets,space)
+ try{
+  const cycle=life.root.getObjectByName('Borough cycle') as THREE.InstancedMesh,motor=life.root.getObjectByName('Borough motorbike') as THREE.InstancedMesh
+  assert.ok(cycle?.count&&motor?.count)
+  const before=[cycle,motor].map(m=>Array.from(m.instanceMatrix.array))
+  for(let i=0;i<100;i++)life.animate(.05,true,false)
+  for(const [i,m] of [cycle,motor].entries())assert.notDeepEqual(Array.from(m.instanceMatrix.array),before[i])
+  const bulbs=life.root.getObjectByName('Borough streetlight bulbs')!,pools=life.root.getObjectByName('Borough streetlight pools')!
+  assert.equal(bulbs.visible,false);assert.equal(pools.visible,false)
+  life.setNight(true);assert.equal(bulbs.visible,true);assert.equal(pools.visible,true)
+  assert.ok(space.size>0);life.clearTraffic();assert.equal(space.size,0)
+  assert.ok(Array.from(cycle.instanceMatrix.array).every(v=>v===0),'hidden cell retained a stale vehicle pose')
+  life.animate(.05,true,false);assert.ok(space.size>0)
+  life.dispose();assert.equal(space.size,0)
+ }finally{assets.dispose()}
 })
 
 test('pedestrian strides stay attached at the joints and freeze while only trains run',()=>{

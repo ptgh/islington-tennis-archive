@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import {mappedServices} from '../data/hub.ts';
 import {busRoutes} from '../data/busRoutes.ts';
 import roadRoutes from '../data/borough-transport.json' with {type:'json'};
+import type {TrafficSpace} from './trafficSpace.ts';
 import {busRouteLine,type CourtArea} from './courtGeometry.ts';
-export function createGear(project:(lat:number,lng:number)=>THREE.Vector3,courts:CourtArea[]=[],geographic=false){
+export function createGear(project:(lat:number,lng:number)=>THREE.Vector3,courts:CourtArea[]=[],geographic=false,traffic?:TrafficSpace){
+ const trafficId=traffic?.scope()+'van';
  const root=new THREE.Group(),box=new THREE.BoxGeometry(1,1,1);
  const mats=new Map<string,THREE.MeshStandardMaterial>();
  function part(g:THREE.Group,c:string,x:number,y:number,z:number,w:number,h:number,d:number){if(!mats.has(c))mats.set(c,new THREE.MeshStandardMaterial({color:c,roughness:.8}));const m=new THREE.Mesh(box,mats.get(c));m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=true;m.receiveShadow=true;g.add(m);return m;}
@@ -24,6 +26,8 @@ export function createGear(project:(lat:number,lng:number)=>THREE.Vector3,courts
  const points=geographic?roadRoutes['19'].map(([x,z]):[number,number]=>[x*10,z*10]):busRouteLine(busRoutes.find(route=>route.id==='19')!.points.map(([lng,lat]):[number,number]=>{const p=project(lat,lng);return [p.x,p.z];}),courts);
  const segments=points.slice(1).map((p,i)=>({a:new THREE.Vector3(points[i][0],0,points[i][1]),b:new THREE.Vector3(p[0],0,p[1])}));
  const lengths=segments.map(s=>s.a.distanceTo(s.b)),total=lengths.reduce((a,b)=>a+b,0);let distance=total*.45;
- function animate(delta:number,running:boolean){if(running)distance=(distance+delta*5)%(total*2);let d=distance<=total?distance:2*total-distance;for(let i=0;i<segments.length;i++){if(d<=lengths[i]||i===segments.length-1){const {a,b}=segments[i];van.position.copy(a).lerp(b,d/lengths[i]);van.rotation.y=Math.atan2(b.x-a.x,b.z-a.z)+(distance>total?Math.PI:0);break;}d-=lengths[i];}}
+ function animate(delta:number,running:boolean){const next=running?(distance+delta*5)%(total*2):distance;let d=next<=total?next:2*total-next;for(let i=0;i<segments.length;i++){if(d<=lengths[i]||i===segments.length-1){const {a,b}=segments[i],p=a.clone().lerp(b,d/lengths[i]),heading=Math.atan2(b.x-a.x,b.z-a.z)+(next>total?Math.PI:0);
+   if(traffic){p.x+=Math.cos(heading)*1.25;p.z-=Math.sin(heading)*1.25;if(!traffic.move(trafficId,{x:p.x*.1,z:p.z*.1,heading,halfWidth:.114,halfLength:.23}))return}
+   distance=next;van.position.copy(p);van.rotation.y=heading;break;}d-=lengths[i];}}
  animate(0,false);return {root,van,animate};
 }

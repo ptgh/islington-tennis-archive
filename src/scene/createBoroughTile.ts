@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { createBoroughLife, createBoroughLifeAssets } from './createBoroughLife.ts'
+import type { TrafficSpace } from './trafficSpace.ts'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
 import { createFootprintRoof } from './footprintRoof.ts'
@@ -42,7 +43,7 @@ export function createBoroughMaterials() {
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
-export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
+export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,traffic?:TrafficSpace) {
  const root=new THREE.Group();root.name='Islington geographic cell'
  const {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle}=materials
  const batches=new Map<THREE.Material,THREE.BufferGeometry[]>(),instances=new Map<THREE.Material,THREE.Matrix4[]>(),caps=new Map<THREE.Material,THREE.Matrix4[]>()
@@ -145,7 +146,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials) {
  const leaves=batch(finishes.foliageGeometry,finishes.foliage,crowns)
  crowns.forEach((_,i)=>leaves?.setColorAt(i,new THREE.Color(['#6a854f','#7f965c','#5f7e4d','#8b9f62'][i%4])))
  const proxies=batch(finishes.foliageShadowGeometry,finishes.foliageShadowProxy,crowns,true);if(proxies){proxies.layers.set(SHADOW_PROXY_LAYER);proxies.customDepthMaterial=finishes.foliageShadowDepth}
- const life=createBoroughLife(data,materials.lifeAssets);root.add(life.root)
+ const life=createBoroughLife(data,materials.lifeAssets,traffic);root.add(life.root)
  root.userData.coverage={buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted}
  return {root,life,dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
 }

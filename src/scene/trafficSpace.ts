@@ -1,0 +1,32 @@
+/** Shared, bounded miniature traffic occupancy. Coordinates are borough units
+ * (10 metres); club/legacy vehicles do not opt into this coordinator. */
+export type TrafficPose={x:number;z:number;heading:number;halfWidth:number;halfLength:number}
+export function trafficOverlaps(a:TrafficPose,b:TrafficPose,gap=.025){
+ const dx=b.x-a.x,dz=b.z-a.z
+ if(Math.hypot(dx,dz)>Math.hypot(a.halfWidth,a.halfLength)+Math.hypot(b.halfWidth,b.halfLength)+gap)return false
+ const axes=(p:TrafficPose)=>[[Math.cos(p.heading),-Math.sin(p.heading)],[Math.sin(p.heading),Math.cos(p.heading)]]
+ const aa=axes(a),bb=axes(b)
+ for(const [x,z] of [...aa,...bb]){
+  const radius=(p:TrafficPose,axes:number[][])=>p.halfWidth*Math.abs(x*axes[0][0]+z*axes[0][1])+p.halfLength*Math.abs(x*axes[1][0]+z*axes[1][1])
+  if(Math.abs(dx*x+dz*z)>=radius(a,aa)+radius(b,bb)+gap)return false
+ }
+ return true
+}
+export function createTrafficSpace(){
+ const poses=new Map<string,TrafficPose>();let next=0
+ return {
+  scope(){return `traffic-${next++}:`},
+  move(id:string,pose:TrafficPose){
+   const previous=poses.get(id),turn=previous?Math.atan2(Math.sin(pose.heading-previous.heading),Math.cos(pose.heading-previous.heading)):0
+   const steps=previous?Math.min(24,Math.max(1,Math.ceil((Math.hypot(pose.x-previous.x,pose.z-previous.z)+Math.abs(turn)*pose.halfLength)/.04))):1
+   for(let i=1;i<=steps;i++){
+    const t=i/steps,candidate=previous?{...pose,x:previous.x+(pose.x-previous.x)*t,z:previous.z+(pose.z-previous.z)*t,heading:previous.heading+turn*t}:pose
+    for(const [other,p] of poses)if(other!==id&&trafficOverlaps(candidate,p))return false
+   }
+   poses.set(id,pose);return true
+  },
+  release(prefix:string){for(const id of poses.keys())if(id.startsWith(prefix))poses.delete(id)},
+  get size(){return poses.size},
+ }
+}
+export type TrafficSpace=ReturnType<typeof createTrafficSpace>

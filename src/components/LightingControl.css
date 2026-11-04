@@ -21,3 +21,4 @@
 @media(max-width:760px){.app-header .lighting-control .lighting-popover{position:fixed;top:calc(var(--app-visible-top,0px) + 77px);right:calc(100vw - var(--app-visible-left,0px) - var(--app-visible-width,100vw) + 16px)}}
 /* Leave room for the club dialog header and its map controls. */
 @media(max-width:760px){.atlas-court-world .lighting-control{position:static}.atlas-court-world .lighting-popover{max-height:calc(var(--app-visible-height,100dvh) - 290px)}}
+.lighting-moon-icon{width:40px;height:40px;flex-shrink:0}.lighting-moon .lighting-moon-position{margin-top:7px;color:var(--ink)}

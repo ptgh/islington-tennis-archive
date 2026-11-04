@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sunTimes,moonPhase,nextFullMoon } from './skyCalendar.ts'
+import { sunTimes,moonPhase,nextFullMoon,moonPosition } from './skyCalendar.ts'
 import { lightCycle,skyPosition } from '../scene/sceneAtmosphere.ts'
 
 // US Naval Observatory, Islington 51.54,-0.105, 2 November 2026:
@@ -39,4 +39,15 @@ test('explicit sunrise and sunset previews retain low warm light rather than swi
  assert.equal(cycle.preview,false);assert.ok(cycle.direct<noon.direct);assert.ok(cycle.warmth>noon.warmth)
  assert.ok(cycle.ambient<noon.ambient)
  assert.equal(lightCycle(date,false,'clear').preview,true,'explicit Day still supports a noon preview')
+})
+test('moon bearings use north clockwise and report whether the moon is above the horizon',()=>{
+ let above=false,below=false
+ for(let hour=0;hour<24;hour++){
+  const date=new Date(Date.UTC(2026,10,3,hour)),p=moonPosition(date),moon=skyPosition(date,{lat:51.54,lng:-.105}).moon
+  assert.ok(p.bearing>=0&&p.bearing<360)
+  assert.ok(Math.abs(Math.cos(p.bearing*Math.PI/180)*Math.cos(p.elevation*Math.PI/180)+moon.z)<1e-8)
+  assert.equal(p.aboveHorizon,moon.y>0)
+  above||=p.aboveHorizon;below||=!p.aboveHorizon
+ }
+ assert.ok(above&&below)
 })
