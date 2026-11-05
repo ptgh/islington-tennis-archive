@@ -61,6 +61,7 @@ export default function App() {
   const [section,setSection]=useState<HubSection>('courts');
   const [serviceId,setServiceId]=useState<string|null>(null);
   const [routeId,setRouteId]=useState<string|null>(null);
+  const [routeRequest,setRouteRequest]=useState(0);
   const [coachVenue,setCoachVenue]=useState<string|null>(null);
   const coachCounts=Object.fromEntries(venues.map(v=>[v.id,hubServices.filter(s=>s.kind==='coaching'&&s.venueId===v.id).length]));
   const [playId,setPlayId]=useState<string|null>(null);
@@ -68,11 +69,10 @@ export default function App() {
   const [playVenueId,setPlayVenueId]=useState<string|null>(null);
   const [playFocusId,setPlayFocusId]=useState<string|null>(null);
   const [visitId,setVisitId]=useState<string|null>(null);
-  const [mappedOverview,setMappedOverview]=useState(false);
   const [locationTarget,setLocationTarget]=useState<{lat:number;lng:number;zoom?:number}|null>(null);
   function locateMap(lat:number,lng:number,zoom?:number){setLocationTarget({lat,lng,zoom});}
   useEffect(()=>{if(locationTarget){map.current?.locate(locationTarget.lat,locationTarget.lng,locationTarget.zoom);setLocationTarget(null);}},[locationTarget]);
-  function openMappedHighbury(){setMappedOverview(false);setVisitId(null);setPracticeOpen(false);setCard(null);restoreSheet.current=false;setPanelOpen(false);map.current?.visitCourt('highbury-fields');}
+  function openMappedHighbury(){setVisitId(null);setPracticeOpen(false);setCard(null);restoreSheet.current=false;setPanelOpen(false);map.current?.visitCourt('highbury-fields');}
   const [practiceOpen,setPracticeOpen]=useState(false);
   const [manualNight,setNight]=useState<boolean|null>(null);
   const [lightingTime,setLightingTime]=useState<number|null>(null);
@@ -139,13 +139,12 @@ export default function App() {
   const visited=venues.find(v=>v.id===visitId);
   const hasDetail=!!(selected||service||route||opportunity||(section==='play'&&partnersOpen));
   function changeSection(next:HubSection){setPartnersOpen(false);setCoachVenue(null);if(visitId||next==='play')map.current?.reset();setPlayId(null);setPlayVenueId(null);setPlayFocusId(null);setPlayFilter('all');setSection(next);setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);if(next==='buses')setShowBuses(true);}
-  function select(id:string){setMappedOverview(false);setPlayId(null);setSelectedId(id);setServiceId(null);setRouteId(null);setVisitId(null);setSection('courts');setPanelOpen(true);}
+  function select(id:string){setPlayId(null);setSelectedId(id);setServiceId(null);setRouteId(null);setVisitId(null);setSection('courts');setPanelOpen(true);}
   function selectService(id:string){const item=hubServices.find(s=>s.id===id);if(!item)return;setPlayId(null);setSection(item.kind);setServiceId(id);setSelectedId(null);setRouteId(null);setVisitId(null);setPanelOpen(true);}
   const [rideUnavailable,setRideUnavailable]=useState(false);
-  function rideRoute(id:string){const started=map.current?.followRoute(id)??false;setRideUnavailable(!started);setPanelOpen(!started);if(started)setMotionRunning(true);}
-  function selectRoute(id:string){setMappedOverview(false);setSelectedId(null);setServiceId(null);setPlayId(null);setRouteId(id);setShowBuses(true);setVisitId(null);}
+  function rideRoute(id:string){setShowBuses(true);setPanelOpen(false);requestAnimationFrame(()=>{const started=map.current?.followRoute(id)??false;setRideUnavailable(!started);setPanelOpen(!started);if(started)setMotionRunning(true);});}
+  function selectRoute(id:string){setRouteRequest(n=>n+1);setSelectedId(null);setServiceId(null);setPlayId(null);setRouteId(id);setShowBuses(true);setVisitId(null);}
   function browsePlayAtVenue(id:string|null){
-    setMappedOverview(false);
     if(section!=='play')setPlayFilter('all');
     setSection('play');setPlayVenueId(id);setPlayFocusId(id);setPlayId(null);
     setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPanelOpen(true);
@@ -160,7 +159,7 @@ export default function App() {
   }
   function visitCourt(id:string){setVisitId(id);setPracticeOpen(false);setMotionRunning(true);setPanelOpen(false);}
   function leaveVisit(){setVisitId(null);setPracticeOpen(false);setPanelOpen(true);map.current?.reset();}
-  function home(){setMappedOverview(false);changeSection('courts');setQuery('');setFilter('all');setSavedOnly(false);map.current?.reset();}
+  function home(){changeSection('courts');setQuery('');setFilter('all');setSavedOnly(false);map.current?.reset();}
   useEffect(()=>{
     const media=window.matchMedia('(max-width:760px)');
     const update=()=>setIsMobile(media.matches);
@@ -181,11 +180,11 @@ export default function App() {
   },[visitId,isMobile]);
   useEffect(()=>{if(service?.id==='sweet-spot-stringer')map.current?.visitVan();if(service?.lat!==undefined&&service.lng!==undefined)locateMap(service.lat,service.lng);},[service]);
   useEffect(()=>{if(section==='play'&&playFocusId){const venue=venues.find(v=>v.id===playFocusId);if(venue)locateMap(venue.lat,venue.lng);}},[playFocusId,playId,section]);
-  useEffect(()=>{if(routeId)rideRoute(routeId);},[routeId]);
+  useEffect(()=>{if(!routeId||!ready)return;const frame=requestAnimationFrame(()=>rideRoute(routeId));return()=>cancelAnimationFrame(frame);},[routeId,ready,routeRequest]);
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen]);
   return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} ${card?'card-open':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
-    <TownMap naturalTime={manualNight===null} mappedOverview={mappedOverview} cameras={cameraPins} showCameras={card==='cameras'} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
+    <TownMap naturalTime={manualNight===null} cameras={cameraPins} showCameras={card==='cameras'} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
     <div className="map-vignette"/><Weather onWeather={changeWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onLocate={(lat,lng,zoom)=>{restoreSheet.current=false;setPanelOpen(false);if(isMobile)setCard(null);setStations(true);locateMap(lat,lng,zoom);}}/>
     <TrafficCameras directory={cameraDirectory} {...cardProps('cameras')} selectedId={cameraId} onSelect={selectCamera}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
@@ -198,7 +197,6 @@ export default function App() {
       {selected?<CourtDetail onMappedHighbury={selected.id==='highbury-fields'?openMappedHighbury:undefined} venue={selected} onBack={()=>setSelectedId(null)} onVisit={()=>visitCourt(selected.id)} coaching={servicesForVenue(selected.id)} onCoaching={selectService} onPlay={playOpportunities.some(item=>item.venueIds.includes(selected.id))?()=>browsePlayAtVenue(selected.id):undefined}/>:service?<ServiceDetail service={service} onBack={()=>setServiceId(null)} onCourt={select} onLocate={()=>{if(service.id==='sweet-spot-stringer')map.current?.visitVan();if(service.lat!==undefined&&service.lng!==undefined)locateMap(service.lat,service.lng);}}/>:route?<BusRouteDetail rideUnavailable={rideUnavailable} route={route} onBack={()=>setRouteId(null)} onView={()=>rideRoute(route.id)}/>:opportunity?<PlayDetail opportunity={opportunity} onBack={()=>setPlayId(null)} onCourt={select} onLocate={locatePlayCourt} venues={venues}/>:section==='play'?<PlayDirectory results={playResults} filter={playFilter} onFilter={setPlayFilter} venueId={playVenueId} onVenue={browsePlayAtVenue} venues={venues} onSelect={selectPlay} onRacquets={openMyFrame} partners={partnersOpen} onPartners={setPartnersOpen}/>:section==='courts'?<CourtDirectory planner={planner} onPlanner={setPlanner} plannerError={plannerError} availability={availability} compareIds={compareIds} onCompare={toggleCompare} onClearCompare={()=>setCompareIds([])} facility={facility} onFacility={setFacility} favourites={favourites} onFavourite={toggleFavourite} savedOnly={savedOnly} onSavedOnly={setSavedOnly} saveError={saveError} results={results} allVenues={venues} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} onSelect={select} onAbout={()=>setAbout(true)}/>:<HubDirectory venueId={coachVenue} onClearVenue={()=>setCoachVenue(null)} section={section} onService={selectService} onRoute={selectRoute} onRacquets={()=>{setRacquetView('collection');setRacquetRoom(true);}}/>}
     </aside>
     {!visitId&&<button className="mobile-panel-toggle pill" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen}><Icon name={panelOpen?'layers':'court'} size={18}/>{panelOpen?'Explore map':'Tennis hub'}</button>}
-    {!visitId&&<section className="map-coverage-note" aria-label="Map coverage"><div><strong>One Islington</strong><p>Connected OSM geography · 30 October 2026. Building heights and decorative detail may be estimated.</p></div><button aria-pressed={mappedOverview} onClick={()=>setMappedOverview(value=>!value)}>{mappedOverview?'Highbury close-up':'Whole Islington'}</button></section>}
     {visited&&<div className="visit-bar"><div><strong>{visited.name}</strong><span>Miniature animation · not live court use</span></div><button ref={practiceButton} className="practice-launch" aria-expanded={practiceOpen} onClick={()=>setPracticeOpen(!practiceOpen)}><Icon name="ball" size={15}/> Practice</button><button ref={leaveVisitButton} onClick={leaveVisit}><Icon name="back" size={16}/> Back to map</button></div>}
     {visited&&practiceOpen&&<CourtPractice venueId={visited.id} venueName={visited.name} onClose={()=>{setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}}/>}
     <div className="place-title"><h2>Islington</h2><p>London, at play.</p><span className="title-rule"/></div>

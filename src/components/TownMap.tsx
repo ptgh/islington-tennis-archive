@@ -63,7 +63,6 @@ interface TownMapProps {
   onSelectService: (id: string) => void
   onReset?: () => void
   onReady?: () => void
-  mappedOverview?: boolean
   cameras?: readonly TrafficCamera[]
   showCameras?: boolean
   selectedCameraId?: string
@@ -93,7 +92,7 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, mappedOverview = false, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -102,9 +101,9 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   const busPinRef=useRef<HTMLDivElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
   const cameraRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  const runtimeRef = useRef({ viewSettings, suspended, selectedServiceId, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, mappedOverview, selectedId, activeVisitId, visibleIds, onReset, onReady,
+  runtimeRef.current = { viewSettings, suspended, selectedServiceId, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
   const [mapStatus,setMapStatus]=useState('')
@@ -356,14 +355,14 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       cancelTravel()
       {
         const xs=highburyCourts.map(c=>c.x),zs=highburyCourts.map(c=>c.z)
-        const bounds=runtimeRef.current.mappedOverview?boroughBounds:{minX:Math.min(...xs)-12,maxX:Math.max(...xs)+12,minZ:Math.min(...zs)-12,maxZ:Math.max(...zs)+12}
+        const bounds={minX:Math.min(...xs)-12,maxX:Math.max(...xs)+12,minZ:Math.min(...zs)-12,maxZ:Math.max(...zs)+12}
         const center=new THREE.Vector3((bounds.minX+bounds.maxX)/2,0,(bounds.minZ+bounds.maxZ)/2),preview=camera.clone()
         preview.position.copy(center).add(CAMERA_OFFSET);preview.lookAt(center);preview.zoom=1;preview.updateProjectionMatrix();preview.updateMatrixWorld()
         const points=[bounds.minX-3,bounds.maxX+3].flatMap(x=>[bounds.minZ-3,bounds.maxZ+3].map(z=>new THREE.Vector3(x,0,z).project(preview)))
         const spanX=(Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x)))*width/2
         const spanY=(Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y)))*height/2
-        const available=visibleMapFrame(),zoom=runtimeRef.current.mappedOverview?Math.min(width*1.35/spanX,height*1.35/spanY):Math.min((available.right-available.left)*.98/spanX,(available.bottom-available.top)*.96/spanY)
-        travel(center,THREE.MathUtils.clamp(zoom,runtimeRef.current.mappedOverview ? .1 : 4.5,18),true);return
+        const available=visibleMapFrame(),zoom=Math.min((available.right-available.left)*.98/spanX,(available.bottom-available.top)*.96/spanY)
+        travel(center,THREE.MathUtils.clamp(zoom,4.5,18),true);return
       }
 
     }
@@ -563,7 +562,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   }, [venues])
 
   useEffect(() => { engineRef.current?.frame() }, [viewSettings, suspended])
-  useEffect(() => { engineRef.current?.reset() }, [mappedOverview, ready])
+  useEffect(() => { engineRef.current?.reset() }, [ready])
 
   useEffect(() => {
     const engine = engineRef.current

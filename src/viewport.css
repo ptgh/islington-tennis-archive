@@ -50,3 +50,19 @@ html,body,#root{width:100%;height:100%;overflow:hidden}
  .app .ask-launch{top:166px}
  .app .traffic-cameras{top:210px}
 }
+
+/* Account and hub controls share the visible viewport, including Safari chrome. */
+@media(max-width:760px){
+ .app.panel-open .account-launch.pill{bottom:calc(var(--app-visible-height,100dvh)*.54 + 14px)}
+ .app.panel-open:has(.has-detail) .account-launch.pill{bottom:calc(var(--app-visible-height,100dvh)*.62 + 14px)}
+}
+/* Keep the title on one line without crowding the phone's lighting controls. */
+@media(max-width:420px){
+ .app-header .brand{font-size:18px;white-space:nowrap}
+ .app-header .brand svg{flex-shrink:0}
+ .app-header .header-actions{flex-shrink:0}
+ .app-header .about-button{width:36px;min-width:36px;padding:0}
+ .app-header .about-button>span{display:none}
+ .app-header .about-button>svg{display:block}
+}
+@media(max-width:360px){.app-header .about-button{display:none}}
