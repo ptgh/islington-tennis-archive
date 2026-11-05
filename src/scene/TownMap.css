@@ -53,3 +53,9 @@
 .app:has(.bus-tour) .map-coverage-note{display:none}
 @media(max-width:760px){.bus-tour{left:16px;bottom:105px;transform:none;padding:11px 13px}.bus-tour p{font-size:20px}.bus-tour__heading strong{font-size:11px}.panel-open .bus-tour{display:none}}
 .bus-tour-marker{position:absolute;top:0;left:0;z-index:5;pointer-events:none}.bus-tour-marker>span{position:absolute;bottom:0;left:0;transform:translateX(-50%);display:flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid #fff8dc;border-radius:20px;background:#b68049;color:#fffdf0;box-shadow:0 3px 9px #18382a40;font-size:11px}.bus-tour-marker>span:after{content:'';position:absolute;left:50%;bottom:-6px;height:6px;border-left:1px solid #b68049}
+
+/* One selected destination stays tied to its geographic anchor while panning. */
+.map-destination{position:absolute;left:0;top:0;z-index:3;pointer-events:none}
+.map-destination>span{display:flex;align-items:center;gap:7px;transform:translate(-50%,-100%);max-width:min(240px,65vw);padding:9px 13px;border:1px solid #d7ddcb;border-radius:22px;background:#fbfaf2f5;color:#294d3d;box-shadow:0 3px 12px #163a2830;font:500 13px/1.25 var(--sans,sans-serif);text-align:center}
+.map-destination>span:after{content:'';position:absolute;bottom:-7px;left:50%;height:7px;width:1px;background:#fbfaf2}
+.map-destination svg{flex-shrink:0}

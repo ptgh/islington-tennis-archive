@@ -459,6 +459,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
   runtime.current = { viewSettings, active, night, motionRunning, weather, windMph, naturalTime, lightingTime,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
+  const courtLabel=useRef<HTMLDivElement>(null)
   const host = useRef<HTMLDivElement>(null)
   const engine = useRef<SceneHandle | null>(null)
   const [failed, setFailed] = useState(false)
@@ -466,6 +467,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
   const [card, setCard] = useState<'time' | 'quality' | null>(null)
   const [preparing, setPreparing] = useState(true)
   const [selectedId, setSelectedId] = useState(COURTS[clubId][0].id)
+  const selectedCourt=useRef(selectedId);selectedCourt.current=selectedId
   const club = iconicClubs.find(item => item.id === clubId) ?? iconicClubs[0]
   const courts = COURTS[clubId]
   const selected = courts.find(item => item.id === selectedId) ?? courts[0]
@@ -570,6 +572,9 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       occlusion.blendIntensity = state.night ? .16 : .30
       renderer.shadowMap.needsUpdate = true
       composer.render(); textureDirty = false
+      const label=courtLabel.current
+      if(label){const point=mappedCourtPosition(activeId,selectedCourt.current);const projected=new THREE.Vector3(point.x,1,point.z).project(camera);const x=(projected.x*.5+.5)*element.clientWidth,y=(-projected.y*.5+.5)*element.clientHeight;label.style.display=projected.z>-1&&projected.z<1&&x>35&&x<element.clientWidth-35&&y>65&&y<element.clientHeight-45?'':'none';label.style.transform=`translate3d(${x}px,${y-12}px,0)`}
+
     }
     if (import.meta.env.DEV) Object.assign(window, { __club: { camera, controls, frame, renderer, runtime, composer, quality } })
     const applyResolution = () => {
@@ -719,7 +724,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     return () => window.clearTimeout(timer)
   }, [clubId, active])
 
-  useEffect(() => { engine.current?.frame() }, [viewSettings, active])
+  useEffect(() => { engine.current?.frame() }, [viewSettings, active, selectedId])
 
   function chooseCourt(id: string) { setSelectedId(id); engine.current?.focus(id) }
 
@@ -733,7 +738,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       <span className="atlas-eyebrow">A COURT-SIDE VIEW / {club.area.toUpperCase()}</span>
       <h3>{club.name}</h3>
       <p className="atlas-court-intro">{club.description}</p>
-      <div className="atlas-court-choices" aria-label="Explore courts">{courts.map(court => <button key={court.id} aria-pressed={selected.id === court.id} onClick={() => chooseCourt(court.id)}>{court.name}</button>)}</div>
+      <div className="atlas-court-choices" aria-label="Explore courts">{courts.map(court => <button key={court.id} disabled={preparing} aria-pressed={selected.id === court.id} onClick={() => chooseCourt(court.id)}>{court.name}</button>)}</div>
       <article className="atlas-court-selected"><span>ON THE GRASS</span><h4>{selected.name}</h4><p>{selected.note}</p></article>
       <p className="atlas-court-access">{club.access}</p>
       {event && <div className="atlas-court-event"><span>Next on the calendar</span><strong>{event.name}</strong><small>{tournamentDates(event)}{event.status === 'provisional' ? ' · provisional' : ''}</small></div>}
@@ -751,6 +756,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     </div>
     <div className="atlas-quality-control"><QualityControl settings={viewSettings} onChange={onViewSettings} open={card === 'quality'} onOpenChange={open => setCard(open ? 'quality' : null)}/></div>
     <div className="atlas-court-controls" aria-label="Court view controls"><button onClick={() => engine.current?.zoom(1.25)} aria-label="Zoom in">+</button><button onClick={() => engine.current?.zoom(.8)} aria-label="Zoom out">−</button><button onClick={() => engine.current?.reset()} aria-label="Reset court view"><Icon name="reset" size={18}/></button></div>
+    <div ref={courtLabel} className="map-destination atlas-court-destination" style={{display:'none'}} aria-label="Selected court on map"><span><Icon name="court" size={15}/>{selected.name}</span></div>
     <p className="atlas-court-hint">Drag to move · scroll to zoom · double-click to reset</p>
   </section>
 }

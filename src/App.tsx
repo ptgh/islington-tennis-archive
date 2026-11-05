@@ -70,8 +70,9 @@ export default function App() {
   const [playVenueId,setPlayVenueId]=useState<string|null>(null);
   const [playFocusId,setPlayFocusId]=useState<string|null>(null);
   const [visitId,setVisitId]=useState<string|null>(null);
+  const [locatedPlace,setLocatedPlace]=useState<{lat:number;lng:number;name:string}|null>(null);
   const [locationTarget,setLocationTarget]=useState<{lat:number;lng:number;zoom?:number}|null>(null);
-  function locateMap(lat:number,lng:number,zoom?:number){setLocationTarget({lat,lng,zoom});}
+  function locateMap(lat:number,lng:number,zoom?:number){setLocatedPlace(null);setLocationTarget({lat,lng,zoom});}
   useEffect(()=>{if(locationTarget){map.current?.locate(locationTarget.lat,locationTarget.lng,locationTarget.zoom);setLocationTarget(null);}},[locationTarget]);
   function openMappedHighbury(){setVisitId(null);setPracticeOpen(false);setCard(null);restoreSheet.current=false;setPanelOpen(false);map.current?.visitCourt('highbury-fields');}
   const [practiceOpen,setPracticeOpen]=useState(false);
@@ -140,8 +141,8 @@ export default function App() {
   const route=busRoutes.find(r=>r.id===routeId);
   const visited=venues.find(v=>v.id===visitId);
   const hasDetail=!!(selected||service||route||opportunity||(section==='play'&&partnersOpen));
-  function changeSection(next:HubSection){document.getElementById('court-browser')?.scrollTo({top:0});setPartnersOpen(false);setCoachVenue(null);if(visitId||next==='play')map.current?.reset();setPlayId(null);setPlayVenueId(null);setPlayFocusId(null);setPlayFilter('all');setSection(next);setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);if(next==='buses')setShowBuses(true);}
-  function select(id:string){setPlayId(null);setSelectedId(id);setServiceId(null);setRouteId(null);setVisitId(null);setSection('courts');setPanelOpen(true);}
+  function changeSection(next:HubSection){setLocatedPlace(null);document.getElementById('court-browser')?.scrollTo({top:0});setPartnersOpen(false);setCoachVenue(null);if(visitId||next==='play')map.current?.reset();setPlayId(null);setPlayVenueId(null);setPlayFocusId(null);setPlayFilter('all');setSection(next);setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);if(next==='buses')setShowBuses(true);}
+  function select(id:string){setLocatedPlace(null);setPlayId(null);setSelectedId(id);setServiceId(null);setRouteId(null);setVisitId(null);setSection('courts');setPanelOpen(true);}
   function selectService(id:string){const item=hubServices.find(s=>s.id===id);if(!item)return;setPlayId(null);setSection(item.kind);setServiceId(id);setSelectedId(null);setRouteId(null);setVisitId(null);setPanelOpen(true);}
   const [rideUnavailable,setRideUnavailable]=useState(false);
   function rideRoute(id:string){setShowBuses(true);setMotionRunning(true);setCard(null);setPanelOpen(false);setRideUnavailable(false);setRideRequest({id});}
@@ -159,8 +160,8 @@ export default function App() {
   function locatePlayCourt(id:string){
     setPlayFocusId(id);const venue=venues.find(v=>v.id===id);if(venue)locateMap(venue.lat,venue.lng);
   }
-  function visitCourt(id:string){setVisitId(id);setPracticeOpen(false);setMotionRunning(true);setPanelOpen(false);}
-  function leaveVisit(){setVisitId(null);setPracticeOpen(false);setPanelOpen(true);map.current?.reset();}
+  function visitCourt(id:string){setLocatedPlace(null);setVisitId(id);setPracticeOpen(false);setMotionRunning(true);setPanelOpen(false);}
+  function leaveVisit(){setLocatedPlace(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);map.current?.reset();}
   function home(){changeSection('courts');setQuery('');setFilter('all');setSavedOnly(false);map.current?.reset();}
   useEffect(()=>{
     const media=window.matchMedia('(max-width:760px)');
@@ -191,8 +192,8 @@ export default function App() {
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen]);
   return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} ${card?'card-open':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
-    <TownMap naturalTime={manualNight===null} cameras={cameraPins} showCameras={card==='cameras'} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} showTrains={showTrains} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
-    <div className="map-vignette"/><Weather onWeather={changeWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onLocate={(lat,lng,zoom)=>{setVisitId(null);setPracticeOpen(false);setServiceId(null);setRouteId(null);restoreSheet.current=false;setPanelOpen(false);if(isMobile)setCard(null);setStations(true);locateMap(lat,lng,zoom);}}/>
+    <TownMap locatedPlace={locatedPlace} naturalTime={manualNight===null} cameras={cameraPins} showCameras={card==='cameras'} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} showTrains={showTrains} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
+    <div className="map-vignette"/><Weather onWeather={changeWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onLocate={(lat,lng,zoom,name)=>{setVisitId(null);setPracticeOpen(false);setServiceId(null);setRouteId(null);restoreSheet.current=false;setPanelOpen(false);if(isMobile)setCard(null);setStations(true);locateMap(lat,lng,zoom);if(name)setLocatedPlace({lat,lng,name});}}/>
     <TrafficCameras directory={cameraDirectory} {...cardProps('cameras')} selectedId={cameraId} onSelect={selectCamera}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
     <button className="pill ask-launch" onClick={()=>{if(askHash===undefined)window.location.hash='#/ask';setAskMinimized(false);}} aria-haspopup="dialog" aria-expanded={askHash!==undefined&&!askMinimized} aria-controls={askHash!==undefined?'ask-guide':undefined}>Ask</button>

@@ -81,7 +81,7 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
     materials.push(material)
     return material
   }
-  const grass = scanned([grassColor, grassNormal, grassRough], [5, 10], '#86b46e', .28)
+  const grass = scanned([grassColor, grassNormal, grassRough], [5, 10], '#a8c78c', .22)
   const concrete = scanned([concreteColor, concreteNormal, concreteRough], [3, 6], '#d0cec6', .35)
   const synthetic = scanned([syntheticColor, syntheticNormal, syntheticRough], [5, 10], '#5a969c', .16)
   const clay = synthetic.clone(); clay.color.set('#b97f60'); materials.push(clay)
@@ -99,14 +99,15 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
         float footfall = exp(-pow((courtUv.x-.5)/.27, 2.0));
         float irregular = .65 + .35*sin(courtUv.x*51.0 + sin(courtUv.y*33.0)*2.0);
         ${kind === 'grass' ? `
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.18,.27,.075), .28);
           float stripe = smoothstep(.47,.53,fract(courtUv.x*10.0));
-          diffuseColor.rgb *= mix(.93,1.035,stripe);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.25,.22,.12), baseline*footfall*irregular*.28);
+          diffuseColor.rgb *= mix(.95,1.045,stripe);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.25,.22,.12), baseline*footfall*irregular*.20);
         ` : 'diffuseColor.rgb *= 1.0 - baseline*footfall*irregular*.06;'}
         diffuseColor.rgb *= 1.0-edge*irregular*.10;
       `)
     }
-    material.customProgramCacheKey = () => `club-surface-${kind}-v2`
+    material.customProgramCacheKey = () => `club-surface-${kind}-v3`
   }
   const meshBytes = new Uint8Array(128 * 128 * 4)
   for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
