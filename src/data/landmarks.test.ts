@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
+import fs from 'node:fs';
+import {boroughGeography,containsPoint} from '../scene/boroughGeometry.ts';
+import {projectPoint} from '../scene/courtGeometry.ts';
 import {places} from './places.ts';
 import {createLandmarks} from '../scene/createLandmarks.ts';
 import {createMiniatureMaterials} from '../scene/miniatureMaterials.ts';
@@ -54,4 +57,12 @@ test('landmark window lighting restores daylight without changing masonry or sha
    for(const state of original){assert.equal(state.material.color.getHex(),state.color);assert.equal(state.material.emissiveIntensity,state.emission);assert.equal(state.material.customProgramCacheKey(),state.key);assert.equal(state.material.version,state.version);}
   }
  }finally{geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());finishes.dispose();}
+});
+
+// A destination must point inside its recorded building, not a nearby court.
+test('new Places destinations stay inside their stored source footprints',()=>{
+ const destinations=places.filter(p=>p.kind==='destination');
+ const footprints=new Map<string,number[][]>();
+ for(const cell of boroughGeography.cells){const data=JSON.parse(fs.readFileSync('public/'+cell.url,'utf8'));for(const building of data.buildings)footprints.set(String(building.id),building.points);}
+ for(const place of destinations){assert.ok('sourceWay' in place);const ring=footprints.get(place.sourceWay!);assert.ok(ring,place.name);const [x,z]=projectPoint(place.lng,place.lat);assert.ok(containsPoint(x,z,ring as [number,number][]),place.name);}
 });

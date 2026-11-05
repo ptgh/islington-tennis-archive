@@ -100,7 +100,7 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
  }
  const cars=batch('car',routes.cars.length),people=batch('person',routes.walkers.length),foxes=batch('fox',routes.foxes.length),birds=batch('bird',routes.birds.length),wings=batch('wing',routes.birds.length*2),boats=batch('boat',routes.boats.length),trains=batch('train',routes.train?3:0)
  const legs=batch('leg',routes.walkers.length*2),arms=batch('arm',routes.walkers.length*2)
- const cycleRoutes=routes.cars.length>1?routes.cars.slice(1,2):[],motorRoutes=routes.cars.length>2?routes.cars.slice(2,3):[]
+ const cycleRoutes=routes.cars.length>1?routes.cars.slice(0,2):[],motorRoutes=routes.cars.length>2?routes.cars.slice(2,3):[]
  const cycles=batch('cycle',cycleRoutes.length),motors=batch('motorbike',motorRoutes.length)
  const lampSites=routes.cars.flatMap(r=>{
   const dx=(r.b[0]-r.a[0])/r.length,dz=(r.b[1]-r.a[1])/r.length
@@ -183,5 +183,5 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
  }
  draw(1)
  root.userData.counts={cars:routes.cars.length,cycles:cycleRoutes.length,motorbikes:motorRoutes.length,streetlights:lampSites.length,people:routes.walkers.length,foxes:routes.foxes.length,birds:routes.birds.length,narrowboats:routes.boats.length,trains:routes.train?1:0,signals:signalRoutes.length*2}
- return {root,routes,clearTraffic(){traffic.release(scope);for(const mesh of [cars,cycles,motors])if(mesh){mesh.instanceMatrix.array.fill(0);mesh.instanceMatrix.needsUpdate=true}},setNight(value:boolean){night=value;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night);bulbs&&(bulbs.visible=night);pools&&(pools.visible=night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){traffic.release(scope);meshes.forEach(m=>m.dispose());root.clear()}}
+ return {root,routes,clearTraffic(){traffic.release(scope);for(const mesh of [cars,cycles,motors])if(mesh){mesh.instanceMatrix.array.fill(0);mesh.instanceMatrix.needsUpdate=true}},setTrains(value:boolean){if(trains)trains.visible=value},setNight(value:boolean){night=value;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night);bulbs&&(bulbs.visible=night);pools&&(pools.visible=night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){traffic.release(scope);meshes.forEach(m=>m.dispose());root.clear()}}
 }

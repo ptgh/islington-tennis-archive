@@ -10,7 +10,7 @@ export function SelectField({label,value,options,onChange,placeholder='Choose an
   const [position,setPosition]=useState({left:0,top:0,width:0,maxHeight:240});
   const typing=useRef({text:'',time:0});
   const selected=options.findIndex(option=>option.value===value);
-  function close(restore=false){setOpen(false);if(restore)trigger.current?.focus();}
+  function close(restore=false){setOpen(false);if(restore)trigger.current?.focus({preventScroll:true});}
   function show(){setActive(Math.max(0,selected));setOpen(true);}
   function choose(index:number){if(options[index])onChange(options[index].value);close(true);}
   useEffect(()=>{
@@ -22,10 +22,10 @@ export function SelectField({label,value,options,onChange,placeholder='Choose an
     document.addEventListener('pointerdown',outside);window.addEventListener('resize',update);document.addEventListener('scroll',scroll,true);
     return()=>{document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',update);document.removeEventListener('scroll',scroll,true);};
   },[open,options.length]);
-  useEffect(()=>{if(open)menu.current?.querySelector(`#${CSS.escape(id)}-option-${active}`)?.scrollIntoView({block:'nearest'});},[active,open,id]);
+  useEffect(()=>{if(!open)return;const list=menu.current,option=list?.querySelector<HTMLElement>(`#${CSS.escape(id)}-option-${active}`);if(!list||!option)return;const top=option.offsetTop,bottom=top+option.offsetHeight;if(top<list.scrollTop)list.scrollTop=top;else if(bottom>list.scrollTop+list.clientHeight)list.scrollTop=bottom-list.clientHeight;},[active,open,id]);
   function keys(event:KeyboardEvent){
     if(event.key==='Escape'){event.preventDefault();close(true);return;}
-    if(event.key==='Tab'){close();trigger.current?.focus();return;}
+    if(event.key==='Tab'){close();trigger.current?.focus({preventScroll:true});return;}
     if(event.key==='Enter'||event.key===' '){event.preventDefault();if(open)choose(active);else show();return;}
     const navigation=['ArrowDown','ArrowUp','Home','End'];
     if(navigation.includes(event.key)){event.preventDefault();if(!open){show();return;}setActive(i=>event.key==='Home'?0:event.key==='End'?options.length-1:Math.max(0,Math.min(options.length-1,i+(event.key==='ArrowDown'?1:-1))));return;}

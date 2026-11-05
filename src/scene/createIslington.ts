@@ -15,7 +15,7 @@ const sourceUrl=(path:string)=>`${import.meta.env?.BASE_URL??'/'}${path}`
 type Tile=ReturnType<typeof createBoroughTile>
 type Cell=typeof boroughGeography.cells[number]
 export type BusRideStatus={id:string;progress:number;destinationId:string;walkMetres:number}
-export type IslingtonWorld=TownWorld & { ready:Promise<void>; updateView:(camera:THREE.Camera,zoom:number,target:THREE.Vector3)=>void; busPosition:(id:string,target:THREE.Vector3)=>boolean; startBusRide:(id:string)=>boolean; busRideStatus:()=>BusRideStatus|null; retry:()=>void; status:{loading:number;failed:number;loaded:number} }
+export type IslingtonWorld=TownWorld & { ready:Promise<void>; updateView:(camera:THREE.Camera,zoom:number,target:THREE.Vector3)=>void; setTrains:(value:boolean)=>void; busPosition:(id:string,target:THREE.Vector3)=>boolean; startBusRide:(id:string)=>boolean; busRideStatus:()=>BusRideStatus|null; retry:()=>void; status:{loading:number;failed:number;loaded:number} }
 
 /** One continuous source map. Stream/cull local detail in shared world coordinates;
  * the borough-wide overview remains present during loading and across cell seams. */
@@ -44,7 +44,7 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
  const vanPosition=new THREE.Vector3();gear.root.updateMatrixWorld(true);gear.van.getWorldPosition(vanPosition)
  const loaded=new Map<string,{tile:Tile;used:number}>(),loading=new Map<string,AbortController>(),failed=new Set<string>(),queue:Cell[]=[]
  const status={loading:0,failed:0,loaded:0};root.userData.streaming=status;root.userData.source={checked:boroughGeography.checked,counts:boroughGeography.counts,cells:boroughGeography.cells.length}
- let disposed=false,revision=0,lastKey='',desired=new Set<string>(),night=false,detailLife=true
+ let disposed=false,revision=0,lastKey='',desired=new Set<string>(),night=false,detailLife=true,trainsVisible=true
  let readyResolve:()=>void=()=>{};const ready=new Promise<void>(resolve=>{readyResolve=resolve})
  const sourceCells=boroughGeography.cells.map(cell=>({cell,box:new THREE.Box3(new THREE.Vector3(cell.bounds[0],-.1,cell.bounds[1]),new THREE.Vector3(cell.bounds[2],9,cell.bounds[3]))}))
  function notify(){status.loading=loading.size+queue.length;status.failed=failed.size+(overviewFailed?1:0);status.loaded=loaded.size;invalidate()}
@@ -56,7 +56,7 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
    const controller=new AbortController();let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;controller.abort()},15000);loading.set(cell.id,controller);notify()
    fetch(sourceUrl(cell.url),{signal:controller.signal}).then(r=>{if(!r.ok)throw Error('Map cell unavailable');return r.json()}).then((data:BoroughCell)=>{
     if(disposed||!desired.has(cell.id))return
-    const tile=createBoroughTile(data,materials,traffic);tile.life.setNight(night);tile.life.root.visible=detailLife;tile.root.userData.cellId=cell.id;root.add(tile.root);loaded.set(cell.id,{tile,used:++revision});failed.delete(cell.id);readyResolve();evict()
+    const tile=createBoroughTile(data,materials,traffic);tile.life.setNight(night);tile.life.setTrains(trainsVisible);tile.life.root.visible=detailLife;tile.root.userData.cellId=cell.id;root.add(tile.root);loaded.set(cell.id,{tile,used:++revision});failed.delete(cell.id);readyResolve();evict()
    }).catch(error=>{if(!disposed&&(error.name!=='AbortError'||timedOut))failed.add(cell.id)}).finally(()=>{clearTimeout(timeout);loading.delete(cell.id);if(!disposed&&desired.has(cell.id)&&!loaded.has(cell.id)&&!failed.has(cell.id)&&!queue.some(c=>c.id===cell.id))queue.push(cell);notify();if(!disposed){readyResolve();pump()}})
   }
   notify()
@@ -85,7 +85,7 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
    for(const [venueId,anchor] of anchors){if(venues.find(v=>v.id===venueId)?.access!=='public')continue;for(const [x,z] of points){const d=Math.hypot(x-anchor.x,z-anchor.z);if(d<distance){distance=d;destinationId=venueId}}}
    return transport.startBusRide(id,anchors.get(destinationId)??first)
  },busRideStatus(){const ride=transport.rideProgress();return ride?{...ride,destinationId}:null},retry(){failed.clear();if(overviewFailed&&texture){new THREE.TextureLoader().load(sourceUrl('map/islington-overview.png'),loaded=>{if(disposed){loaded.dispose();return}texture.image=loaded.image;texture.needsUpdate=true;loaded.dispose();overviewFailed=false;notify()},undefined,()=>notify())}lastKey='';notify()},
- setWind(strength){windStrength=strength*.1},setRain:materials.finishes.setRain,setTransit(){},setActivity(value){courts.setActivity(value);transport.setActivity(value)},setBuses:transport.setBuses,setBusRoute:transport.setBusRoute,
+ setWind(strength){windStrength=strength*.1},setRain:materials.finishes.setRain,setTransit(){},setActivity(value){courts.setActivity(value);transport.setActivity(value)},setBuses:transport.setBuses,setTrains(value){trainsVisible=value;loaded.forEach(item=>item.tile.life.setTrains(value));invalidate()},setBusRoute:transport.setBusRoute,
  setNight(value){if(value===night)return;night=value;materials.setNight(value);courts.setNight(value);transport.setNight(value);loaded.forEach(item=>item.tile.life.setNight(value))},
  animate(seconds,runTrain,activity,buses){const delta=Math.min(.08,Math.max(0,seconds-previous));previous=seconds;if(activity)windTime+=delta;materials.finishes.setWind(windTime,windStrength);materials.animateSurfaces(windTime,windStrength);for(const item of loaded.values())if(item.tile.root.visible&&item.tile.life.root.visible)item.tile.life.animate(delta,activity,runTrain);gear.animate(delta,activity);gear.root.updateMatrixWorld(true);gear.van.getWorldPosition(vanPosition);courts.animate(delta,activity,false);transport.animate(delta,activity,buses)},
  dispose(){disposed=true;loading.forEach(c=>c.abort());queue.length=0;loaded.forEach(v=>v.tile.dispose());loaded.clear();courts.dispose();materials.dispose();baseGeometry.dispose();baseMaterial.dispose();surroundGeometry.dispose();surroundMaterial.dispose();texture?.dispose();const geometries=new Set<THREE.BufferGeometry>(),mats=new Set<THREE.Material>();for(const group of [transport.root,gear.root])group.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>mats.add(m));if(o instanceof THREE.InstancedMesh)o.dispose()}});geometries.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());readyResolve()}}

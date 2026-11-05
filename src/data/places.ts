@@ -10,5 +10,10 @@ export const places = [
   {id:'union-chapel',name:'Union Chapel',lat:51.5447602,lng:-.1024571,kind:'landmark'},
   {id:'clock-tower',name:'Caledonian Clock Tower',lat:51.5471382,lng:-.1236244,kind:'landmark'},
   {id:'estorick',name:'Estorick Collection',lat:51.5438936,lng:-.1004414,kind:'landmark'},
+  // Source footprint centres; destinations reuse the continuous geographic world.
+  {id:'kings-place',name:'Kings Place',lat:51.5350329,lng:-.1216162,kind:'destination',sourceWay:'27511817',sourceUrl:'https://www.kingsplace.co.uk/your-visit/'},
+  {id:'sadlers-wells',name:'Sadler’s Wells',lat:51.5296180,lng:-.1061029,kind:'destination',sourceWay:'98992534',sourceUrl:'https://www.sadlerswells.com/your-visit/sadlers-wells-theatre/'},
+  {id:'canal-museum',name:'London Canal Museum',lat:51.5342186,lng:-.1202069,kind:'destination',sourceWay:'190831613',sourceUrl:'https://canalmuseum.org.uk/visit/index.html'},
+  {id:'town-hall',name:'Islington Town Hall',lat:51.5416435,lng:-.1023009,kind:'destination',sourceWay:'27822406',sourceUrl:'https://www.islington.gov.uk/contact-us/our-offices/islington-town-hall'},
   {id:'barbican-centre',name:'Barbican Centre',lat:51.5200,lng:-.0938,kind:'landmark'},
 ];

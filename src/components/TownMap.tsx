@@ -57,6 +57,7 @@ interface TownMapProps {
   showTransit: boolean
   trainRunning: boolean
   activityRunning: boolean
+  showTrains: boolean
   showBuses: boolean
   busRouteId: string | null
   showShops: boolean
@@ -94,7 +95,7 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showTrains, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -466,7 +467,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       if (runtimeRef.current.activityRunning) lightClock = new Date()
       // The parent defaults to paused for reduced motion; an explicit Run is respected.
       const animateTrain = runtimeRef.current.trainRunning
-      world.animate(time / 1000, animateTrain, runtimeRef.current.activityRunning, runtimeRef.current.showBuses&&animateTrain)
+      world.animate(time / 1000, animateTrain, runtimeRef.current.activityRunning, runtimeRef.current.showBuses&&runtimeRef.current.activityRunning)
       if(followedRoute&&!journey){
         if(!runtimeRef.current.showBuses)cancelTravel()
         else if(world.busPosition(followedRoute,followedPosition)){
@@ -580,13 +581,17 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engine.frame()
   }, [night, lightingTime, naturalTime, ready])
 
+  // End a deselected bus tour once; unrelated layer/feed updates must not
+  // cancel a Places camera journey.
+  useEffect(() => {if(!busRouteId)engineRef.current?.cancelTravel()},[busRouteId])
+
   useEffect(() => {
-    if(!busRouteId)engineRef.current?.cancelTravel()
     engineRef.current?.world.setTransit(true)
     engineRef.current?.world.setBuses(showBuses)
+    engineRef.current?.world.setTrains(showTrains)
     engineRef.current?.world.setBusRoute(busRouteId)
     engineRef.current?.frame()
-  }, [showTransit, showBuses, busRouteId, showShops, showCameras, cameras, visibleIds, weather, windMph, ready])
+  }, [showTransit, showBuses, showTrains, busRouteId, showShops, showCameras, cameras, visibleIds, weather, windMph, ready])
 
   useEffect(() => {
     if (!selectedId) return

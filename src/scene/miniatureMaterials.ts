@@ -504,7 +504,7 @@ export function createMiniatureMaterials(worldScale=1) {
   const glazing = new THREE.MeshStandardMaterial({color:'#456b63',roughness:.25,metalness:.12,envMapIntensity:1.1,emissive:'#f2bf6d',emissiveIntensity:0})
   architecturalGlass(glazing, worldScale)
   const grass = new THREE.MeshStandardMaterial({ color: '#94ae7e', map: grassMap, bumpMap: grassBump, bumpScale: .035*worldScale, roughness: 1 })
-  const parkGrass = new THREE.MeshStandardMaterial({ color: '#a1b981', map: parkMap, bumpMap: parkBump, bumpScale: .035*worldScale, roughness: 1 })
+  const parkGrass = new THREE.MeshStandardMaterial({ color: '#98b580', map: parkMap, bumpMap: parkBump, bumpScale: .035*worldScale, roughness: 1 })
   // World-space mottling: broad sunlit and shaded patches plus drier, warmer
   // ground, as in the concept's lawns. Fixed to the world so it never crawls.
   const mottle = (material: THREE.MeshStandardMaterial, key: string) => {
@@ -539,14 +539,14 @@ export function createMiniatureMaterials(worldScale=1) {
         float lawnFilter=max(length(dFdx(lawnWorld)),length(dFdy(lawnWorld)));
         float lawnBlade=lawnNoise(lawnWorld*46.0)*2.0-1.0;
         float lawnCut=sin(dot(lawnWorld,vec2(.80,.60))*1.35);
-        diffuseColor.rgb *= mix(.86, 1.10, lawnBroad) * mix(.94, 1.05, lawnFine);
+        diffuseColor.rgb *= mix(.82, 1.12, lawnBroad) * mix(.92, 1.06, lawnFine);
         diffuseColor.rgb *= 1.0+lawnBlade*.065*(1.0-smoothstep(.025,.12,lawnFilter));
-        diffuseColor.rgb *= 1.0+lawnCut*.027*(1.0-smoothstep(2.0,6.0,lawnFilter));
+        diffuseColor.rgb *= 1.0+lawnCut*.012*(1.0-smoothstep(2.0,6.0,lawnFilter));
         float lawnGust=sin(dot(lawnWorld,vec2(.28,.17))-miniatureLawnTime*.9);
         diffuseColor.rgb *= 1.0+lawnGust*min(.025,miniatureLawnWind/${worldScale.toFixed(3)}*.075)*(1.0-smoothstep(2.0,8.0,lawnFilter));
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.02, .8), smoothstep(.6, .8, lawnBroad) * .45);`)
     }
-    material.customProgramCacheKey = () => key+'-metres-gust-v3-'+worldScale
+    material.customProgramCacheKey = () => key+'-metres-gust-v4-'+worldScale
   }
   mottle(grass, 'miniature-lawn-v1')
   mottle(parkGrass, 'miniature-park-lawn-v1')

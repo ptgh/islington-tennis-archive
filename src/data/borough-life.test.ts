@@ -12,7 +12,7 @@ const source=(id:string):BoroughCell=>JSON.parse(fs.readFileSync('public/'+borou
 test('local actors use bounded source paths and keep off buildings and courts',()=>{
  for(const id of ['2_-1','1_-1','3_4']){
   const data=source(id),paths=lifePaths(data)
-  assert.ok(paths.cars.length<=3&&paths.walkers.length<=5&&paths.foxes.length<=1&&paths.birds.length<=2&&paths.boats.length<=1)
+  assert.ok(paths.cars.length<=3&&paths.walkers.length<=8&&paths.foxes.length<=1&&paths.birds.length<=2&&paths.boats.length<=1)
   for(const path of [...paths.cars,...paths.walkers,...paths.foxes])for(let i=0;i<=100;i++){
    const x=path.a[0]+(path.b[0]-path.a[0])*i/100,z=path.a[1]+(path.b[1]-path.a[1])*i/100
    assert.ok(!data.buildings.some(f=>inPolygon(x,z,f)),id+' actor inside building')
@@ -39,6 +39,7 @@ test('life animation freezes on pause and night swaps flying birds for foxes',()
   life.animate(1,true,true);assert.notDeepEqual(Array.from(mesh.instanceMatrix.array),before)
   const moved=Array.from(mesh.instanceMatrix.array);life.animate(10,false,false);assert.deepEqual(Array.from(mesh.instanceMatrix.array),moved)
   const fox=life.root.getObjectByName('Borough fox')!,bird=life.root.getObjectByName('Borough bird')!
+  const train=life.root.getObjectByName('Borough train')!;assert.equal(train.visible,true);life.setTrains(false);assert.equal(train.visible,false);life.setTrains(true);assert.equal(train.visible,true);
   life.setNight(false);assert.equal(fox.visible,false);assert.equal(bird.visible,true)
   life.setNight(true);assert.equal(fox.visible,true);assert.equal(bird.visible,false)
   life.root.traverse(o=>{if(o instanceof THREE.InstancedMesh)assert.ok(Array.from(o.instanceMatrix.array).every(Number.isFinite))})

@@ -22,18 +22,22 @@ export function createBoroughMaterials() {
  const parkPath=cloneArchitecturalFinish(finishes.parkPath,'#c6bfab')
  const road=cloneArchitecturalFinish(finishes.asphalt,'#838a7f')
  const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4')
- const water=new THREE.MeshStandardMaterial({color:'#709b94',roughness:.36,metalness:.15})
+ const water=new THREE.MeshStandardMaterial({color:'#608d85',roughness:.27,metalness:.12})
  water.name='Borough canal water'
  const waterTime={value:0},waterWind={value:0}
  water.onBeforeCompile=shader=>{
   shader.uniforms.boroughWaterTime=waterTime;shader.uniforms.boroughWaterWind=waterWind
   shader.vertexShader='varying vec2 waterWorld;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n waterWorld=(modelMatrix*vec4(transformed,1.0)).xz;')
   shader.fragmentShader='varying vec2 waterWorld;\nuniform float boroughWaterTime;\nuniform float boroughWaterWind;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-   float ripples=sin(dot(waterWorld,vec2(13.0,5.0))-boroughWaterTime*.9)+sin(dot(waterWorld,vec2(-7.0,18.0))+boroughWaterTime*.6);
-   diffuseColor.rgb*=.98+ripples*(.035+boroughWaterWind*.3);
+   vec2 flow=waterWorld+vec2(sin(waterWorld.y*.7),sin(waterWorld.x*.5))*.16;
+   float waveA=dot(flow,vec2(8.0,2.1))-boroughWaterTime*.8;
+   float waveB=dot(flow,vec2(3.2,11.7))+boroughWaterTime*.53;
+   float rippleFilter=1.0-smoothstep(.5,2.5,max(fwidth(waveA),fwidth(waveB)));
+   float ripples=sin(waveA)*.65+sin(waveB)*.35;
+   diffuseColor.rgb*=1.0+ripples*(.018+min(.025,boroughWaterWind*.15))*rippleFilter;
   `)
  }
- water.customProgramCacheKey=()=> 'borough-canal-ripples-v1'
+ water.customProgramCacheKey=()=> 'borough-canal-ripples-v2'
  const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
  return {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle,lifeAssets,

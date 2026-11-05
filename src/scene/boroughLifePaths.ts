@@ -66,7 +66,7 @@ export function lifePaths(data:BoroughCell) {
   }
   return out
  }
- const cars=select(false,3),walkers=select(true,5)
+ const cars=select(false,3),walkers=select(true,8)
  const train=data.railways.flatMap(f=>f.points.slice(1).map((b,i)=>route(f.points[i],b,.3,hash(f.id)))).sort((a,b)=>b.length-a.length).slice(0,20).map(r=>safeRun(r,.22)).find((r):r is LifeRoute=>!!r&&r.length>6)??null
  const transportGrid=new Map<string,{a:number[];b:number[];width:number;length:number}[]>()
  for(const f of data.water.length?[...data.roads,...data.railways]:[])for(let i=1;i<f.points.length;i++){
