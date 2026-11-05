@@ -573,7 +573,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       renderer.shadowMap.needsUpdate = true
       composer.render(); textureDirty = false
       const label=courtLabel.current
-      if(label){const point=mappedCourtPosition(activeId,selectedCourt.current);const projected=new THREE.Vector3(point.x,1,point.z).project(camera);const x=(projected.x*.5+.5)*element.clientWidth,y=(-projected.y*.5+.5)*element.clientHeight;label.style.display=projected.z>-1&&projected.z<1&&x>35&&x<element.clientWidth-35&&y>65&&y<element.clientHeight-45?'':'none';label.style.transform=`translate3d(${x}px,${y-12}px,0)`}
+      if(label){const point=mappedCourtPosition(activeId,selectedCourt.current);const projected=new THREE.Vector3(point.x,1,point.z).project(camera);const x=(projected.x*.5+.5)*element.clientWidth,y=(-projected.y*.5+.5)*element.clientHeight;label.style.display=projected.z>-1&&projected.z<1&&x>35&&x<element.clientWidth-35&&y>65&&y<element.clientHeight-45?'':'none';label.style.transform=`translate3d(${x}px,${y-12}px,0)`;label.style.setProperty('--label-x',`${x}px`);label.style.setProperty('--label-width',`${element.clientWidth}px`)}
 
     }
     if (import.meta.env.DEV) Object.assign(window, { __club: { camera, controls, frame, renderer, runtime, composer, quality } })

@@ -55,7 +55,7 @@ interface TownMapProps {
   naturalTime?: boolean
   weather: WeatherSceneKind
   windMph?: number
-  locatedPlace?: {lat:number;lng:number;name:string}|null
+  locatedPlace?: {lat:number;lng:number;name:string;wildlife?:boolean}|null
   showTransit: boolean
   trainRunning: boolean
   activityRunning: boolean
@@ -408,7 +408,10 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const y = (-projection.y * .5 + .5) * height - lift
       const visible = enabled && projection.z > -1 && projection.z < 1 && x > 12 && x < width - 12 && y > 32 && y < height - 40
       element.style.display = visible ? '' : 'none'
-      if (visible) element.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`
+      if (visible) {
+        element.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`
+        if(element===placeRef.current){element.style.setProperty('--label-x',`${x}px`);element.style.setProperty('--label-width',`${width}px`)}
+      }
     }
     let lightClock = new Date()
     let previousVan=world.vanPosition.clone()
@@ -646,7 +649,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
         ))}
 
         {cameras.map(camera => <button className={`town-pin town-pin--camera${camera.available===false?' town-pin--camera-offline':''}${selectedCameraId === camera.id ? ' town-pin--selected' : ''}`} key={camera.id} ref={element => { if (element) cameraRefs.current.set(camera.id,element); else cameraRefs.current.delete(camera.id) }} style={{display:'none'}} aria-label={`${camera.name}. Show TfL traffic camera. ${cameraAvailability(camera)}`} aria-pressed={selectedCameraId === camera.id} onClick={() => onSelectCamera?.(camera)}><span className="town-pin__number"><Icon name="camera" size={17}/></span><span className="town-pin__label">{camera.name}<span>TfL · {cameraAvailability(camera)} · refreshed still</span></span></button>)}
-        {locatedPlace&&<div className="map-destination" ref={placeRef} style={{display:'none'}} role="status"><span><Icon name="pin" size={16}/>{locatedPlace.name}</span></div>}
+        {locatedPlace&&<div className={`map-destination${locatedPlace.wildlife?' map-destination--wildlife':''}`} ref={placeRef} style={{display:'none'}} role="status"><span><Icon name="pin" size={16}/>{locatedPlace.name}</span></div>}
         {STATION_NAMES.map((name) => (
           <div className={`town-station${name === 'Highbury & Islington' || name === 'Angel' ? ' town-station--major' : ''}`} key={name} ref={(element) => { if (element) stationRefs.current.set(name, element); else stationRefs.current.delete(name) }} style={{ display: 'none' }}>
             <span className="town-station__roundel" aria-hidden="true" /><span hidden={!showTransit}>{name}</span>
