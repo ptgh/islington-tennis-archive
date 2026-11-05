@@ -1,3 +1,5 @@
+import { attachMapOrbitGesture, orbitMapCamera } from '../scene/mapNavigation';
+import { CloseButton } from './CloseButton';
 import type { ViewSettings } from '../data/viewQuality'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import * as THREE from 'three'
@@ -29,7 +31,7 @@ export interface TownMapHandle {
   zoomIn: () => void
   zoomOut: () => void
   reset: () => void
-  rotate: () => void
+  orbit: (yaw: number, pitch: number) => void
   visitCourt: (id: string) => void
   locate: (lat: number, lng: number, zoom?: number) => void
   visitVan: () => void
@@ -133,15 +135,12 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     visitCourt(id) { engineRef.current?.visitCourt(id) },
     locate(lat,lng,zoom=18) { engineRef.current?.travel(geoPosition(lat,lng),zoom) },
     followRoute(id) { return engineRef.current?.followRoute(id) ?? false },
-    rotate() {
-      const engine = engineRef.current
-      if (!engine) return
-      engine.cancelTravel()
-      const offset = engine.camera.position.clone().sub(engine.controls.target)
-      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 6)
-      engine.camera.position.copy(engine.controls.target).add(offset)
-      engine.controls.update()
-      engine.frame()
+    orbit(yaw,pitch) {
+      const engine=engineRef.current;
+      if(!engine)return;
+      engine.cancelTravel();
+      orbitMapCamera(engine.camera,engine.controls.target,engine.controls.minPolarAngle,engine.controls.maxPolarAngle,yaw,pitch);
+      engine.controls.update();engine.frame();
     },
   }), [])
 
@@ -170,7 +169,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = SCENE_TONE_MAPPING
     renderer.domElement.className = 'town-map__canvas'
-    renderer.domElement.setAttribute('aria-label', 'Continuous geographic map of Islington. Drag to pan, scroll or pinch to zoom, right-drag to rotate. Select court markers to discover venues.')
+    renderer.domElement.setAttribute('aria-label', 'Continuous geographic map of Islington. Drag to pan, scroll or pinch to zoom, right-drag or Shift + two-finger scroll to tilt and rotate. Select court markers to discover venues.')
     renderer.domElement.setAttribute('role', 'img')
     renderer.domElement.tabIndex = 0
     host.prepend(renderer.domElement)
@@ -527,6 +526,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       if (event.key === 'Home') { event.preventDefault(); if(runtimeRef.current.activeVisitId&&runtimeRef.current.onReset)runtimeRef.current.onReset();else reset() }
       frame()
     }
+    const detachOrbitGesture=attachMapOrbitGesture(renderer.domElement,(yaw,pitch)=>{cancelTravel();orbitMapCamera(camera,controls.target,controls.minPolarAngle,controls.maxPolarAngle,yaw,pitch);controls.update();frame();});
     renderer.domElement.addEventListener('keydown', keydown)
     const doubleClick = (event: MouseEvent) => { event.preventDefault(); if(runtimeRef.current.activeVisitId&&runtimeRef.current.onReset)runtimeRef.current.onReset();else reset() }
     renderer.domElement.addEventListener('dblclick', doubleClick)
@@ -543,6 +543,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       controls.removeEventListener('end', end)
       controls.removeEventListener('change', cameraChanged)
       reducedMotion.removeEventListener('change', motionChanged)
+      detachOrbitGesture()
       controls.dispose()
       renderer.domElement.removeEventListener('keydown', keydown)
       renderer.domElement.removeEventListener('dblclick', doubleClick)
@@ -610,7 +611,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     <div className={`town-map${night ? ' town-map--night' : ''}${moving ? ' town-map--moving' : ''}`} ref={hostRef}>
       {failed && <div className="town-map__fallback" role="status"><strong>The miniature map couldn’t start.</strong><span>You can still discover every court and open booking links in the directory.</span></div>}
       {busRide&&<section className="bus-tour" aria-label="Bus tour">
-        <div className="bus-tour__heading"><Icon name="bus" size={21}/><strong>Route {busRide.id} · {busRide.progress===1?'Courts in view':'On the way'}</strong><button className="icon-button" aria-label="End bus tour" onClick={()=>engineRef.current?.cancelTravel()}><Icon name="close" size={17}/></button></div>
+        <div className="bus-tour__heading"><Icon name="bus" size={21}/><strong>Route {busRide.id} · {busRide.progress===1?'Courts in view':'On the way'}</strong><CloseButton label="End bus tour" onClick={()=>engineRef.current?.cancelTravel()}/></div>
         <p>{venues.find(v=>v.id===busRide.destinationId)?.name}</p>
         <progress aria-label="Bus tour progress" max={1} value={busRide.progress}/>
         <small>{busRide.progress===1?`The bus stays on the road, about ${busRide.walkMetres} m from the court (straight-line estimate).`:!activityRunning?'Tour paused · use Play world to continue.':'Follow the coloured road line to the courts.'} Illustrative tour.</small>

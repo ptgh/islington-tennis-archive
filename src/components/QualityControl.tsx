@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { useEffect, useId, useRef } from 'react'
 import { Icon } from './Icon'
 import { QUALITY_PRESETS, type QualityPreset, type ViewSettings } from '../data/viewQuality'
@@ -23,7 +24,7 @@ export function QualityControl({ settings, onChange, open, onOpenChange }: Props
   }}>
     <button ref={trigger} className="icon-button quality-trigger" aria-label="Picture quality" title="Picture quality" aria-expanded={open} aria-controls={id} onClick={() => onOpenChange(!open)}><Icon name="layers" size={17}/><span>Quality</span></button>
     {open && <section ref={panel} id={id} className="quality-panel" aria-label="Picture quality settings">
-      <div className="quality-heading"><h2>Picture quality</h2><button aria-label="Close picture quality" onClick={close}><Icon name="close" size={17}/></button></div>
+      <div className="quality-heading"><h2>Picture quality</h2><CloseButton label="Close picture quality" onClick={close}/></div>
       <p>For Islington, Wimbledon and Queen’s.</p>
       <fieldset><legend>Rendering</legend>{(Object.keys(QUALITY_PRESETS) as QualityPreset[]).map(preset => <label className="quality-option" key={preset}>
         <input type="radio" name={`${id}-preset`} value={preset} checked={settings.preset === preset} onChange={() => onChange({ ...settings, preset })}/>

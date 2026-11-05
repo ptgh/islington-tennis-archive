@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../integrations/supabase/client';
 import { accountDestination } from '../data/account';
@@ -40,7 +41,7 @@ export function AccountCircle({ venues, onRacquets, onPartners, openRequest = 0 
   return <>
     <button ref={trigger} className="pill account-launch" data-signed-in={signedIn} aria-label={signedIn ? 'Your player profile' : 'Sign up or sign in'} title={signedIn ? 'Your player profile' : 'Sign up or sign in'} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><Icon name="person" size={22}/></button>
     {open && <dialog ref={dialog} className="about-dialog account-dialog" aria-label={signedIn ? 'Your player profile' : 'Create your account'} onCancel={close} onClick={e => { if (e.target === e.currentTarget) close(); }}>
-      <button className="dialog-close icon-button" aria-label="Close account" onClick={close}><Icon name="close"/></button>
+      <CloseButton label="Close account" onClick={close} className="dialog-close icon-button"/>
       <HittingPartners venues={venues} onBack={close} onRacquets={() => { close(); onRacquets(); }} account initialMode={destination === 'signup' ? 'up' : 'in'} onPartners={() => { close(); onPartners(); }}/>
     </dialog>}
   </>;

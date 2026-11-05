@@ -1,3 +1,7 @@
+import roadTours from './borough-transport.json' with { type: 'json' };
+
+export function supportsBusTour(id:string){return Object.hasOwn(roadTours,id)&&(roadTours as Record<string,number[][]>)[id].length>1;}
+
 export interface BusRoute {
   id: string
   name: string

@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { useEffect, useRef } from 'react';
 import { VERIFIED_DATE } from '../data/venues';
 import { Icon } from './Icon';
@@ -6,7 +7,7 @@ export function AboutDialog({onClose}:{onClose:()=>void}) {
   const ref=useRef<HTMLDialogElement>(null);
   useEffect(()=>{const dialog=ref.current;dialog?.showModal();return()=>dialog?.close();},[]);
   return <dialog ref={ref} className="about-dialog" aria-labelledby="about-heading" onCancel={onClose} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <button className="dialog-close icon-button" onClick={onClose} aria-label="Close about the map"><Icon name="close"/></button>
+    <CloseButton label="Close about the map" onClick={onClose} className="dialog-close icon-button"/>
     <Icon name="ball" size={38}/><h2 id="about-heading">A small world.<br/>A lot of tennis.</h2>
     <p>A local guide to finding your next hit, with a miniature Islington to wander around along the way.</p>
     <h3>What’s in the directory?</h3><p>Six researched venues in Islington: four public bookable venues, a shared free-play court at Spa Fields, and the school courts at Elizabeth Garrett Anderson. Coolhurst and Barbican are also included, both outside the borough.</p>

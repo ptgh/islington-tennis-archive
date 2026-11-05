@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import type { ViewSettings } from '../data/viewQuality';
 import { Fragment, Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from './Icon';
@@ -98,6 +99,7 @@ export function TennisAtlas({viewSettings,onViewSettings,onClose,onHome,today,ni
   useEffect(()=>{
     const dialog=dialogRef.current,returnFocus=document.activeElement;
     dialog?.showModal();
+    dialog?.querySelector<HTMLButtonElement>('.close-button')?.focus({preventScroll:true});
     return()=>{dialog?.close();if(returnFocus instanceof HTMLElement&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});};
   },[]);
   function switchView(next:AtlasView){if(next==='court')setCourtOpened(true);setView(next);contentRef.current?.scrollTo({top:0});}
@@ -105,7 +107,7 @@ export function TennisAtlas({viewSettings,onViewSettings,onClose,onHome,today,ni
   function showEvent(id:string){setEventId(id);setFilter('all');switchView('season');}
   function chooseEvent(event:Tournament){setEventId(event.id);contentRef.current?.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
   return <dialog ref={dialogRef} className={`tennis-atlas${view==='court'?' is-court-view':''}`} aria-labelledby="atlas-heading" onCancel={onClose} onKeyDown={e=>e.stopPropagation()} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div className="atlas-header"><div><span className="atlas-eyebrow">ISLINGTON TENNIS / FURTHER AFIELD</span><h2 id="atlas-heading">A wider world of tennis.</h2></div><button className="icon-button" aria-label="Close tennis atlas" onClick={onClose}><Icon name="close"/></button></div>
+    <div className="atlas-header"><div><span className="atlas-eyebrow">ISLINGTON TENNIS / FURTHER AFIELD</span><h2 id="atlas-heading">A wider world of tennis.</h2></div><CloseButton label="Close tennis atlas" onClick={onClose} className="icon-button"/></div>
     <div className="atlas-navigation"><div className="atlas-view-options" aria-label="Atlas view"><button aria-pressed={view==='london'} onClick={()=>switchView('london')}>London icons</button><button aria-pressed={view==='season'} onClick={()=>switchView('season')}>On tour <span>{upcomingTournaments(today).length}</span></button>{view==='court'&&<button aria-pressed={true} onClick={()=>switchView('court')}>Court view</button>}</div><button className="atlas-return" onClick={onHome}><Icon name="back" size={16}/> Back to Islington</button></div>
     <div className="atlas-content" ref={contentRef}>
       {courtOpened&&<div className="atlas-court-container" hidden={view!=='court'}><Suspense fallback={<p role="status" className="atlas-court-loading">Opening the courts…</p>}><IconicCourtView naturalTime={naturalTime} viewSettings={viewSettings} onViewSettings={onViewSettings} active={view==='court'} clubId={clubId} onHome={onHome} lightingTime={lightingTime} onLightingTime={onLightingTime} event={clubEvent} night={night} motionRunning={motionRunning} weather={weather} windMph={windMph} onNight={onNight} onMotion={onMotion} onBack={()=>switchView('london')} onSwitch={setClubId}/></Suspense></div>}

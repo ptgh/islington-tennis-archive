@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { useState } from 'react'
 import { Icon } from './Icon'
 import { parseRacquetProfile, RACQUET_PROFILE_KEY, racquets } from '../data/racquets'
@@ -42,7 +43,7 @@ export function CourtPractice({ venueName, onClose }: { venueId: string; venueNa
   function changeDrill(next: Drill) { setDrill(next); setPatternIndex(0); setShowStory(false) }
 
   return <section className="court-practice" aria-label={`Practice at ${venueName}`}>
-    <header className="court-practice-head"><div><span>COURT-SIDE SKETCH</span><h2>Picture the point.</h2><p>{venueName}</p></div><button className="court-practice-close" onClick={onClose} aria-label="Close practice"><Icon name="close" size={18}/></button></header>
+    <header className="court-practice-head"><div><span>COURT-SIDE SKETCH</span><h2>Picture the point.</h2><p>{venueName}</p></div><CloseButton label="Close practice" onClick={onClose} className="court-practice-close"/></header>
     <p className="court-practice-intro">Choose a pattern to see the racquet position, ball path and landing area. An idea for your next hit, not live tracking.</p>
     <div className="court-practice-drills" aria-label="Choose a drill"><button aria-pressed={drill === 'serve'} onClick={() => changeDrill('serve')}>Serve placement</button><button aria-pressed={drill === 'rally'} onClick={() => changeDrill('rally')}>Rally depth</button></div>
     <aside className="court-practice-idea"><span>{idea.inspiration}</span><strong>{idea.name}</strong><p>{idea.steps}</p><button type="button" aria-expanded={showStory} onClick={() => setShowStory(value => !value)}>{showStory ? 'Close the story' : 'The story behind the idea'} <Icon name="arrow" size={12}/></button>

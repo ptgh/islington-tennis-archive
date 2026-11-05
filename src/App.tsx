@@ -1,3 +1,4 @@
+import { MapViewControl } from './components/MapViewControl';
 import { useVisibleViewport } from './components/useVisibleViewport';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TownMap, type TownMapHandle } from './components/TownMap';
@@ -38,7 +39,7 @@ import { TrafficCameras } from './components/TrafficCameras';
 import { cameraInMap, type TrafficCamera } from './data/trafficCameras';
 import { useTrafficCameras } from './components/useTrafficCameras';
 
-type MapCard='places'|'forecast'|'time'|'quality'|'cameras';
+type MapCard='places'|'forecast'|'time'|'quality'|'cameras'|'view';
 
 export default function App() {
   useVisibleViewport();
@@ -61,7 +62,7 @@ export default function App() {
   const [section,setSection]=useState<HubSection>('courts');
   const [serviceId,setServiceId]=useState<string|null>(null);
   const [routeId,setRouteId]=useState<string|null>(null);
-  const [routeRequest,setRouteRequest]=useState(0);
+  const [rideRequest,setRideRequest]=useState<{id:string}|null>(null);
   const [coachVenue,setCoachVenue]=useState<string|null>(null);
   const coachCounts=Object.fromEntries(venues.map(v=>[v.id,hubServices.filter(s=>s.kind==='coaching'&&s.venueId===v.id).length]));
   const [playId,setPlayId]=useState<string|null>(null);
@@ -138,12 +139,12 @@ export default function App() {
   const route=busRoutes.find(r=>r.id===routeId);
   const visited=venues.find(v=>v.id===visitId);
   const hasDetail=!!(selected||service||route||opportunity||(section==='play'&&partnersOpen));
-  function changeSection(next:HubSection){setPartnersOpen(false);setCoachVenue(null);if(visitId||next==='play')map.current?.reset();setPlayId(null);setPlayVenueId(null);setPlayFocusId(null);setPlayFilter('all');setSection(next);setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);if(next==='buses')setShowBuses(true);}
+  function changeSection(next:HubSection){document.getElementById('court-browser')?.scrollTo({top:0});setPartnersOpen(false);setCoachVenue(null);if(visitId||next==='play')map.current?.reset();setPlayId(null);setPlayVenueId(null);setPlayFocusId(null);setPlayFilter('all');setSection(next);setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);if(next==='buses')setShowBuses(true);}
   function select(id:string){setPlayId(null);setSelectedId(id);setServiceId(null);setRouteId(null);setVisitId(null);setSection('courts');setPanelOpen(true);}
   function selectService(id:string){const item=hubServices.find(s=>s.id===id);if(!item)return;setPlayId(null);setSection(item.kind);setServiceId(id);setSelectedId(null);setRouteId(null);setVisitId(null);setPanelOpen(true);}
   const [rideUnavailable,setRideUnavailable]=useState(false);
-  function rideRoute(id:string){setShowBuses(true);setPanelOpen(false);requestAnimationFrame(()=>{const started=map.current?.followRoute(id)??false;setRideUnavailable(!started);setPanelOpen(!started);if(started)setMotionRunning(true);});}
-  function selectRoute(id:string){setRouteRequest(n=>n+1);setSelectedId(null);setServiceId(null);setPlayId(null);setRouteId(id);setShowBuses(true);setVisitId(null);}
+  function rideRoute(id:string){setShowBuses(true);setMotionRunning(true);setCard(null);setPanelOpen(false);setRideUnavailable(false);setRideRequest({id});}
+  function selectRoute(id:string){setRideRequest(null);setRideUnavailable(false);setSelectedId(null);setServiceId(null);setPlayId(null);setRouteId(id);setShowBuses(true);setVisitId(null);setPanelOpen(true);}
   function browsePlayAtVenue(id:string|null){
     if(section!=='play')setPlayFilter('all');
     setSection('play');setPlayVenueId(id);setPlayFocusId(id);setPlayId(null);
@@ -180,7 +181,12 @@ export default function App() {
   },[visitId,isMobile]);
   useEffect(()=>{if(service?.id==='sweet-spot-stringer')map.current?.visitVan();if(service?.lat!==undefined&&service.lng!==undefined)locateMap(service.lat,service.lng);},[service]);
   useEffect(()=>{if(section==='play'&&playFocusId){const venue=venues.find(v=>v.id===playFocusId);if(venue)locateMap(venue.lat,venue.lng);}},[playFocusId,playId,section]);
-  useEffect(()=>{if(!routeId||!ready)return;const frame=requestAnimationFrame(()=>rideRoute(routeId));return()=>cancelAnimationFrame(frame);},[routeId,ready,routeRequest]);
+  useEffect(()=>{
+    if(!rideRequest||!ready||rideRequest.id!==routeId)return;
+    // Launch after the sheet and motion state have committed, including on Safari.
+    const frame=requestAnimationFrame(()=>{const started=map.current?.followRoute(rideRequest.id)??false;setRideUnavailable(!started);setPanelOpen(!started);setRideRequest(null);});
+    return()=>cancelAnimationFrame(frame);
+  },[rideRequest,ready,routeId]);
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen]);
   return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} ${card?'card-open':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
@@ -200,7 +206,7 @@ export default function App() {
     {visited&&<div className="visit-bar"><div><strong>{visited.name}</strong><span>Miniature animation · not live court use</span></div><button ref={practiceButton} className="practice-launch" aria-expanded={practiceOpen} onClick={()=>setPracticeOpen(!practiceOpen)}><Icon name="ball" size={15}/> Practice</button><button ref={leaveVisitButton} onClick={leaveVisit}><Icon name="back" size={16}/> Back to map</button></div>}
     {visited&&practiceOpen&&<CourtPractice venueId={visited.id} venueName={visited.name} onClose={()=>{setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}}/>}
     <div className="place-title"><h2>Islington</h2><p>London, at play.</p><span className="title-rule"/></div>
-    <div className="map-toolbar" aria-label="Map controls"><QualityControl settings={viewSettings} onChange={setViewSettings} {...cardProps('quality')}/><div className="zoom-buttons"><button aria-label="Zoom in" title="Zoom in" onClick={()=>map.current?.zoomIn()}><Icon name="plus"/></button><button aria-label="Zoom out" title="Zoom out" onClick={()=>map.current?.zoomOut()}><Icon name="minus"/></button></div><button className="icon-button" aria-label="Rotate map" title="Rotate map" onClick={()=>map.current?.rotate()}><Icon name="rotate"/></button><button className="icon-button" aria-label="Reset map view" title="Reset map view" onClick={()=>visitId?leaveVisit():map.current?.reset()}><Icon name="reset"/></button></div>
+    <div className="map-toolbar" aria-label="Map controls"><QualityControl settings={viewSettings} onChange={setViewSettings} {...cardProps('quality')}/><div className="zoom-buttons"><button aria-label="Zoom in" title="Zoom in" onClick={()=>map.current?.zoomIn()}><Icon name="plus"/></button><button aria-label="Zoom out" title="Zoom out" onClick={()=>map.current?.zoomOut()}><Icon name="minus"/></button></div><MapViewControl {...cardProps('view')} onOrbit={(yaw,pitch)=>map.current?.orbit(yaw,pitch)} onReset={()=>map.current?.reset()}/><button className="icon-button" aria-label="Reset map view" title="Reset map view" onClick={()=>visitId?leaveVisit():map.current?.reset()}><Icon name="reset"/></button></div>
     <footer className="map-footer"><div className="layer-controls"><button className="pill" aria-pressed={stations} onClick={()=>setStations(!stations)}><span className="roundel tiny"/> Stations</button><button className="pill" aria-pressed={showBuses} onClick={()=>setShowBuses(!showBuses)}><Icon name="bus" size={14}/> Buses</button><button className="pill" aria-pressed={motionRunning} onClick={()=>setMotionRunning(!motionRunning)}><Icon name={motionRunning?'pause':'play'} size={13}/><span>{motionRunning?'Pause world':'Play world'}</span></button></div><button className="map-note" onClick={()=>setAbout(true)}>Islington · OSM geography <Icon name="info" size={13}/></button></footer>
     <LoadingScreen ready={ready}/>
     <a className="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>

@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { SelectField } from './SelectField';
 import { Icon } from './Icon';
 import {useEffect,useState} from 'react';
@@ -41,7 +42,7 @@ export function Weather({onWeather,open,onOpenChange:setOpen}:{onWeather:(kind:W
   useEffect(()=>{onWeather(show?kind:'clear',show&&!demo?hour?.wind:undefined);},[show,kind,hour?.wind,demo,onWeather]);
   return <>
     <div className="weather-widget"><div className="weather-actions"><button className="pill" aria-expanded={open} aria-controls="weather-panel" onClick={()=>setOpen(!open)}><span>Forecast</span></button></div>
-    {open&&<section id="weather-panel" className="weather-panel" aria-label="Islington weather forecast"><div className="weather-heading"><h2>Court weather</h2><button aria-label="Close weather" onClick={()=>setOpen(false)}>×</button></div><p>Islington area · Next 48 hours</p><label className="weather-check"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/> Weather effects on map</label><p role="status">{status}</p>
+    {open&&<section id="weather-panel" className="weather-panel" aria-label="Islington weather forecast"><div className="weather-heading"><h2>Court weather</h2><CloseButton label="Close weather" onClick={()=>setOpen(false)}/></div><p>Islington area · Next 48 hours</p><label className="weather-check"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/> Weather effects on map</label><p role="status">{status}</p>
     {hour&&<><SelectField label="Forecast time" value={String(selected)} onChange={value=>{setSelected(Number(value));setDemo(false);}} options={hours.map((h,i)=>({value:String(i),label:(i===0&&h.time<=Date.now()?'Now · ':'')+hourLabel(h.time)}))}/><strong>{Math.round(hour.temperature)}°C · {weatherLabel(hour.code)}</strong><dl><div><dt>Chance of precipitation</dt><dd>{hour.rain}%</dd></div><div><dt>Wind</dt><dd>{Math.round(hour.wind)} mph</dd></div></dl><label className="weather-check"><input type="checkbox" checked={effects} onChange={e=>{setEffects(e.target.checked);setDemo(false);setEnabled(true);}}/> Show forecast on map</label></>}
     <button className="text-button" aria-pressed={demo} onClick={()=>{setDemo(!demo);setEnabled(true);}}>{demo?'Stop rain preview':'Preview rain animation'}</button><button className="text-button" onClick={()=>setRefresh(refresh+1)}>Refresh forecast</button><p>Modelled area conditions and forecast, not court-level radar or a playing-surface report. Rain preview is decorative.</p><p><a className="weather-source" href="https://open-meteo.com/" target="_blank" rel="noreferrer">Weather by Open-Meteo <Icon name="external" size={12}/></a>{fetched?` · Fetched ${hourLabel(fetched)}`:''}</p></section>}
     </div>

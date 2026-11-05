@@ -1,3 +1,4 @@
+import { attachMapOrbitGesture, orbitMapCamera } from '../scene/mapNavigation';
 import type { ViewSettings } from '../data/viewQuality'
 import { QualityControl } from './QualityControl'
 import { useEffect, useRef, useState } from 'react'
@@ -647,6 +648,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     const controlChange = () => { textureDirty = true }
     controls.addEventListener('change', controlChange)
     controls.addEventListener('start', cancelJourney)
+    const detachOrbitGesture=attachMapOrbitGesture(renderer.domElement,(yaw,pitch)=>{cancelJourney();orbitMapCamera(camera,controls.target,controls.minPolarAngle,controls.maxPolarAngle,yaw,pitch);controls.update();frame();});
     renderer.domElement.addEventListener('dblclick', reset)
     const observer = new ResizeObserver(resize)
     observer.observe(element)
@@ -692,6 +694,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       renderer.domElement.removeEventListener('dblclick', reset)
       controls.removeEventListener('change', controlChange)
       controls.removeEventListener('start', cancelJourney)
+      detachOrbitGesture()
       controls.dispose()
       beauty.dispose(); occlusion.dispose(); output.dispose(); antialias.dispose(); lens.dispose(); composer.dispose(); disposeEnvironment()
       occlusion.gtaoMaterial.dispose(); occlusion.blendMaterial.dispose()

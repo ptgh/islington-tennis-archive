@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Icon } from './Icon'
 import { clockLabel, londonMinutes, londonPreviewTime } from '../data/lightingTime'
@@ -31,7 +32,7 @@ export function LightingControl({ night, time, onTime, onNight, open, onOpenChan
     <button className="pill day-button" onClick={onNight} aria-label={night ? 'Switch to day' : 'Switch to night'}><Icon name={night ? 'moon' : 'sun'} size={17}/><span>{night ? 'Night' : 'Day'}</span></button>
     <button ref={trigger} className="pill lighting-trigger" aria-expanded={open} aria-controls={id} aria-label="Preview time of day" onClick={() => setOpen(!open)}>Time</button>
     {open && <div id={id} className="lighting-popover" role="group" aria-label="Time of day preview">
-      <div className="lighting-heading"><strong>Follow the light.</strong><button aria-label="Close time preview" onClick={() => { setOpen(false); trigger.current?.focus() }}><Icon name="close" size={16}/></button></div>
+      <div className="lighting-heading"><strong>Follow the light.</strong><CloseButton label="Close time preview" onClick={() => { setOpen(false); trigger.current?.focus() }}/></div>
       <label htmlFor={`${id}-date`}>London date</label>
       <input id={`${id}-date`} className="lighting-date" aria-label="Preview date" type="date" min="1800-01-01" max="2100-12-31" value={day} onChange={event=>{if(event.target.validity.valid&&/^\d{4}-\d{2}-\d{2}$/.test(event.target.value))onTime(londonPreviewTime(new Date(`${event.target.value}T12:00:00Z`),minutes))}}/>
       <label htmlFor={`${id}-time`}>London time <output>{clockLabel(minutes)}</output></label>

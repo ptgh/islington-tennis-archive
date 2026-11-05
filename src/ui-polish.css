@@ -1,0 +1,33 @@
+/* Preserve the editorial type while letting results and controls lead the menus. */
+.app .directory-panel .directory-heading h1{font-size:42px;line-height:1.08;letter-spacing:-1px;white-space:normal}
+.app .directory-panel .hub-heading h1{font-size:42px!important}
+.app .directory-panel .directory-heading p{font-size:13px;line-height:1.65}
+.app .hub-intro{font-size:12px;line-height:1.65;margin-top:13px;margin-bottom:17px;color:#5f725e}
+.app .hub-navigation{position:sticky;top:10px;z-index:3;overflow-x:auto;overscroll-behavior-x:contain;box-shadow:0 2px 8px #243b2b0b}
+.app .hub-navigation button{font-size:12px;min-height:40px;padding:8px 6px;color:#5e725b;transition:background .16s,color .16s,box-shadow .16s}
+.app .hub-navigation button[aria-current=page]{color:var(--ink);box-shadow:0 1px 5px #35553a20}
+.app .court-summary{font-size:12px;line-height:1.5}.app .outside-label{font-size:11px;line-height:1.5}
+.app .hub-footnote{font-size:11px;line-height:1.6}.app .coaching-search label,.app .facility-options legend,.app .nearby-toggle{font-size:12px}
+.app .directory-panel .detail-description{font-size:14px;line-height:1.7}
+.app .places-panel p,.app .weather-panel p{font-size:12px;line-height:1.65}.app .places-panel h3{font-size:13px}
+.app .places-panel .select-field,.app .weather-panel .select-field{font-size:13px}.app .select-field__label{font-size:12px}
+.app .weather-heading{gap:12px}.app .weather-heading h2{font-size:27px;line-height:1.15}
+.app .bus-tour small{font-size:12px;line-height:1.55}.app .bus-tour__actions button{min-height:40px;font-size:12px}
+.app .bus-tour__heading strong{font-size:13px}.app .bus-tour__heading{margin-bottom:5px}
+.tennis-atlas .atlas-header h2{font-size:34px}.tennis-atlas .atlas-header{padding-top:22px;padding-bottom:16px}
+/* Keep the focus cue on the actual close action instead of around the entire dialog. */
+.tennis-atlas:focus{outline:none}
+@media(max-width:760px){
+ .app .directory-panel .directory-heading h1,.app .directory-panel .hub-heading h1{font-size:29px!important;letter-spacing:-.5px}
+ .app .hub-navigation{top:0;margin-left:16px;margin-right:16px}
+ .app .hub-navigation button{font-size:11px;flex:1 0 auto;padding:9px 7px;min-height:40px}
+ .app .hub-intro{font-size:12px;margin:10px 23px 14px}
+ .app .directory-panel .court-name{font-size:21px}.app .bus-tour{bottom:102px}
+ .tennis-atlas .atlas-header h2{font-size:27px}
+}
+@media(prefers-reduced-motion:no-preference){
+ .app .court-row{transition:background .16s}
+ .app .court-row:hover{background:#e7eddf}
+ .places-panel,.weather-panel,.quality-panel,.map-view-panel{animation:card-reveal .16s ease-out}
+ @keyframes card-reveal{from{opacity:.2}to{opacity:1}}
+}

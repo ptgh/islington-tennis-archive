@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CAMERA_REFRESH_MS, cameraImageUrl, cameraMetadataUrl, cameraInMap, cameraAvailability, filterCameras, type CameraScope, type TrafficCamera } from '../data/trafficCameras'
 import { SelectField } from './SelectField'
@@ -68,7 +69,7 @@ export function TrafficCameras({ directory, open, onOpenChange, selectedId, onSe
   }}>
     <button ref={trigger} className="pill" aria-expanded={open} aria-controls="traffic-cameras-panel" onClick={() => onOpenChange(!open)}>Cameras</button>
     {open && <section id="traffic-cameras-panel" className="traffic-cameras-panel" aria-label="Public traffic cameras">
-      <div className="weather-heading"><h2>Street views</h2><button aria-label="Close cameras" onClick={close}><Icon name="close" size={18}/></button></div>
+      <div className="weather-heading"><h2>Street views</h2><CloseButton label="Close cameras" onClick={close}/></div>
       <p>TfL’s public traffic camera directory. These show roads, not the tennis courts.</p>
       {(directory.loading || directory.error) && <p role="status">{directory.loading ? 'Updating camera directory…' : directory.fetched ? 'Directory refresh failed. Showing the last directory; availability may have changed.' : 'Camera directory unavailable. Try refreshing shortly.'}</p>}
       {directory.fetched > 0 && <>

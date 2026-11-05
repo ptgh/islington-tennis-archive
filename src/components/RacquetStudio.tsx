@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../integrations/supabase/client'
 import { Icon } from './Icon'
@@ -154,7 +155,7 @@ export function RacquetStudio({ onClose, initialView = 'collection', onPartners,
   return <dialog ref={dialog} className="racquet-studio" aria-labelledby="racquet-studio-title" onCancel={onClose} onKeyDown={e=>e.stopPropagation()} onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
     <header className="racquet-studio-head">
       <div><span className="racquet-eyebrow">ISLINGTON TENNIS / GEAR</span><h2 id="racquet-studio-title">The racquet room.</h2><p>Find a frame, follow its story, keep a little record of yours.</p></div>
-      <button className="icon-button" aria-label="Close racquet room" onClick={onClose}><Icon name="close"/></button>
+      <CloseButton label="Close racquet room" onClick={onClose} className="icon-button"/>
     </header>
     <nav className="racquet-studio-tabs" aria-label="Racquet room"><button aria-current={view==='collection'?'page':undefined} onClick={()=>setView('collection')}>The collection</button><button aria-current={view==='my-frame'?'page':undefined} onClick={()=>setView('my-frame')}>My frame {profile.name&&<span>· {profile.name}</span>}</button></nav>
     <div className="racquet-studio-body" ref={body}>
@@ -167,7 +168,7 @@ export function RacquetStudio({ onClose, initialView = 'collection', onPartners,
           <p className="racquet-collection-note">Racquet photography: Wilson Sporting Goods, the International Tennis Hall of Fame (T2000) and tennisnuts (SW102). Illustrations appear if a photo cannot load. This is a selected collection, not Wilson’s full catalogue or a guide to pro custom setups. <a href="https://www.wilson.com/en-gb/tennis/tennis-rackets" target="_blank" rel="noreferrer">Browse the complete current catalogue <Icon name="external" size={12}/></a></p>
         </section>
         <section className={`racquet-legends${story ? ' is-reading' : ''}`} aria-label="Players and their frames"><div><span className="racquet-eyebrow">02 / THE PLAYERS</span><h3>Frames with a story.</h3></div><div className="racquet-player-rail">{racquetPlayers.map((player,index)=><article key={player.name}><span>0{index+1}</span><h4>{player.name}</h4><strong>{player.chapter}</strong><p>{player.text}</p><button type="button" aria-expanded={storyName===player.name} onClick={()=>openStory(player.name)}>Read the story <Icon name="arrow" size={13}/></button></article>)}</div>
-          {story && storyRacquet && <article className="racquet-story" ref={storyPanel} aria-label={`${story.name}'s racquet story`}><div className={`racquet-story-art${storyRacquet.id === 't2000' ? ' is-landscape' : ''}`}><RacquetMedia racquet={storyRacquet}/><small>{storyRacquet.name}</small></div><div className="racquet-story-copy"><span className="racquet-eyebrow">A FRAME, A PLAYER</span><h4>{story.name}</h4><strong>{story.chapter}</strong>{story.story.map(paragraph=><p key={paragraph}>{paragraph}</p>)}<a href={story.source} target="_blank" rel="noreferrer">Explore the original source <Icon name="external" size={13}/></a></div><button className="racquet-story-close" type="button" onClick={()=>setStoryName(null)} aria-label="Close story"><Icon name="close" size={17}/></button></article>}
+          {story && storyRacquet && <article className="racquet-story" ref={storyPanel} aria-label={`${story.name}'s racquet story`}><div className={`racquet-story-art${storyRacquet.id === 't2000' ? ' is-landscape' : ''}`}><RacquetMedia racquet={storyRacquet}/><small>{storyRacquet.name}</small></div><div className="racquet-story-copy"><span className="racquet-eyebrow">A FRAME, A PLAYER</span><h4>{story.name}</h4><strong>{story.chapter}</strong>{story.story.map(paragraph=><p key={paragraph}>{paragraph}</p>)}<a href={story.source} target="_blank" rel="noreferrer">Explore the original source <Icon name="external" size={13}/></a></div><CloseButton label="Close story" className="racquet-story-close" onClick={()=>setStoryName(null)}/></article>}
         </section>
       </> : <section className="racquet-profile" aria-label="My racquet profile">
         <div className="racquet-profile-intro">
