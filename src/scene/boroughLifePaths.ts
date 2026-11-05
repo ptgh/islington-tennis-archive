@@ -66,7 +66,7 @@ export function lifePaths(data:BoroughCell) {
   }
   return out
  }
- const cars=select(false,3),walkers=select(true,8)
+ const roadUsers=select(false,6),cars=roadUsers.slice(0,3),cycles=roadUsers.slice(3,5),motors=roadUsers.slice(5,6),walkers=select(true,8)
  const train=data.railways.flatMap(f=>f.points.slice(1).map((b,i)=>route(f.points[i],b,.3,hash(f.id)))).sort((a,b)=>b.length-a.length).slice(0,20).map(r=>safeRun(r,.22)).find((r):r is LifeRoute=>!!r&&r.length>6)??null
  const transportGrid=new Map<string,{a:number[];b:number[];width:number;length:number}[]>()
  for(const f of data.water.length?[...data.roads,...data.railways]:[])for(let i=1;i<f.points.length;i++){
@@ -134,7 +134,7 @@ export function lifePaths(data:BoroughCell) {
    if(foxes.length&&birds.length>=2)break
   }
  }
- return {cars,walkers,train,boats:waterRuns.slice(0,1),foxes,birds}
+ return {cars,cycles,motors,walkers,train,boats:waterRuns.slice(0,1),foxes,birds}
 }
 
 /** Smooth endpoint turns with a short stop; no shrinking, hiding or teleporting. */
@@ -142,4 +142,22 @@ export function lifePose(path:LifeRoute,time:number,speed:number,stop=0) {
  const travel=path.length/speed,half=travel+stop,cycle=((time+path.seed%100/20)%(half*2)+half*2)%(half*2)
  const forward=cycle<half,leg=cycle%half,t=Math.min(1,leg/travel),ease=t*t*(3-2*t),u=forward?ease:1-ease
  return {x:path.a[0]+(path.b[0]-path.a[0])*u,z:path.a[1]+(path.b[1]-path.a[1])*u,heading:Math.atan2(path.b[0]-path.a[0],path.b[1]-path.a[1])+(forward?0:Math.PI),stopped:t===1,amber:t>.88&&t<1,forward}
+}
+
+/** Left-hand lanes join through bounded endpoint arcs. Heading follows the arc
+ * tangent, so a vehicle cannot slide sideways then spin in the carriageway.
+ * The clipped source run reserves .33 units at each end for the whole body. */
+export function roadLifePose(path:LifeRoute,time:number,speed:number,stop=5){
+ const travel=path.length/speed,turn=2,half=travel+stop+turn;
+ const clock=((time+path.seed%100/20)%(half*2)+half*2)%(half*2),forward=clock<half,leg=clock%half;
+ const dx=(path.b[0]-path.a[0])/path.length,dz=(path.b[1]-path.a[1])/path.length,lane=Math.min(.125,path.width*.25);
+ const t=Math.min(1,leg/travel),ease=t*t*(3-2*t),u=forward?ease:1-ease;
+ let x=path.a[0]+dx*path.length*u+dz*lane*(forward?1:-1),z=path.a[1]+dz*path.length*u-dx*lane*(forward?1:-1);
+ let heading=Math.atan2(dx,dz)+(forward?0:Math.PI);
+ const turning=leg>=travel+stop,stopped=leg>=travel&&!turning,amber=leg>=travel+stop-.8&&!turning;
+ if(turning){const a=(leg-travel-stop)/turn*Math.PI,c=Math.cos(a),s=Math.sin(a),sign=forward?1:-1,point=forward?path.b:path.a;
+  x=point[0]+sign*lane*(dz*c+dx*s);z=point[1]+sign*lane*(-dx*c+dz*s);
+  heading=Math.atan2(sign*(dx*c-dz*s),sign*(dz*c+dx*s));
+ }
+ return {x,z,heading,stopped,amber,forward,turning};
 }

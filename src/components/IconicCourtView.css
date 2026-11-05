@@ -77,3 +77,5 @@
 .atlas-court-destination{z-index:1}
 
 .atlas-court-choices button:disabled{opacity:.55;cursor:wait}
+
+.atlas-court-station{display:flex;align-items:flex-start;gap:9px;padding:12px 0;border-top:1px solid #dce2d1;color:#355943;text-decoration:none;margin-bottom:10px}.atlas-court-station>svg{flex-shrink:0;margin-top:2px}.atlas-court-station>span{flex:1}.atlas-court-station strong{display:block;font-size:13px}.atlas-court-station small{display:block;font-size:11px;line-height:1.5;margin-top:4px;color:#657962}

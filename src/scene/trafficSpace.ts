@@ -13,8 +13,9 @@ export function trafficOverlaps(a:TrafficPose,b:TrafficPose,gap=.025){
  return true
 }
 export function createTrafficSpace(){
- const poses=new Map<string,TrafficPose>();let next=0
+ const poses=new Map<string,TrafficPose>(),claims=new Map<string,string>();let next=0
  return {
+  claim(route:string,owner:string){const held=claims.get(route);if(held&&held!==owner)return false;claims.set(route,owner);return true},
   scope(){return `traffic-${next++}:`},
   clear(id:string,pose:TrafficPose){for(const [other,p] of poses)if(other!==id&&trafficOverlaps(pose,p))return false;return true},
   move(id:string,pose:TrafficPose){
@@ -26,7 +27,7 @@ export function createTrafficSpace(){
    }
    poses.set(id,pose);return true
   },
-  release(prefix:string){for(const id of poses.keys())if(id.startsWith(prefix))poses.delete(id)},
+  release(prefix:string){for(const id of poses.keys())if(id.startsWith(prefix))poses.delete(id);for(const [route,owner] of claims)if(owner.startsWith(prefix))claims.delete(route)},
   get size(){return poses.size},
  }
 }

@@ -115,6 +115,7 @@ export function TennisAtlas({viewSettings,onViewSettings,onClose,onHome,today,ni
         <div className="atlas-feature"><LondonMap clubId={clubId} onClub={setClubId} onExplore={id=>{setClubId(id);switchView('court');}} onHome={onHome}/><article className="atlas-club-detail" key={clubId}>
           <span className="atlas-eyebrow">LONDON ICON / {club.id==='wimbledon'?'01':'02'}</span><h3>{club.name}</h3><p className="atlas-event-venue">{club.area}</p><p>{club.description}</p>
           {clubEvent&&<button className="atlas-next-event" onClick={()=>showEvent(clubEvent.id)}><span>Next on the calendar</span><strong>{tournamentDates(clubEvent)}</strong><span>{clubEvent.status==='provisional'?'Provisional dates':'The Championships'} <Icon name="arrow" size={16}/></span></button>}
+          <a className="atlas-court-station" href={club.station.source} target="_blank" rel="noreferrer"><Icon name="train" size={19}/><span><strong>{club.station.name}</strong><small>{club.station.lines} · {club.station.walk}</small><small>{club.station.note}</small></span><Icon name="external" size={13}/></a>
           <p className="atlas-access">{club.access}</p>
           <button className="atlas-explore-courts" onClick={()=>switchView('court')}>Explore the courts <Icon name="arrow" size={17}/><small>Move around a court-side miniature</small></button>
           <a className="primary-button" href={club.url} target="_blank" rel="noreferrer">{club.linkLabel} <Icon name="external" size={16}/></a>

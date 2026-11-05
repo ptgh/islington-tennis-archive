@@ -45,3 +45,9 @@ test('a bus passes a stopped car without overlap, stays inside both lanes and re
  }
  assert.ok(progress>2,'tour deadlocked behind a stopped vehicle');assert.ok(passed);assert.equal(offset,0)
 })
+
+test('neighbouring streamed cells cannot spawn duplicate traffic on the same source run',()=>{
+ const space=createTrafficSpace();assert.equal(space.claim('source-road','cell-a:car'),true);assert.equal(space.claim('source-road','cell-a:car'),true);assert.equal(space.claim('source-road','cell-b:cycle'),false);
+ space.release('cell-b:');assert.equal(space.claim('source-road','cell-b:cycle'),false);
+ space.release('cell-a:');assert.equal(space.claim('source-road','cell-b:cycle'),true);
+});

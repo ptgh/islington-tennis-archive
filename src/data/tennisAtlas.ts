@@ -13,6 +13,7 @@ export const iconicClubs = [
     access: 'A private members’ club. Museum visits and guided tours are open to visitors; court access is restricted.',
     url: 'https://www.wimbledon.com/en_GB/museum_and_tours', linkLabel: 'Explore the museum & tours',
     source: 'https://www.wimbledon.com/en_GB/visit/getting_here.html',
+    station: {name:'Southfields',lines:'District line',walk:'About 15 minutes’ walk',note:'Closest Tube station. Wimbledon is the nearest National Rail station.',source:'https://www.wimbledon.com/en_GB/museum_and_tours/Museum_and_Tours_FAQs'},
     eventId: 'wimbledon-2027',
   },
   {
@@ -22,6 +23,7 @@ export const iconicClubs = [
     access: 'A private members’ club. Follow the Championships for spectator information; the club shop welcomes visitors.',
     url: 'https://www.queensclub.co.uk/About_the_Club', linkLabel: 'Discover The Queen’s Club',
     source: 'https://www.queensclub.co.uk/about_the_club/location',
+    station: {name:'Barons Court',lines:'District & Piccadilly lines',walk:'About 100 metres from the club',note:'Use the Palliser Road entrance.',source:'https://queensclub.clubhouseonline-e3.com/About_the_Club/Location'},
     eventId: 'queens-2027',
   },
 ];

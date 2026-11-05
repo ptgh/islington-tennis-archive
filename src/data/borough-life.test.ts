@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import fs from 'node:fs'
 import { createBoroughLife,createBoroughLifeAssets } from '../scene/createBoroughLife.ts'
-import { inPolygon,lifePaths,lifePose } from '../scene/boroughLifePaths.ts'
+import { inPolygon,lifePaths,lifePose,roadLifePose } from '../scene/boroughLifePaths.ts'
 import { boroughGeography,boroughCourts,type BoroughCell } from '../scene/boroughGeometry.ts'
 import { createBoroughMaterials } from '../scene/createBoroughTile.ts'
 import { createTrafficSpace } from '../scene/trafficSpace.ts'
@@ -125,3 +125,27 @@ test('pedestrian strides stay attached at the joints and freeze while only train
   for(const [i,m] of [legs,arms,body].entries())assert.deepEqual(Array.from(m.instanceMatrix.array),paused[i])
  }finally{life.dispose();assets.dispose()}
 })
+
+test('road users keep left, wait without steering, then turn only at bounded endpoints',()=>{
+ const path={a:[0,0],b:[0,10],length:10,width:1,seed:0};
+ let old=roadLifePose(path,0,.5),turns=0;
+ for(let time=.02;time<120;time+=.02){const p=roadLifePose(path,time,.5),yaw=Math.atan2(Math.sin(p.heading-old.heading),Math.cos(p.heading-old.heading));
+  assert.ok(Math.abs(yaw)<.04,'steering jumped or spun');assert.ok(Math.hypot(p.x-old.x,p.z-old.z)<.02,'lane change teleported');
+  assert.ok(p.z>=-.126&&p.z<=10.126&&Math.abs(p.x)<=.126,'turn left its source-road envelope');
+  if(p.stopped&&old.stopped){assert.ok(Math.abs(p.x-old.x)<1e-9&&Math.abs(p.z-old.z)<1e-9);assert.ok(Math.abs(yaw)<1e-9);}
+  if(p.turning){turns++;assert.ok(p.z<=.126||p.z>=9.874,'turn occurred mid-road');}
+  else assert.ok(p.forward?p.x>0:p.x<0,'vehicle left its UK lane');old=p;
+ }
+ assert.ok(turns>100);
+});
+test('cyclists use independent checked road runs instead of being trapped under cars',()=>{
+ const paths=lifePaths(source('1_-1'));assert.ok(paths.cycles.length>0);
+ for(const r of paths.cycles)assert.ok(!paths.cars.some(car=>car.seed===r.seed));
+});
+
+test('street-life shortcuts locate a rendered rider and release duplicate-cell ownership on disposal',()=>{
+ const data=source('1_-1'),assets=createBoroughLifeAssets(),space=createTrafficSpace(),first=createBoroughLife(data,assets,space),second=createBoroughLife(data,assets,space);
+ try{const cyclist=first.lifeLocation('cycle');assert.ok(cyclist&&cyclist.toArray().every(Number.isFinite));assert.equal(second.lifeLocation('cycle'),null);
+ first.dispose();second.animate(.05,true,false);assert.ok(second.lifeLocation('cycle'));const fox=second.lifeLocation('fox');assert.ok(fox&&fox.toArray().every(Number.isFinite));
+ }finally{first.dispose();second.dispose();assets.dispose()}
+});

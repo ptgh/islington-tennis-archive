@@ -34,6 +34,7 @@ export interface TownMapHandle {
   orbit: (yaw: number, pitch: number) => void
   visitCourt: (id: string) => void
   locate: (lat: number, lng: number, zoom?: number) => void
+  lifeLocation: (kind:'cycle'|'fox') => {lat:number;lng:number}|null
   visitVan: () => void
   followRoute: (id: string) => boolean
 }
@@ -117,6 +118,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   const [busRide,setBusRide]=useState<BusRideStatus|null>(null)
 
   useImperativeHandle(forwardedRef, () => ({
+    lifeLocation(kind){const e=engineRef.current;if(!e)return null;const point=e.world.lifeLocation(kind,e.controls.target);return point?{lat:51.549-point.z/11100,lng:point.x/6900-.115}:null},
     visitVan(){const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),55);},
     zoomIn() {
       const engine = engineRef.current

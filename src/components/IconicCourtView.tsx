@@ -740,6 +740,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       <p className="atlas-court-intro">{club.description}</p>
       <div className="atlas-court-choices" aria-label="Explore courts">{courts.map(court => <button key={court.id} disabled={preparing} aria-pressed={selected.id === court.id} onClick={() => chooseCourt(court.id)}>{court.name}</button>)}</div>
       <article className="atlas-court-selected"><span>ON THE GRASS</span><h4>{selected.name}</h4><p>{selected.note}</p></article>
+      <a className="atlas-court-station" href={club.station.source} target="_blank" rel="noreferrer"><Icon name="train" size={19}/><span><strong>{club.station.name}</strong><small>{club.station.lines} · {club.station.walk}</small><small>{club.station.note}</small></span><Icon name="external" size={13}/></a>
       <p className="atlas-court-access">{club.access}</p>
       {event && <div className="atlas-court-event"><span>Next on the calendar</span><strong>{event.name}</strong><small>{tournamentDates(event)}{event.status === 'provisional' ? ' · provisional' : ''}</small></div>}
       <a className="atlas-court-visit" href={club.url} target="_blank" rel="noreferrer">{club.linkLabel}<Icon name="external" size={15}/></a>
@@ -756,7 +757,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     </div>
     <div className="atlas-quality-control"><QualityControl settings={viewSettings} onChange={onViewSettings} open={card === 'quality'} onOpenChange={open => setCard(open ? 'quality' : null)}/></div>
     <div className="atlas-court-controls" aria-label="Court view controls"><button onClick={() => engine.current?.zoom(1.25)} aria-label="Zoom in">+</button><button onClick={() => engine.current?.zoom(.8)} aria-label="Zoom out">−</button><button onClick={() => engine.current?.reset()} aria-label="Reset court view"><Icon name="reset" size={18}/></button></div>
-    <div ref={courtLabel} className="map-destination atlas-court-destination" style={{display:'none'}} aria-label="Selected court on map"><span><Icon name="court" size={15}/>{selected.name}</span></div>
+    <div ref={courtLabel} className="map-destination atlas-court-destination" hidden={preparing} style={{display:'none'}} aria-label="Selected court on map"><span><Icon name="court" size={15}/>{selected.name}</span></div>
     <p className="atlas-court-hint">Drag to move · scroll to zoom · double-click to reset</p>
   </section>
 }
