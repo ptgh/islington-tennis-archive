@@ -22,6 +22,9 @@
 .app .directory-panel .filters button,.app .directory-panel .facility-options span{font-size:13px;min-height:40px}
 .app .directory-panel .saved-note,.app .directory-panel .play-footnote,.app .directory-panel .play-kind{font-size:12px;line-height:1.6;color:#61735d}
 .app .directory-panel .results-heading{font-size:11px;letter-spacing:.8px;color:#61735d}
+.app .directory-panel .results-heading{flex-wrap:wrap;gap:8px}
+.app .directory-panel .results-heading>span:last-child{flex-wrap:wrap;gap:8px}
+.app .directory-panel .results-heading .text-button{min-height:32px;font-size:12px}
 .app .directory-panel .court-planner,.app .directory-panel .play-court-filter,.app .directory-panel .coaching-search{font-size:13px}
 .app .directory-panel .court-planner summary{padding:5px 0;min-height:32px}
 .app .directory-panel .court-planner p,.app .directory-panel .court-planner small,.app .directory-panel .play-intro,.app .directory-panel .partner-entry small{font-size:12px;line-height:1.65;color:#61735d}
