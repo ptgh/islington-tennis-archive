@@ -13,6 +13,7 @@ interface Props {
   onAvailability:(id:string)=>void;onSelect:(id:string)=>void; onAbout:()=>void;
 }
 export function CourtDirectory({facility,onFacility,results,allVenues,query,onQuery,filter,onFilter,onSelect,onAbout,favourites,onFavourite,savedOnly,onSavedOnly,saveError,planner,onPlanner,plannerError,availability,compareIds,onCompare,onClearCompare,onAvailability}:Props) {
+  const refinements=[facility==='indoor'?'Indoor':facility==='floodlit'?'Floodlit':'',planner.period==='tonight'?'This evening':planner.period==='tomorrow'?'Tomorrow':'',planner.after?`After ${planner.after}`:'',planner.listedOnly?'Listed times only':'',savedOnly?'Favourites only':''].filter(Boolean);
   return <>
     <div className="directory-heading">
       <h1 tabIndex={-1}>Find your <br/>next court.</h1>
@@ -24,10 +25,12 @@ export function CourtDirectory({facility,onFacility,results,allVenues,query,onQu
         {([['all','All courts'],['public','Public'],['restricted','Other access']] as const).map(([id,label])=><button key={id} aria-pressed={filter===id} onClick={()=>onFilter(id)}>{label}</button>)}
       </div>
 
+      <details className="directory-refinements"><summary>More filters<small>{refinements.length?refinements.join(' · '):'Facilities, time & favourites'}</small></summary>
       <fieldset className="facility-options"><legend>Facilities</legend><div>{[['all','Any'],['indoor','Indoor'],['floodlit','Floodlit']].map(([value,label])=><label key={value}><input type="radio" name="court-facility" value={value} checked={facility===value} onChange={()=>onFacility(value)}/><span>{label}</span></label>)}</div></fieldset>
       {facility!=='all'&&<small className="saved-note">Facilities describe the venue. Listed times may include other court types; confirm your chosen court with the operator.</small>}
       <CourtPlanner preferences={planner} onChange={onPlanner} storageError={plannerError} availability={availability} savedCount={favourites.length} savedWithTimes={favourites.filter(id=>availability.next[id]).length}/>
       <label className="saved-filter"><input type="checkbox" checked={savedOnly} onChange={e=>onSavedOnly(e.target.checked)}/> Favourite courts only</label><small className="saved-note">{saveError?'Browser storage unavailable — saved for this visit only.':'Favourites saved on this browser.'}</small>
+      </details>
     </div>
     <CourtComparison venues={allVenues.filter(venue=>compareIds.includes(venue.id))} availability={availability} onClear={onClearCompare} onDetails={onSelect} onAvailability={onAvailability}/>
     <div className="results-heading"><span>{results.length} {results.length===1?'place':'places'} to play</span><span>{compareIds.length>0?<button className="text-button" onClick={()=>document.querySelector('.court-comparison')?.scrollIntoView({block:'start'})}>View comparison ({compareIds.length})</button>:<>Explore <Icon name="arrow" size={13}/></>}</span></div>

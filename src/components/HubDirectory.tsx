@@ -6,7 +6,16 @@ import { busRoutes, supportsBusTour, BUS_ROUTES_VERIFIED_DATE, type BusRoute } f
 import { Icon } from './Icon';
 
 export function HubNavigation({section,onChange}:{section:HubSection;onChange:(value:HubSection)=>void}) {
-  return <nav className="hub-navigation" aria-label="Explore the tennis hub">{(['courts','play','coaching','gear','buses'] as const).map(id=><button key={id} data-section={id} aria-current={section===id?'page':undefined} onClick={()=>onChange(id)}>{id==='courts'?'Courts':id==='play'?'Play together':id==='coaching'?'Coaching':id==='gear'?'Gear':'Bus routes'}</button>)}</nav>;
+  const navigation=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    const menu=navigation.current,current=menu?.querySelector<HTMLButtonElement>('[aria-current="page"]');
+    if(!menu||!current)return;
+    const bounds=menu.getBoundingClientRect(),item=current.getBoundingClientRect();
+    // Reveal the selected section on narrow screens without scrolling the sheet.
+    if(item.left<bounds.left)menu.scrollLeft+=item.left-bounds.left;
+    else if(item.right>bounds.right)menu.scrollLeft+=item.right-bounds.right;
+  },[section]);
+  return <nav ref={navigation} className="hub-navigation" aria-label="Explore the tennis hub">{(['courts','play','coaching','gear','buses'] as const).map(id=><button key={id} data-section={id} aria-current={section===id?'page':undefined} onClick={()=>onChange(id)}>{id==='courts'?'Courts':id==='play'?'Play together':id==='coaching'?'Coaching':id==='gear'?'Gear':'Bus routes'}</button>)}</nav>;
 }
 
 export function HubDirectory({section,onService,onRoute,onRacquets,venueId,onClearVenue}:{venueId?:string|null;onClearVenue?:()=>void;section:Exclude<HubSection,'courts'|'play'>;onService:(id:string)=>void;onRoute:(id:string)=>void;onRacquets:()=>void}) {
