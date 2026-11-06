@@ -8,8 +8,41 @@ import { boroughRoadProfile } from '../scene/boroughStreetEdges.ts'
 import { createGear } from '../scene/createGear.ts'
 import { createIslington } from '../scene/createIslington.ts'
 import { venues } from './venues.ts'
+import { trafficOverlaps } from '../scene/trafficSpace.ts'
 
 const key=(a:number[],b:number[])=>[a.join(','),b.join(',')].sort().join('|')
+test('the Stringer street scene keeps cars and opposing buses moving through the reported jam',async()=>{
+ const originalFetch=globalThis.fetch
+ globalThis.fetch=async(input)=>new Response(fs.readFileSync('public'+String(input),'utf8'))
+ const world=createIslington(venues)
+ try{
+  await world.ready;while(world.status.loading)await new Promise(resolve=>setImmediate(resolve))
+  const target=world.vanPosition.clone(),camera=new THREE.OrthographicCamera(-5,5,5,-5,.1,1000)
+  camera.position.copy(target).add(new THREE.Vector3(15,20,15));camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld()
+  world.updateView(camera,55,target);while(world.status.loading)await new Promise(resolve=>setImmediate(resolve))
+  world.updateView(camera,55,target)
+  const cars:THREE.InstancedMesh[]=[],buses:THREE.Object3D[]=[]
+  world.root.traverse(o=>{if(o.name==='Borough car'&&o.parent?.visible&&o.parent.parent?.visible)cars.push(o as THREE.InstancedMesh);if(o.name==='Miniature bus')buses.push(o)})
+  assert.ok(cars.length>0)
+  const van=world.root.getObjectByName('Sweet Spot miniature van')!,matrix=new THREE.Matrix4(),last=new Map<string,THREE.Vector3>(),idle=new Map<string,number>(),point=new THREE.Vector3()
+  let checkpoint=world.vanPosition.clone()
+  for(let frame=1;frame<=8000;frame++){
+   world.animate(frame*.05,true,true,true);world.root.updateMatrixWorld(true)
+   for(const mesh of cars)for(let i=0;i<mesh.count;i++){
+    mesh.getMatrixAt(i,matrix);if(matrix.elements[15]!==1)continue
+    const id=mesh.uuid+':'+i,p=new THREE.Vector3().setFromMatrixPosition(matrix),old=last.get(id)
+    idle.set(id,old&&old.distanceTo(p)<1e-7?(idle.get(id)??0)+.05:0);last.set(id,p)
+    assert.ok(idle.get(id)!<12,'a visible car stayed frozen beyond its short endpoint stop')
+   }
+   for(const bus of buses)if(bus.scale.x!==0&&bus.parent?.visible){
+    bus.getWorldPosition(point)
+    assert.equal(trafficOverlaps({x:world.vanPosition.x,z:world.vanPosition.z,heading:van.rotation.y,halfWidth:.115,halfLength:.235},{x:point.x,z:point.z,heading:bus.rotation.y,halfWidth:.112,halfLength:.37}),false,'bus and van lost clearance')
+   }
+   if(frame%400===0){assert.ok(world.vanPosition.distanceTo(checkpoint)>1,'van stopped or oscillated instead of travelling');checkpoint.copy(world.vanPosition)}
+  }
+  const paused=world.vanPosition.clone();world.animate(401,false,false,false);assert.deepEqual(world.vanPosition,paused)
+ }finally{world.dispose();globalThis.fetch=originalFetch}
+})
 test('transport links are actual connected carriageway segments, never stop-to-stop chords or footways',()=>{
  const roads=new Set<string>()
  for(const cell of boroughGeography.cells){const data=JSON.parse(fs.readFileSync('public/'+cell.url,'utf8')) as BoroughCell
@@ -22,13 +55,16 @@ test('transport links are actual connected carriageway segments, never stop-to-s
 })
 test('the Stringer van remains centred on its source carriageway through both travel directions',()=>{
  const gear=createGear(()=>new THREE.Vector3(),[],true);gear.root.scale.setScalar(.1);gear.van.scale.setScalar(1)
- const points=roadRoutes['19'],position=new THREE.Vector3()
+ const points=roadRoutes['19'],position=new THREE.Vector3(),wheels=gear.van.children.filter(o=>o.name==='Stringer rolling wheel'),startingWheels=wheels.map(o=>o.rotation.x)
  try{
+  assert.equal(wheels.length,4)
   for(let step=0;step<4000;step++){
    gear.animate(1,true);gear.root.updateMatrixWorld(true);gear.van.getWorldPosition(position)
    const distance=Math.min(...points.slice(1).map((b,i)=>{const a=points[i],dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((position.x-a[0])*dx+(position.z-a[1])*dz)/(dx*dx+dz*dz)));return Math.hypot(position.x-a[0]-dx*t,position.z-a[1]-dz*t)}))
    assert.ok(distance<1e-8,'van centre crossed a kerb')
   }
+  assert.notDeepEqual(wheels.map(o=>o.rotation.x),startingWheels,'van wheels did not turn')
+  const stoppedWheels=wheels.map(o=>o.rotation.x);gear.animate(10,false);assert.deepEqual(wheels.map(o=>o.rotation.x),stoppedWheels,'paused wheels kept turning')
  }finally{
   const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>()
   gear.root.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m)}})

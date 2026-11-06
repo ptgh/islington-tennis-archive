@@ -7,15 +7,29 @@ test('traffic footprints distinguish separated lanes, close following and crossi
  assert.equal(trafficOverlaps(car(-.125,0),car(.125,0,Math.PI)),false)
  assert.equal(trafficOverlaps(car(0,0),car(0,.3)),true)
  assert.equal(trafficOverlaps(car(0,0),car(.25,0,Math.PI/2)),true)
- assert.equal(trafficOverlaps(car(0,0),car(0,.5)),false)
+ assert.equal(trafficOverlaps(car(0,0),car(0,.65)),false)
 })
 test('a following car yields, retains its position, then resumes after a bus clears',()=>{
- const space=createTrafficSpace(),bus={...car(0,.6),halfWidth:.112,halfLength:.37}
+ const space=createTrafficSpace(),bus={...car(0,.8),halfWidth:.112,halfLength:.37}
  assert.ok(space.move('bus',bus));assert.ok(space.move('car',car(0,0)))
  assert.equal(space.move('car',car(0,.1)),false)
  // Rejection must not move the stored car into the bus.
- assert.equal(space.move('bus',{...bus,z:.598}),true)
+ assert.equal(space.move('bus',{...bus,z:.798}),true)
  assert.ok(space.move('bus',{...bus,z:1}));assert.ok(space.move('car',car(0,.1)))
+})
+test('a full-width van and bus pass in opposite UK lanes with a longer following gap',()=>{
+ const bus={...car(-.125,0,Math.PI),halfWidth:.112,halfLength:.37},van={...car(.125,0),halfWidth:.114,halfLength:.23}
+ assert.equal(trafficOverlaps(bus,van),false)
+ assert.equal(trafficOverlaps({...bus,x:.125,heading:0,z:.62},van),true,'following gap was not preserved')
+ for(const angle of [0,.4,1.6,-2.4]){
+  const rotate=(p:TrafficPose)=>({...p,x:p.x*Math.cos(angle)+p.z*Math.sin(angle),z:-p.x*Math.sin(angle)+p.z*Math.cos(angle),heading:p.heading+angle})
+  assert.equal(trafficOverlaps(rotate(bus),rotate(van)),false,'clear lanes depend on map heading')
+ }
+})
+test('a bus does not steer into an oncoming vehicle as if it were overtaking',()=>{
+ const space=createTrafficSpace(),bus={...car(.125,0),halfWidth:.112,halfLength:.37},oncoming=car(.125,.8,Math.PI)
+ assert.ok(space.move('bus',bus));assert.ok(space.move('oncoming',oncoming))
+ assert.equal(moveRoadTraffic(space,'bus',bus,{...bus,z:.1},0,.05),null)
 })
 test('crossing traffic cannot jump through another vehicle between frames',()=>{
  const space=createTrafficSpace()

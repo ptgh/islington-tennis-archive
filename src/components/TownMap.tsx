@@ -65,6 +65,7 @@ interface TownMapProps {
   busRouteId: string | null
   showShops: boolean
   selectedServiceId: string | null
+  followVan?: boolean
   activeVisitId: string | null
   onSelectService: (id: string) => void
   onReset?: () => void
@@ -98,7 +99,7 @@ const STATION_NAMES = mapStations.map(s=>s.name)
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, locatedPlace, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showTrains, busRouteId, showShops, selectedServiceId, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, locatedPlace, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showTrains, busRouteId, showShops, selectedServiceId, followVan = true, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, selectedCameraId, onSelectCamera }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -108,9 +109,9 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   const busPinRef=useRef<HTMLDivElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
   const cameraRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ viewSettings, locatedPlace, suspended, selectedServiceId, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  const runtimeRef = useRef({ viewSettings, locatedPlace, suspended, selectedServiceId, followVan, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtimeRef.current = { viewSettings, locatedPlace, suspended, selectedServiceId, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady,
+  runtimeRef.current = { viewSettings, locatedPlace, suspended, selectedServiceId, followVan, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
   const [mapStatus,setMapStatus]=useState('')
@@ -417,7 +418,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     let lightClock = new Date()
     let previousVan=world.vanPosition.clone()
     const frame = () => {
-      if(runtimeRef.current.selectedServiceId==='sweet-spot-stringer'&&!journey){const delta=world.vanPosition.clone().sub(previousVan);camera.position.add(delta);controls.target.add(delta);}
+      if(runtimeRef.current.selectedServiceId==='sweet-spot-stringer'&&runtimeRef.current.followVan&&!journey){const delta=world.vanPosition.clone().sub(previousVan);camera.position.add(delta);controls.target.add(delta);}
       previousVan.copy(world.vanPosition)
       if (destroyed || !onScreen || runtimeRef.current.suspended) return
       if (quality.setPreset(runtimeRef.current.viewSettings.preset)) applyResolution()
