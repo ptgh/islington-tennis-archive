@@ -103,6 +103,8 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
   mesh.frustumCulled=false;root.add(mesh);meshes.push(mesh);return mesh
  }
  const cars=batch('car',routes.cars.length),people=batch('person',routes.walkers.length),foxes=batch('fox',routes.foxes.length),birds=batch('bird',routes.birds.length),wings=batch('wing',routes.birds.length*2),boats=batch('boat',routes.boats.length),trains=batch('train',routes.train?3:0)
+ const carLamps=batch('lamp',routes.cars.length*4)
+ if(carLamps)carLamps.name='Borough vehicle lights'
  const legs=batch('leg',routes.walkers.length*2),arms=batch('arm',routes.walkers.length*2)
  const cycleRoutes=routes.cycles,motorRoutes=routes.motors
  const cycleLegs=batch('cycleleg',cycleRoutes.length*2),spokes=batch('spoke',cycleRoutes.length*2)
@@ -113,7 +115,7 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
  const pools=lampSites.length?new THREE.InstancedMesh(assets.poolGeometry,assets.poolMaterial,lampSites.length):null
  if(pools){pools.name='Borough streetlight pools';pools.frustumCulled=false;root.add(pools);meshes.push(pools)}
  const signalRoutes=routes.cars.filter(r=>r.width>=.75).slice(0,1),signals=batch('signal',signalRoutes.length*2),roadmarks=batch('roadmark',signalRoutes.length*2),lamps=batch('lamp',signalRoutes.length*6)
- const headings=new Map<string,number>()
+ const headings=new Map<string,number>(),braking=new Map<string,boolean>()
  let time=0,railTime=0,night=false
  function put(mesh:THREE.InstancedMesh|null,index:number,x:number,y:number,z:number,heading=0,scale=1,roll=0,pitch=0){
   if(!mesh)return
@@ -134,7 +136,17 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
    if(traffic.move(scope+key,{x:p.x,z:p.z,heading:p.heading,halfWidth,halfLength})){clocks.set(key,clock);const previous=lastRoadPosition.get(key);if(previous)wheelDistance.set(key,(wheelDistance.get(key)??0)+Math.hypot(p.x-previous.x,p.z-previous.z));lastRoadPosition.set(key,p);put(mesh,i,p.x,.015,p.z,p.heading)}
   }
   routes.cars.forEach((r,i)=>{
-   vehicle(cars,r,i,'car'+i,.50,.103,.20)
+   const key='car'+i,before=wheelDistance.get(key)??0
+   vehicle(cars,r,i,key,.50,.103,.20)
+   // Read the accepted body transform: a blocked car's lights must not travel
+   // ahead along its planned route, and released cells must leave no ghosts.
+   cars?.getMatrixAt(i,transform.matrix)
+   if(carLamps&&transform.matrix.elements[15]===1){
+    const body=transform.matrix.elements,x=body[12],y=body[13],z=body[14],dx=body[8],dz=body[10]
+    if(roadDelta>0)braking.set(key,(wheelDistance.get(key)??0)===before)
+    const stopped=braking.get(key)??false
+    for(const end of [-1,1])for(const side of [-1,1]){const index=i*4+(end===1?2:0)+(side===1?1:0);put(carLamps,index,x+dz*side*.055+dx*end*.204,y+.09,z-dx*side*.055+dz*end*.204,Math.atan2(dx,dz)+(end<0?Math.PI:0),end<0?.65:.7);carLamps.setColorAt(index,color.set(end>0?'#fff0c5':stopped?'#ed543c':'#8e3026'))}
+   }
    cars?.setColorAt(i,color.set(['#e3b872','#c7d0bf','#9fb8ba'][r.seed%3]))
   })
   cycleRoutes.forEach((r,i)=>{
@@ -185,6 +197,7 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
    }
   })
   lampSites.forEach((p,i)=>{put(streetlights,i,p.x,.015,p.z,p.heading);put(bulbs,i,p.x+Math.sin(p.heading)*.1,.495,p.z+Math.cos(p.heading)*.1,p.heading);bulbs?.setColorAt(i,color.set('#f7dda1'));put(pools,i,p.x+Math.sin(p.heading)*.1,.016,p.z+Math.cos(p.heading)*.1)})
+  if(carLamps)carLamps.visible=night
   if(bulbs)bulbs.visible=night;if(pools)pools.visible=night
   foxes&&(foxes.visible=night)
   birds&&(birds.visible=!night);wings&&(wings.visible=!night)
@@ -192,5 +205,5 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
  }
  draw(1)
  root.userData.counts={cars:routes.cars.length,cycles:cycleRoutes.length,motorbikes:motorRoutes.length,streetlights:lampSites.length,people:routes.walkers.length,foxes:routes.foxes.length,birds:routes.birds.length,narrowboats:routes.boats.length,trains:routes.train?1:0,signals:signalRoutes.length*2}
- return {root,routes,lifeLocation(kind:'cycle'|'fox'){const mesh=kind==='cycle'?cycles:foxes;if(!mesh)return null;for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,transform.matrix);if(transform.matrix.elements[15]===1)return new THREE.Vector3().setFromMatrixPosition(transform.matrix)}return null},clearTraffic(){traffic.release(scope);for(const mesh of [cars,cycles,motors,cycleLegs,spokes])if(mesh){mesh.instanceMatrix.array.fill(0);mesh.instanceMatrix.needsUpdate=true}},setTrains(value:boolean){if(trains)trains.visible=value},setNight(value:boolean){night=value;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night);bulbs&&(bulbs.visible=night);pools&&(pools.visible=night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){traffic.release(scope);meshes.forEach(m=>m.dispose());root.clear()}}
+ return {root,routes,lifeLocation(kind:'cycle'|'fox'){const mesh=kind==='cycle'?cycles:foxes;if(!mesh)return null;for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,transform.matrix);if(transform.matrix.elements[15]===1)return new THREE.Vector3().setFromMatrixPosition(transform.matrix)}return null},clearTraffic(){traffic.release(scope);for(const mesh of [cars,carLamps,cycles,motors,cycleLegs,spokes])if(mesh){mesh.instanceMatrix.array.fill(0);mesh.instanceMatrix.needsUpdate=true}},setTrains(value:boolean){if(trains)trains.visible=value},setNight(value:boolean){night=value;if(carLamps)carLamps.visible=night;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night);bulbs&&(bulbs.visible=night);pools&&(pools.visible=night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){traffic.release(scope);meshes.forEach(m=>m.dispose());root.clear()}}
 }

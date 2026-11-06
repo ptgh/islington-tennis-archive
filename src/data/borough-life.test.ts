@@ -157,3 +157,24 @@ test('cyclist pedals and spokes follow movement and freeze while only trains ani
 test('connected traffic bodies retain clearance through bends and endpoint turns',()=>{
  for(const id of ['1_-1','2_-1','3_4']){const data=source(id),paths=lifePaths(data);for(const r of paths.cars)for(let i=0;i<=240;i++){const p=roadLifePose(r,i/240*(r.length/.5+7)*2,.5,5),dx=Math.sin(p.heading),dz=Math.cos(p.heading);for(const side of [-1,1])for(const end of [-1,1]){const x=p.x+dz*.103*side+dx*.20*end,z=p.z-dx*.103*side+dz*.20*end;assert.ok(!data.buildings.some(f=>inPolygon(x,z,f)),id+' traffic body crossed a building');assert.ok(!data.water.some(f=>inPolygon(x,z,f)),id+' traffic body crossed water');assert.ok(!boroughCourts.some(f=>inPolygon(x,z,f)),id+' traffic body crossed a court');}}}
 })
+
+ test('night vehicle lamps stay attached to accepted cars, freeze on pause and clear with traffic',()=>{
+ const assets=createBoroughLifeAssets(),life=createBoroughLife(source('1_-1'),assets)
+ try{
+  const cars=life.root.getObjectByName('Borough car') as THREE.InstancedMesh,lights=life.root.getObjectByName('Borough vehicle lights') as THREE.InstancedMesh
+  assert.equal(lights.count,cars.count*4);assert.equal(lights.visible,false);life.setNight(true);assert.equal(lights.visible,true)
+  const body=new THREE.Matrix4(),lamp=new THREE.Matrix4(),expected=new THREE.Vector3(),actual=new THREE.Vector3()
+  let moving=false,braking=false
+  for(let frame=0;frame<1800;frame++){
+   life.animate(.05,true,false)
+   for(let i=0;i<cars.count;i++){
+    cars.getMatrixAt(i,body);if(body.elements[15]!==1)continue
+    for(const end of [-1,1])for(const side of [-1,1]){const index=i*4+(end===1?2:0)+(side===1?1:0);lights.getMatrixAt(index,lamp);expected.set(side*.055,.09,end*.204).applyMatrix4(body);actual.setFromMatrixPosition(lamp);assert.ok(expected.distanceTo(actual)<1e-4,'lamp detached from accepted car')}
+    const c=new THREE.Color();lights.getColorAt(i*4,c);moving||=c.r<.5;braking||=c.r>.5
+   }
+  }
+  assert.ok(moving&&braking,'rear lamps never distinguished moving and waiting')
+  const poses=Array.from(lights.instanceMatrix.array),colors=Array.from(lights.instanceColor!.array);life.animate(2,false,true);assert.deepEqual(Array.from(lights.instanceMatrix.array),poses);assert.deepEqual(Array.from(lights.instanceColor!.array),colors)
+  life.clearTraffic();assert.ok(Array.from(lights.instanceMatrix.array).every(v=>v===0));life.setNight(false);assert.equal(lights.visible,false)
+ }finally{life.dispose();assets.dispose()}
+})
