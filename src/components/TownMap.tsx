@@ -26,6 +26,7 @@ import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLen
 import { createIslington, type IslingtonWorld, type BusRideStatus } from '../scene/createIslington'
 import { boroughBounds, courtsNearVenue } from '../scene/boroughGeometry'
 import '../scene/TownMap.css'
+import {places} from '../data/places'
 
 export interface TownMapHandle {
   zoomIn: () => void
@@ -588,6 +589,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engine.ambient.groundColor.set(night ? '#263d44' : '#59634f')
     engine.frame()
   }, [night, lightingTime, naturalTime, ready])
+
+  useEffect(()=>{const place=locatedPlace&&!locatedPlace.wildlife?places.find(p=>p.name===locatedPlace.name):undefined;engineRef.current?.world.setDestination(place?geoPosition(place.lat,place.lng):null,place?.kind==='park');},[locatedPlace,ready])
 
   // End a deselected bus tour once; unrelated layer/feed updates must not
   // cancel a Places camera journey.

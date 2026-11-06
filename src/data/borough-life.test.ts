@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import fs from 'node:fs'
+import {sampleRoadRun} from '../scene/connectedRoadRuns.ts'
 import { createBoroughLife,createBoroughLifeAssets } from '../scene/createBoroughLife.ts'
 import { inPolygon,lifePaths,lifePose,roadLifePose } from '../scene/boroughLifePaths.ts'
 import { boroughGeography,boroughCourts,type BoroughCell } from '../scene/boroughGeometry.ts'
@@ -14,7 +15,7 @@ test('local actors use bounded source paths and keep off buildings and courts',(
   const data=source(id),paths=lifePaths(data)
   assert.ok(paths.cars.length<=3&&paths.walkers.length<=8&&paths.foxes.length<=1&&paths.birds.length<=2&&paths.boats.length<=1)
   for(const path of [...paths.cars,...paths.walkers,...paths.foxes])for(let i=0;i<=100;i++){
-   const x=path.a[0]+(path.b[0]-path.a[0])*i/100,z=path.a[1]+(path.b[1]-path.a[1])*i/100
+   const {x,z}=sampleRoadRun(path,path.length*i/100)
    assert.ok(!data.buildings.some(f=>inPolygon(x,z,f)),id+' actor inside building')
    assert.ok(!boroughCourts.some(f=>inPolygon(x,z,f)),id+' actor inside court')
   }
@@ -149,3 +150,10 @@ test('street-life shortcuts locate a rendered rider and release duplicate-cell o
  first.dispose();second.animate(.05,true,false);assert.ok(second.lifeLocation('cycle'));const fox=second.lifeLocation('fox');assert.ok(fox&&fox.toArray().every(Number.isFinite));
  }finally{first.dispose();second.dispose();assets.dispose()}
 });
+test('cyclist pedals and spokes follow movement and freeze while only trains animate',()=>{
+ const assets=createBoroughLifeAssets(),life=createBoroughLife(source('1_-1'),assets)
+ try{const legs=life.root.getObjectByName('Borough cycleleg') as THREE.InstancedMesh,spokes=life.root.getObjectByName('Borough spoke') as THREE.InstancedMesh;assert.ok(legs&&spokes);const before=Array.from(spokes.instanceMatrix.array);for(let i=0;i<60;i++)life.animate(.05,true,false);assert.notDeepEqual(Array.from(spokes.instanceMatrix.array),before);const paused=[Array.from(legs.instanceMatrix.array),Array.from(spokes.instanceMatrix.array)];life.animate(2,false,true);assert.deepEqual(Array.from(legs.instanceMatrix.array),paused[0]);assert.deepEqual(Array.from(spokes.instanceMatrix.array),paused[1]);life.clearTraffic();assert.ok(Array.from(legs.instanceMatrix.array).every(v=>v===0));assert.ok(Array.from(spokes.instanceMatrix.array).every(v=>v===0));}finally{life.dispose();assets.dispose()}
+})
+test('connected traffic bodies retain clearance through bends and endpoint turns',()=>{
+ for(const id of ['1_-1','2_-1','3_4']){const data=source(id),paths=lifePaths(data);for(const r of paths.cars)for(let i=0;i<=240;i++){const p=roadLifePose(r,i/240*(r.length/.5+7)*2,.5,5),dx=Math.sin(p.heading),dz=Math.cos(p.heading);for(const side of [-1,1])for(const end of [-1,1]){const x=p.x+dz*.103*side+dx*.20*end,z=p.z-dx*.103*side+dz*.20*end;assert.ok(!data.buildings.some(f=>inPolygon(x,z,f)),id+' traffic body crossed a building');assert.ok(!data.water.some(f=>inPolygon(x,z,f)),id+' traffic body crossed water');assert.ok(!boroughCourts.some(f=>inPolygon(x,z,f)),id+' traffic body crossed a court');}}}
+})

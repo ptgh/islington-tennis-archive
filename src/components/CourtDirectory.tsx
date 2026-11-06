@@ -10,9 +10,9 @@ interface Props {
   favourites:string[];onFavourite:(id:string)=>void;savedOnly:boolean;onSavedOnly:(value:boolean)=>void;saveError:boolean;
   results: Venue[]; allVenues: Venue[]; query:string; onQuery:(value:string)=>void;
   filter:Filter; onFilter:(value:Filter)=>void;
-  onSelect:(id:string)=>void; onAbout:()=>void;
+  onAvailability:(id:string)=>void;onSelect:(id:string)=>void; onAbout:()=>void;
 }
-export function CourtDirectory({facility,onFacility,results,allVenues,query,onQuery,filter,onFilter,onSelect,onAbout,favourites,onFavourite,savedOnly,onSavedOnly,saveError,planner,onPlanner,plannerError,availability,compareIds,onCompare,onClearCompare}:Props) {
+export function CourtDirectory({facility,onFacility,results,allVenues,query,onQuery,filter,onFilter,onSelect,onAbout,favourites,onFavourite,savedOnly,onSavedOnly,saveError,planner,onPlanner,plannerError,availability,compareIds,onCompare,onClearCompare,onAvailability}:Props) {
   return <>
     <div className="directory-heading">
       <h1 tabIndex={-1}>Find your <br/>next court.</h1>
@@ -29,7 +29,7 @@ export function CourtDirectory({facility,onFacility,results,allVenues,query,onQu
       <CourtPlanner preferences={planner} onChange={onPlanner} storageError={plannerError} availability={availability} savedCount={favourites.length} savedWithTimes={favourites.filter(id=>availability.next[id]).length}/>
       <label className="saved-filter"><input type="checkbox" checked={savedOnly} onChange={e=>onSavedOnly(e.target.checked)}/> Favourite courts only</label><small className="saved-note">{saveError?'Browser storage unavailable — saved for this visit only.':'Favourites saved on this browser.'}</small>
     </div>
-    <CourtComparison venues={allVenues.filter(venue=>compareIds.includes(venue.id))} availability={availability} onClear={onClearCompare} onDetails={onSelect}/>
+    <CourtComparison venues={allVenues.filter(venue=>compareIds.includes(venue.id))} availability={availability} onClear={onClearCompare} onDetails={onSelect} onAvailability={onAvailability}/>
     <div className="results-heading"><span>{results.length} {results.length===1?'place':'places'} to play</span><span>{compareIds.length>0?<button className="text-button" onClick={()=>document.querySelector('.court-comparison')?.scrollIntoView({block:'start'})}>View comparison ({compareIds.length})</button>:<>Explore <Icon name="arrow" size={13}/></>}</span></div>
     <div className="court-list" aria-label="Tennis court results" aria-live="polite">
       {results.map(venue=><div className="saved-court-row" key={venue.id}><button className="court-row" key={venue.id} data-venue-id={venue.id} onClick={()=>onSelect(venue.id)}>

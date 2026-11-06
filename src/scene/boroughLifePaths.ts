@@ -1,7 +1,8 @@
 import { boroughCourts, containsPoint, roofBounds, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
+import {connectRoadRun,sampleRoadRun} from './connectedRoadRuns.ts'
 import { boroughRoadProfile } from './boroughStreetEdges.ts'
 
-export type LifeRoute = { a: number[]; b: number[]; length: number; width: number; seed: number }
+export type LifeRoute = { a: number[]; b: number[]; length: number; width: number; seed: number; sourceId?:string; points?:number[][]; distances?:number[] }
 const hash=(id:string|number)=>{let h=2166136261;for(const c of String(id))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0}
 export const inPolygon=(x:number,z:number,f:GeoFeature)=>containsPoint(x,z,f.points)&&!(f.holes??[]).some(h=>containsPoint(x,z,h))
 const route=(a:number[],b:number[],width:number,seed:number):LifeRoute=>({a,b,width,seed,length:Math.hypot(b[0]-a[0],b[1]-a[1])})
@@ -46,9 +47,9 @@ export function lifePaths(data:BoroughCell) {
   }
   const trim=radius+.08,from=bestStart/n*length+trim,to=bestEnd/n*length-trim
   if(to-from<.6)return null
-  return route([a[0]+dx*from-dz*offset,a[1]+dz*from+dx*offset],[a[0]+dx*to-dz*offset,a[1]+dz*to+dx*offset],candidate.width,candidate.seed)
+  return {...route([a[0]+dx*from-dz*offset,a[1]+dz*from+dx*offset],[a[0]+dx*to-dz*offset,a[1]+dz*to+dx*offset],candidate.width,candidate.seed),sourceId:candidate.sourceId}
  }
- const roadSegments=data.roads.flatMap(f=>f.points.slice(1).map((b,i)=>({...route(f.points[i],b,boroughRoadProfile(f.kind).width,hash(f.id)),kind:f.kind??'',id:String(f.id).split(':')[0]}))).filter(r=>r.length>1)
+ const roadSegments=data.roads.flatMap(f=>f.points.slice(1).map((b,i)=>({...route(f.points[i],b,boroughRoadProfile(f.kind).width,hash(f.id)),kind:f.kind??'',id:String(f.id).split(':')[0],sourceId:String(f.id).split(':')[0]}))).filter(r=>r.length>1)
  const select=(walking:boolean,limit:number)=>{
   const out:LifeRoute[]=[],seen=new Set<string>()
   const candidates=roadSegments.filter(r=>walking||(!boroughRoadProfile(r.kind).walking&&!['construction','proposed','motorway','motorway_link'].includes(r.kind))).sort((a,b)=>{
@@ -62,7 +63,7 @@ export function lifePaths(data:BoroughCell) {
    const safe=safeRun(r,walking?.055:.25,walking&&!footway?r.width/2+.07:0)
    if(!safe||safe.length<(walking?1:2.5))continue
    if(out.some(p=>Math.hypot((p.a[0]+p.b[0]-safe.a[0]-safe.b[0])/2,(p.a[1]+p.b[1]-safe.a[1]-safe.b[1])/2)<2))continue
-   out.push(safe);seen.add(r.id)
+   out.push(walking?safe:connectRoadRun(safe,data.roads,clear));seen.add(r.id)
   }
   return out
  }
@@ -150,9 +151,10 @@ export function lifePose(path:LifeRoute,time:number,speed:number,stop=0) {
 export function roadLifePose(path:LifeRoute,time:number,speed:number,stop=5){
  const travel=path.length/speed,turn=2,half=travel+stop+turn;
  const clock=((time+path.seed%100/20)%(half*2)+half*2)%(half*2),forward=clock<half,leg=clock%half;
- const dx=(path.b[0]-path.a[0])/path.length,dz=(path.b[1]-path.a[1])/path.length,lane=Math.min(.125,path.width*.25);
+ const lane=Math.min(.125,path.width*.25);
  const t=Math.min(1,leg/travel),ease=t*t*(3-2*t),u=forward?ease:1-ease;
- let x=path.a[0]+dx*path.length*u+dz*lane*(forward?1:-1),z=path.a[1]+dz*path.length*u-dx*lane*(forward?1:-1);
+ const sample=sampleRoadRun(path,path.length*u);let {dx,dz}=sample;
+ let x=sample.x+dz*lane*(forward?1:-1),z=sample.z-dx*lane*(forward?1:-1);
  let heading=Math.atan2(dx,dz)+(forward?0:Math.PI);
  const turning=leg>=travel+stop,stopped=leg>=travel&&!turning,amber=leg>=travel+stop-.8&&!turning;
  if(turning){const a=(leg-travel-stop)/turn*Math.PI,c=Math.cos(a),s=Math.sin(a),sign=forward?1:-1,point=forward?path.b:path.a;

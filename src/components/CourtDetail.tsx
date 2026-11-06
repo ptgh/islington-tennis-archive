@@ -6,10 +6,11 @@ import { courtApproaches, walkingDirections } from '../data/courtApproaches';
 import { Icon } from './Icon';
 import './CourtApproach.css';
 
-export function CourtDetail({venue,onBack,onVisit,coaching,onCoaching,onPlay,onMappedHighbury}:{onMappedHighbury?:()=>void;venue:Venue;onBack:()=>void;onVisit:()=>void;coaching:{id:string;name:string;registeredCoach?:boolean}[];onCoaching:(id:string)=>void;onPlay?:()=>void}) {
+export function CourtDetail({venue,onBack,onVisit,coaching,onCoaching,onPlay,onMappedHighbury,initialBooking=false}:{initialBooking?:boolean;onMappedHighbury?:()=>void;venue:Venue;onBack:()=>void;onVisit:()=>void;coaching:{id:string;name:string;registeredCoach?:boolean}[];onCoaching:(id:string)=>void;onPlay?:()=>void}) {
   const heading=useRef<HTMLHeadingElement>(null);
-  const [booking,setBooking]=useState(false);
-  useEffect(()=>{setBooking(false);heading.current?.focus({preventScroll:true});},[venue.id]);
+  const [booking,setBooking]=useState(initialBooking);
+  useEffect(()=>{setBooking(initialBooking);},[venue.id,initialBooking]);
+  useEffect(()=>{if(!booking)heading.current?.focus({preventScroll:true});},[venue.id,booking]);
   const directions=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(venue.name+' '+venue.address)}&travelmode=transit`;
   const approach=courtApproaches[venue.id];
   if(booking) return <CourtBooking venue={venue} onBack={()=>setBooking(false)}/>;
@@ -19,11 +20,12 @@ export function CourtDetail({venue,onBack,onVisit,coaching,onCoaching,onPlay,onM
       <div className={`access-label ${venue.access!=='public'?'restricted':''}`}><span/>{accessLabels[venue.access]}{venue.nearby?' · Outside Islington':''}</div>
       <h1 ref={heading} tabIndex={-1}>{venue.name}</h1>
       <p className="detail-area">{venue.area}</p>
-      <p className="detail-map-context">{venue.id==='spa-fields'?'The map uses the published venue location; a separate tennis court footprint is not recorded here.':'Mapped streets, parks, buildings and outdoor courts share the continuous Islington map. Indoor courts remain inside their halls.'}</p>
+      {venue.id==='spa-fields'&&<p className="detail-map-context">The map uses the published venue location; a separate tennis court footprint is not recorded here.</p>}
       <button className="court-illustration court-visit-button" onClick={onVisit} aria-label={(venue.access==='public'||venue.id==='barbican')?`Watch a miniature rally at ${venue.name}`:`Explore the miniature at ${venue.name}`}><div className="drawn-court" aria-hidden="true"><div className="singles"><div className="service-box"/></div><div className="court-net"/></div><span className="watch-label"><Icon name="play" size={14}/>{(venue.access==='public'||venue.id==='barbican')?'Watch a rally':'Explore the miniature'}</span></button>
       {onMappedHighbury&&<button className="mapped-highbury-open" onClick={onMappedHighbury}><Icon name="pin" size={16}/> Focus court groups on map <Icon name="arrow" size={15}/></button>}
       {venue.id==='islington-tennis-centre'&&<CentreProgramme/>}
       {coaching.filter(provider=>!provider.registeredCoach).map(provider=><button key={provider.id} className="coaching-link" onClick={()=>onCoaching(provider.id)}><Icon name="ball" size={16}/> {provider.name} <Icon name="arrow" size={15}/></button>)}
+      {coaching.some(provider=>provider.registeredCoach)&&<details className="sources"><summary>Private coaches at this venue · {coaching.filter(provider=>provider.registeredCoach).length}</summary>{coaching.filter(provider=>provider.registeredCoach).map(provider=><button className="coaching-link" key={provider.id} onClick={()=>onCoaching(provider.id)}><Icon name="ball" size={16}/>{provider.name}<Icon name="arrow" size={15}/></button>)}</details>}
       {onPlay&&<button className="play-court-cta" onClick={onPlay}><Icon name="people" size={18}/> Find people to play with <Icon name="arrow" size={15}/></button>}
       <p className="detail-description">{venue.description}</p>
       <dl className="court-facts"><div><dt>Courts</dt><dd>{venue.courts??'Shared ball court'}</dd></div><div><dt>Surface</dt><dd>{venue.surface}</dd></div><div><dt>Lighting</dt><dd>{venue.lighting}</dd></div></dl>

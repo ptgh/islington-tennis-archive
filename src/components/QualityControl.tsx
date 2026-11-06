@@ -10,7 +10,7 @@ export function QualityControl({ settings, onChange, open, onOpenChange }: Props
   const root = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null), panel = useRef<HTMLElement>(null)
   const id = useId()
   useEffect(() => {
-    if (open) panel.current?.querySelector<HTMLInputElement>('input:checked')?.focus()
+    if (open) panel.current?.querySelector<HTMLInputElement>('input:checked')?.focus({preventScroll:true})
   }, [open])
   useEffect(() => {
     if (!open) return
@@ -18,7 +18,7 @@ export function QualityControl({ settings, onChange, open, onOpenChange }: Props
     document.addEventListener('pointerdown', outside)
     return () => document.removeEventListener('pointerdown', outside)
   }, [open, onOpenChange])
-  const close = () => { onOpenChange(false); trigger.current?.focus() }
+  const close = () => { onOpenChange(false); trigger.current?.focus({preventScroll:true}) }
   return <div ref={root} className="quality-control" onKeyDown={event => {
     if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); close() }
   }}>

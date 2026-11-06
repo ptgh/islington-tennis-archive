@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import {destinationFeature} from './destinationHighlight.ts'
 import { createBoroughLife, createBoroughLifeAssets } from './createBoroughLife.ts'
 import type { TrafficSpace } from './trafficSpace.ts'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
@@ -152,5 +153,5 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  const proxies=batch(finishes.foliageShadowGeometry,finishes.foliageShadowProxy,crowns,true);if(proxies){proxies.layers.set(SHADOW_PROXY_LAYER);proxies.customDepthMaterial=finishes.foliageShadowDepth}
  const life=createBoroughLife(data,materials.lifeAssets,traffic);root.add(life.root)
  root.userData.coverage={buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted}
- return {root,life,dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
+ return {root,life,destinationAt:(x:number,z:number,park:boolean)=>destinationFeature(data,x,z,park),dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
 }

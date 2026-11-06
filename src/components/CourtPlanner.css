@@ -17,7 +17,7 @@
 .court-comparison h3{font:21px var(--serif);margin:0 0 8px}
 .court-comparison p{font-size:10px;line-height:1.7;color:#61735d}
 .court-comparison dl{margin:8px 0}.court-comparison dl>div{display:grid;grid-template-columns:55px 1fr;gap:8px;margin:7px 0;line-height:1.6}.court-comparison dd{margin:0}
-.comparison-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.comparison-actions a{font-size:10px;color:var(--ink)}
+.comparison-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}.comparison-actions a{font-size:10px;color:var(--ink)}
 .mapped-highbury-open{display:flex;align-items:center;gap:8px;width:100%;padding:13px;margin:12px 0;border:1px solid var(--line);border-radius:8px;font-size:11px;text-align:left}
 .mapped-highbury-open svg:last-child{margin-left:auto}
 .mapped-court-group{position:absolute;left:0;top:0;width:190px;margin-left:-95px;text-align:center;pointer-events:none;background:#faf8edee;color:#294e3b;padding:6px 9px;border:1px solid #d9ddca;border-radius:7px;font:10px/1.5 var(--sans)}
