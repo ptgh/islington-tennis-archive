@@ -1,3 +1,4 @@
+import {boroughAmenities} from './boroughAmenities';
 import {venues} from './venues';
 import {hubServices} from './hub';
 import {playOpportunities} from './play';
@@ -7,7 +8,7 @@ import {mapStations,tubeConnections} from './transit';
 /** Content boundary for future boroughs. The continuous geographic scene remains Islington-specific. */
 export const borough = {
   id:'islington',name:'Islington',timeZone:'Europe/London',
-  venues,services:hubServices,play:playOpportunities,places,busRoutes,
+  venues,services:hubServices,play:playOpportunities,places,busRoutes,amenities:boroughAmenities,
   stations:mapStations,tubeConnections,
   tour:[
     {name:'Highbury Fields',lat:venues[0].lat,lng:venues[0].lng,description:'Start among the park courts — explore a venue pin to book or find coaching.'},

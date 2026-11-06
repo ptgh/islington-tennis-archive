@@ -1,0 +1,162 @@
+- main [ref=f1e3]:
+  - link "Skip to tennis hub" [ref=f1e4] [cursor=pointer]:
+    - /url: "#court-browser"
+  - generic [ref=f1e5]:
+    - img "Continuous geographic map of Islington. Drag to pan, scroll or pinch to zoom, right-drag or Shift + two-finger scroll to tilt and rotate. Select court markers to discover venues." [ref=f1e6]
+    - generic "Courts on the map":
+      - button "1. Highbury Fields. View court details" [ref=f1e7] [cursor=pointer]:
+        - generic [ref=f1e8]: "1"
+    - status [ref=f1e9]: Loading street detail…
+  - button "Forecast" [ref=f1e12] [cursor=pointer]
+  - button "Places" [ref=f1e15] [cursor=pointer]
+  - button "Cameras" [ref=f1e17] [cursor=pointer]
+  - button "Atlas" [ref=f1e18] [cursor=pointer]
+  - button "Ask" [ref=f1e19] [cursor=pointer]
+  - button "Sign up or sign in" [ref=f1e20] [cursor=pointer]
+  - generic:
+    - button "Islington Tennis home" [ref=f1e24] [cursor=pointer]:
+      - generic [ref=f1e28]: Islington Tennis
+    - generic [ref=f1e29]:
+      - button "About" [ref=f1e30] [cursor=pointer]
+      - generic [ref=f1e32]:
+        - button "Switch to day" [ref=f1e33] [cursor=pointer]:
+          - generic [ref=f1e36]: Night
+        - button "Preview time of day" [ref=f1e37] [cursor=pointer]: Time
+  - complementary "Explore the tennis hub" [ref=f1e38]:
+    - navigation "Explore the tennis hub" [ref=f1e39]:
+      - button "Courts" [ref=f1e40] [cursor=pointer]
+      - button "Play together" [ref=f1e41] [cursor=pointer]
+      - button "Coaching" [ref=f1e42] [cursor=pointer]
+      - button "Gear" [ref=f1e43] [cursor=pointer]
+      - button "Bus routes" [ref=f1e44] [cursor=pointer]
+    - generic [ref=f1e45]:
+      - heading "Find your next court." [level=1] [ref=f1e46]
+      - paragraph [ref=f1e47]: A local guide to your next hit.One connected map of Islington.
+    - generic [ref=f1e48]:
+      - textbox "Search courts or neighbourhoods" [ref=f1e53]
+      - generic "Court access filters" [ref=f1e54]:
+        - button "All courts" [pressed] [ref=f1e55] [cursor=pointer]
+        - button "Public" [ref=f1e56] [cursor=pointer]
+        - button "Other access" [ref=f1e57] [cursor=pointer]
+      - group "Facilities" [ref=f1e58]:
+        - generic [ref=f1e60]:
+          - generic [ref=f1e61] [cursor=pointer]:
+            - radio "Any" [checked] [ref=f1e62]
+            - generic [ref=f1e63]: Any
+          - generic [ref=f1e64] [cursor=pointer]:
+            - radio "Indoor" [ref=f1e65]
+            - generic [ref=f1e66]: Indoor
+          - generic [ref=f1e67] [cursor=pointer]:
+            - radio "Floodlit" [ref=f1e68]
+            - generic [ref=f1e69]: Floodlit
+      - group [ref=f1e70]:
+        - generic "When would you like to play?" [ref=f1e71] [cursor=pointer]
+      - generic [ref=f1e72]:
+        - checkbox "Favourite courts only" [ref=f1e73]
+        - text: Favourite courts only
+      - generic [ref=f1e74]: Favourites saved on this browser.
+    - generic [ref=f1e75]:
+      - generic [ref=f1e76]: 8 places to play
+      - generic [ref=f1e77]: Explore
+    - generic "Tennis court results" [ref=f1e80]:
+      - generic [ref=f1e81]:
+        - button "Highbury Fields 11 outdoor courts · Public Checking listed times…" [ref=f1e82] [cursor=pointer]:
+          - generic [ref=f1e87]:
+            - generic [ref=f1e88]: Highbury Fields
+            - generic [ref=f1e89]: 11 outdoor courts · Public
+            - generic [ref=f1e90]: Checking listed times…
+        - generic [ref=f1e93]:
+          - button "Save Highbury Fields" [ref=f1e94] [cursor=pointer]: ☆
+          - button "Compare Highbury Fields" [ref=f1e95] [cursor=pointer]: Compare
+      - generic [ref=f1e96]:
+        - button "Islington Tennis Centre 6 indoor + 2 outdoor · Public Checking listed times…" [ref=f1e97] [cursor=pointer]:
+          - generic [ref=f1e102]:
+            - generic [ref=f1e103]: Islington Tennis Centre
+            - generic [ref=f1e104]: 6 indoor + 2 outdoor · Public
+            - generic [ref=f1e105]: Checking listed times…
+        - generic [ref=f1e108]:
+          - button "Save Islington Tennis Centre" [ref=f1e109] [cursor=pointer]: ☆
+          - button "Compare Islington Tennis Centre" [ref=f1e110] [cursor=pointer]: Compare
+      - generic [ref=f1e111]:
+        - 'button "Rosemary Gardens 2 outdoor courts · Public Times: check operator" [ref=f1e112] [cursor=pointer]':
+          - generic [ref=f1e117]:
+            - generic [ref=f1e118]: Rosemary Gardens
+            - generic [ref=f1e119]: 2 outdoor courts · Public
+            - generic [ref=f1e120]: "Times: check operator"
+        - generic [ref=f1e123]:
+          - button "Save Rosemary Gardens" [ref=f1e124] [cursor=pointer]: ☆
+          - button "Compare Rosemary Gardens" [ref=f1e125] [cursor=pointer]: Compare
+      - generic [ref=f1e126]:
+        - 'button "Tufnell Park 2 outdoor courts · Public Times: check operator" [ref=f1e127] [cursor=pointer]':
+          - generic [ref=f1e132]:
+            - generic [ref=f1e133]: Tufnell Park
+            - generic [ref=f1e134]: 2 outdoor courts · Public
+            - generic [ref=f1e135]: "Times: check operator"
+        - generic [ref=f1e138]:
+          - button "Save Tufnell Park" [ref=f1e139] [cursor=pointer]: ☆
+          - button "Compare Tufnell Park" [ref=f1e140] [cursor=pointer]: Compare
+      - generic [ref=f1e141]:
+        - 'button "Spa Fields Shared ball court · Free play Times: check operator" [ref=f1e142] [cursor=pointer]':
+          - generic [ref=f1e147]:
+            - generic [ref=f1e148]: Spa Fields
+            - generic [ref=f1e149]: Shared ball court · Free play
+            - generic [ref=f1e150]: "Times: check operator"
+        - generic [ref=f1e153]:
+          - button "Save Spa Fields" [ref=f1e154] [cursor=pointer]: ☆
+          - button "Compare Spa Fields" [ref=f1e155] [cursor=pointer]: Compare
+      - generic [ref=f1e156]:
+        - 'button "Elizabeth Garrett Anderson School 4 outdoor courts · School access Times: check operator" [ref=f1e157] [cursor=pointer]':
+          - generic [ref=f1e162]:
+            - generic [ref=f1e163]: Elizabeth Garrett Anderson School
+            - generic [ref=f1e164]: 4 outdoor courts · School access
+            - generic [ref=f1e165]: "Times: check operator"
+        - generic [ref=f1e168]:
+          - button "Save Elizabeth Garrett Anderson School" [ref=f1e169] [cursor=pointer]: ☆
+          - button "Compare Elizabeth Garrett Anderson School" [ref=f1e170] [cursor=pointer]: Compare
+      - generic [ref=f1e171]:
+        - 'button "Coolhurst Tennis & Squash Club 14 courts · Members’ club Times: check operator Crouch End · Haringey" [ref=f1e172] [cursor=pointer]':
+          - generic [ref=f1e177]:
+            - generic [ref=f1e178]: Coolhurst Tennis & Squash Club
+            - generic [ref=f1e179]: 14 courts · Members’ club
+            - generic [ref=f1e180]: "Times: check operator"
+            - generic [ref=f1e181]: Crouch End · Haringey
+        - generic [ref=f1e184]:
+          - button "Save Coolhurst Tennis & Squash Club" [ref=f1e185] [cursor=pointer]: ☆
+          - button "Compare Coolhurst Tennis & Squash Club" [ref=f1e186] [cursor=pointer]: Compare
+      - generic [ref=f1e187]:
+        - 'button "Barbican Lawn Tennis Club 2 hard courts · Residents’ club Times: check operator Barbican · City of London" [ref=f1e188] [cursor=pointer]':
+          - generic [ref=f1e193]:
+            - generic [ref=f1e194]: Barbican Lawn Tennis Club
+            - generic [ref=f1e195]: 2 hard courts · Residents’ club
+            - generic [ref=f1e196]: "Times: check operator"
+            - generic [ref=f1e197]: Barbican · City of London
+        - generic [ref=f1e200]:
+          - button "Save Barbican Lawn Tennis Club" [ref=f1e201] [cursor=pointer]: ☆
+          - button "Compare Barbican Lawn Tennis Club" [ref=f1e202] [cursor=pointer]: Compare
+    - generic [ref=f1e203]:
+      - generic [ref=f1e204]: Good places. More play.
+      - button "About directory coverage" [ref=f1e205] [cursor=pointer]
+  - button "Explore map" [expanded] [ref=f1e208] [cursor=pointer]
+  - generic:
+    - heading "Islington" [level=2]
+    - paragraph: London, at play.
+  - generic "Map controls" [ref=f1e211]:
+    - button "Picture quality" [ref=f1e213] [cursor=pointer]:
+      - generic [ref=f1e216]: Quality
+    - generic [ref=f1e217]:
+      - button "Zoom in" [ref=f1e218] [cursor=pointer]
+      - button "Zoom out" [ref=f1e221] [cursor=pointer]
+    - button "Map view & gestures" [ref=f1e224] [cursor=pointer]
+    - button "Reset map view" [ref=f1e227] [cursor=pointer]
+  - generic [ref=f1e232]:
+    - generic [ref=f1e233]:
+      - button "Stations" [ref=f1e234] [cursor=pointer]
+      - button "Buses" [pressed] [ref=f1e236] [cursor=pointer]
+      - button "Trains" [pressed] [ref=f1e240] [cursor=pointer]
+      - button "Pause world" [pressed] [ref=f1e244] [cursor=pointer]
+    - button "Islington · OSM geography" [ref=f1e248] [cursor=pointer]
+  - status "Loading Islington Tennis":
+    - paragraph: Islington Tennis
+    - paragraph: London, at play.
+  - link "© OpenStreetMap" [ref=f1e251] [cursor=pointer]:
+    - /url: https://www.openstreetmap.org/copyright

@@ -1,3 +1,4 @@
+import {benchSites,busStopSites} from './boroughFurniture.ts'
 import * as THREE from 'three'
 import {destinationFeature} from './destinationHighlight.ts'
 import { createBoroughLife, createBoroughLifeAssets } from './createBoroughLife.ts'
@@ -22,7 +23,7 @@ export function createBoroughMaterials() {
  const paving=cloneArchitecturalFinish(finishes.paving,'#c6bfab')
  const parkPath=cloneArchitecturalFinish(finishes.parkPath,'#c6bfab')
  const road=cloneArchitecturalFinish(finishes.asphalt,'#838a7f')
- const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4')
+ const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4'),stopRed=plain('#ba4d40')
  const water=new THREE.MeshStandardMaterial({color:'#608d85',roughness:.27,metalness:.12})
  water.name='Borough canal water'
  const waterTime={value:0},waterWind={value:0}
@@ -41,16 +42,16 @@ export function createBoroughMaterials() {
  water.customProgramCacheKey=()=> 'borough-canal-ripples-v2'
  const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
- return {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle,lifeAssets,
+ return {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
  animateSurfaces(time:number,wind:number){waterTime.value=time;waterWind.value=wind},
  setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
- dispose(){[...brick,...roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
+ dispose(){[...brick,...roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
-export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,traffic?:TrafficSpace) {
+export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,traffic?:TrafficSpace,cellId?:string) {
  const root=new THREE.Group();root.name='Islington geographic cell'
- const {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,water,box,circle}=materials
+ const {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,stopRed,water,box,circle}=materials
  const batches=new Map<THREE.Material,THREE.BufferGeometry[]>(),instances=new Map<THREE.Material,THREE.Matrix4[]>(),caps=new Map<THREE.Material,THREE.Matrix4[]>()
  const transform=new THREE.Object3D()
  function part(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number,angle=0,target=instances){transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,angle,0);transform.updateMatrix();const list=target.get(m)??[];list.push(transform.matrix.clone());target.set(m,list)}
@@ -81,6 +82,21 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  for(const {a,b,width} of boroughStreetEdges(data.roads)){
   const dx=b[0]-a[0],dz=b[1]-a[1]
   part(stone,(a[0]+b[0])/2,.015,(a[1]+b[1])/2,Math.hypot(dx,dz),.012,width,-Math.atan2(dz,dx))
+ }
+ const benches=benchSites(data),stops=busStopSites(data,cellId)
+ for(const site of benches){
+  const c=Math.cos(site.heading),s=Math.sin(site.heading)
+  const piece=(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number)=>part(m,site.x+c*x+s*z,y,site.z-s*x+c*z,w,h,d,site.heading)
+  for(const z of [-.024,-.008,.008,.024])piece(finishes.timber,0,.055,z,.18,.009,.012)
+  for(const y of [.085,.108,.131])piece(finishes.timber,0,y,-.039,.18,.014,.009)
+  for(const x of [-.07,.07]){for(const z of [-.024,.024])piece(metal,x,.029,z,.012,.05,.012);piece(metal,x,.086,-.039,.01,.11,.01)}
+ }
+ for(const stop of stops){
+  part(metal,stop.x,.15,stop.z,.009,.30,.009)
+  part(white,stop.x,.285,stop.z,.095,.10,.009)
+  part(stopRed,stop.x,.292,stop.z+.006,.07,.05,.004)
+  part(white,stop.x,.292,stop.z+.009,.045,.026,.004)
+  part(metal,stop.x,.292,stop.z+.012,.075,.013,.004)
  }
  for(const f of data.railways)for(let i=1;i<f.points.length;i++){
   const a=f.points[i-1],b=f.points[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz),angle=-Math.atan2(dz,dx)
@@ -150,8 +166,9 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  for(const [material,matrices] of caps)batch(circle,material,matrices)
  const leaves=batch(finishes.foliageGeometry,finishes.foliage,crowns)
  crowns.forEach((_,i)=>leaves?.setColorAt(i,new THREE.Color(['#6a854f','#7f965c','#5f7e4d','#8b9f62'][i%4])))
- const proxies=batch(finishes.foliageShadowGeometry,finishes.foliageShadowProxy,crowns,true);if(proxies){proxies.layers.set(SHADOW_PROXY_LAYER);proxies.customDepthMaterial=finishes.foliageShadowDepth}
+ if(leaves?.boundingSphere)leaves.boundingSphere.radius+=.05
+ const proxies=batch(finishes.foliageShadowGeometry,finishes.foliageShadowProxy,crowns,true);if(proxies){if(proxies.boundingSphere)proxies.boundingSphere.radius+=.05;proxies.layers.set(SHADOW_PROXY_LAYER);proxies.customDepthMaterial=finishes.foliageShadowDepth}
  const life=createBoroughLife(data,materials.lifeAssets,traffic);root.add(life.root)
- root.userData.coverage={buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted}
+ root.userData.coverage={buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted,illustrativeBenches:benches.length,recordedBusStops:stops.length}
  return {root,life,destinationAt:(x:number,z:number,park:boolean)=>destinationFeature(data,x,z,park),dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
 }

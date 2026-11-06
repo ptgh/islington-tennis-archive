@@ -539,14 +539,23 @@ export function createMiniatureMaterials(worldScale=1) {
         float lawnFilter=max(length(dFdx(lawnWorld)),length(dFdy(lawnWorld)));
         float lawnBlade=lawnNoise(lawnWorld*46.0)*2.0-1.0;
         float lawnCut=sin(dot(lawnWorld,vec2(.80,.60))*1.35);
+        float lawnTufts=0.0;
+        if(lawnFilter<.12){
+          vec2 bladeGrid=lawnWorld*vec2(24.0,7.0),bladeCell=floor(bladeGrid),bladeUv=fract(bladeGrid)-.5;
+          float bladeSeed=lawnHash(bladeCell);
+          float bladeBend=sin(miniatureLawnTime*1.1+dot(bladeCell,vec2(.07,.11)))*min(.18,miniatureLawnWind/${worldScale.toFixed(3)}*.5);
+          float bladeStem=1.0-smoothstep(.02,.10,abs(bladeUv.x+bladeUv.y*(bladeSeed-.5+bladeBend)));
+          lawnTufts=bladeStem*smoothstep(-.45,.25,bladeUv.y)*(bladeSeed-.35)*(1.0-smoothstep(.025,.12,lawnFilter));
+        }
         diffuseColor.rgb *= mix(.82, 1.12, lawnBroad) * mix(.92, 1.06, lawnFine);
+        diffuseColor.rgb *= 1.0+lawnTufts*.18;
         diffuseColor.rgb *= 1.0+lawnBlade*.065*(1.0-smoothstep(.025,.12,lawnFilter));
         diffuseColor.rgb *= 1.0+lawnCut*.012*(1.0-smoothstep(2.0,6.0,lawnFilter));
         float lawnGust=sin(dot(lawnWorld,vec2(.28,.17))-miniatureLawnTime*.9);
         diffuseColor.rgb *= 1.0+lawnGust*min(.025,miniatureLawnWind/${worldScale.toFixed(3)}*.075)*(1.0-smoothstep(2.0,8.0,lawnFilter));
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.1, 1.02, .8), smoothstep(.6, .8, lawnBroad) * .45);`)
     }
-    material.customProgramCacheKey = () => key+'-metres-gust-v4-'+worldScale
+    material.customProgramCacheKey = () => key+'-metres-blade-gust-v5-'+worldScale
   }
   mottle(grass, 'miniature-lawn-v1')
   mottle(parkGrass, 'miniature-park-lawn-v1')
@@ -626,7 +635,7 @@ export function createMiniatureMaterials(worldScale=1) {
         #ifdef USE_INSTANCING
           windOrigin = instanceMatrix[3].xyz;
         #endif
-        float windPhase = windOrigin.x * .021 + windOrigin.z * .017;
+        float windPhase = (windOrigin.x * .021 + windOrigin.z * .017) / ${worldScale.toFixed(3)};
         float crownWeight = clamp((position.y + 1.0) * .5, 0.0, 1.0);
         // Stable asymmetric masses add variety without moving trees, consuming
         // random numbers, expanding bounds or adding crown/shadow triangles.
@@ -640,11 +649,12 @@ export function createMiniatureMaterials(worldScale=1) {
         transformed.xz *= crownLobe;
         float gust = .72 + .28 * sin(miniatureWindTime * .19 + windPhase * .35);
         float flutter = sin(miniatureWindTime * 2.4 + windPhase * 1.7) * .12;
-        transformed.x += (sin(miniatureWindTime * .85 + windPhase) + flutter) * miniatureWindStrength * gust * crownWeight;
-        transformed.z += cos(miniatureWindTime * .63 + windPhase) * miniatureWindStrength * .55 * gust * crownWeight;
+        float crownBend = miniatureWindStrength * (1.0 + crownWeight * .6);
+        transformed.x += (sin(miniatureWindTime * .85 + windPhase) + flutter) * crownBend * gust * crownWeight;
+        transformed.z += cos(miniatureWindTime * .63 + windPhase) * crownBend * .55 * gust * crownWeight;
       `)
     }
-    material.customProgramCacheKey = () => 'miniature-crown-wind-v4'
+    material.customProgramCacheKey = () => 'miniature-crown-wind-v6'
   }
   wind(foliage)
   const prepareFoliage=foliage.onBeforeCompile
@@ -661,7 +671,7 @@ export function createMiniatureMaterials(worldScale=1) {
     )
     shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',lighting)
   }
-  foliage.customProgramCacheKey=()=> 'miniature-crown-wind-leaf-light-v5'
+  foliage.customProgramCacheKey=()=> 'miniature-crown-wind-leaf-light-v6'
   const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaMap:foliageAlpha, alphaTest:.18, side: THREE.DoubleSide })
   wind(foliageDepth)
   const foliageGeometry = createFoliageGeometry()

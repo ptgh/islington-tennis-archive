@@ -2,6 +2,7 @@ import { attachMapOrbitGesture, orbitMapCamera } from '../scene/mapNavigation';
 import { CloseButton } from './CloseButton';
 import type { ViewSettings } from '../data/viewQuality'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import {boroughAmenities} from '../data/boroughAmenities'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -35,7 +36,7 @@ export interface TownMapHandle {
   orbit: (yaw: number, pitch: number) => void
   visitCourt: (id: string) => void
   locate: (lat: number, lng: number, zoom?: number) => void
-  lifeLocation: (kind:'cycle'|'fox') => {lat:number;lng:number}|null
+  lifeLocation: (kind:'cycle'|'fox'|'emergency') => {lat:number;lng:number}|null
   visitVan: () => void
   followRoute: (id: string) => boolean
 }
@@ -591,7 +592,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     engine.frame()
   }, [night, lightingTime, naturalTime, ready])
 
-  useEffect(()=>{const place=locatedPlace&&!locatedPlace.wildlife?places.find(p=>p.name===locatedPlace.name):undefined;engineRef.current?.world.setDestination(place?geoPosition(place.lat,place.lng):null,place?.kind==='park');},[locatedPlace,ready])
+  useEffect(()=>{const matches=(p:{name:string;lat:number;lng:number})=>!!locatedPlace&&!locatedPlace.wildlife&&p.name===locatedPlace.name&&Math.abs(p.lat-locatedPlace.lat)<1e-6&&Math.abs(p.lng-locatedPlace.lng)<1e-6;const park=boroughAmenities.parks.find(matches),place=places.find(matches),target=park??place;engineRef.current?.world.setDestination(target?geoPosition(target.lat,target.lng):null,!!park||place?.kind==='park');},[locatedPlace,ready])
 
   // End a deselected bus tour once; unrelated layer/feed updates must not
   // cancel a Places camera journey.

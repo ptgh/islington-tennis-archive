@@ -16,7 +16,7 @@ const sourceUrl=(path:string)=>`${import.meta.env?.BASE_URL??'/'}${path}`
 type Tile=ReturnType<typeof createBoroughTile>
 type Cell=typeof boroughGeography.cells[number]
 export type BusRideStatus={id:string;progress:number;destinationId:string;walkMetres:number}
-export type IslingtonWorld=TownWorld & { ready:Promise<void>; updateView:(camera:THREE.Camera,zoom:number,target:THREE.Vector3)=>void; setTrains:(value:boolean)=>void; setDestination:(point:THREE.Vector3|null,park?:boolean)=>void; lifeLocation:(kind:'cycle'|'fox',near:THREE.Vector3)=>THREE.Vector3|null; busPosition:(id:string,target:THREE.Vector3)=>boolean; startBusRide:(id:string)=>boolean; busRideStatus:()=>BusRideStatus|null; retry:()=>void; status:{loading:number;failed:number;loaded:number} }
+export type IslingtonWorld=TownWorld & { ready:Promise<void>; updateView:(camera:THREE.Camera,zoom:number,target:THREE.Vector3)=>void; setTrains:(value:boolean)=>void; setDestination:(point:THREE.Vector3|null,park?:boolean)=>void; lifeLocation:(kind:'cycle'|'fox'|'emergency',near:THREE.Vector3)=>THREE.Vector3|null; busPosition:(id:string,target:THREE.Vector3)=>boolean; startBusRide:(id:string)=>boolean; busRideStatus:()=>BusRideStatus|null; retry:()=>void; status:{loading:number;failed:number;loaded:number} }
 
 /** One continuous source map. Stream/cull local detail in shared world coordinates;
  * the borough-wide overview remains present during loading and across cell seams. */
@@ -62,7 +62,7 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
    const controller=new AbortController();let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;controller.abort()},15000);loading.set(cell.id,controller);notify()
    fetch(sourceUrl(cell.url),{signal:controller.signal}).then(r=>{if(!r.ok)throw Error('Map cell unavailable');return r.json()}).then((data:BoroughCell)=>{
     if(disposed||!desired.has(cell.id))return
-    const tile=createBoroughTile(data,materials,traffic);tile.life.setNight(night);tile.life.setTrains(trainsVisible);tile.life.root.visible=detailLife;tile.root.userData.cellId=cell.id;root.add(tile.root);loaded.set(cell.id,{tile,used:++revision});failed.delete(cell.id);readyResolve();evict();refreshHighlight()
+    const tile=createBoroughTile(data,materials,traffic,cell.id);tile.life.setNight(night);tile.life.setTrains(trainsVisible);tile.life.root.visible=detailLife;tile.root.userData.cellId=cell.id;root.add(tile.root);loaded.set(cell.id,{tile,used:++revision});failed.delete(cell.id);readyResolve();evict();refreshHighlight()
    }).catch(error=>{if(!disposed&&(error.name!=='AbortError'||timedOut))failed.add(cell.id)}).finally(()=>{clearTimeout(timeout);loading.delete(cell.id);if(!disposed&&desired.has(cell.id)&&!loaded.has(cell.id)&&!failed.has(cell.id)&&!queue.some(c=>c.id===cell.id))queue.push(cell);notify();if(!disposed){readyResolve();pump()}})
   }
   notify()
