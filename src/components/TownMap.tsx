@@ -1,4 +1,4 @@
-import { attachMapOrbitGesture, flightPlan, flightZoom, orbitMapCamera } from '../scene/mapNavigation';
+import { attachMapOrbitGesture, flightPlan, flightZoom, orbitMapCamera, wheelBelongsToMap } from '../scene/mapNavigation';
 import { CloseButton } from './CloseButton';
 import type { ViewSettings } from '../data/viewQuality'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
@@ -271,6 +271,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const raycaster = new THREE.Raycaster()
     let journey: {start:number;fromPosition:THREE.Vector3;toPosition:THREE.Vector3;fromTarget:THREE.Vector3;toTarget:THREE.Vector3;fromZoom:number;toZoom:number;duration:number;cruise:number|null}|null=null
     let followedRoute: string | null = null
+    let homeView: {x:number;z:number;zoom:number}|null = null
     let lastRideUpdate=0
     const followedPosition = new THREE.Vector3(), followedPrevious = new THREE.Vector3(), followedDelta = new THREE.Vector3()
     const cancelTravel=()=>{journey=null;world.endFlight();followedRoute=null;setBusRide(null)}
@@ -386,7 +387,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
         const spanX=(Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x)))*width/2
         const spanY=(Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y)))*height/2
         const available=visibleMapFrame(),zoom=Math.min((available.right-available.left)*.98/spanX,(available.bottom-available.top)*.96/spanY)
-        travel(center,THREE.MathUtils.clamp(zoom,4.5,18),true);return
+        travel(center,THREE.MathUtils.clamp(zoom,4.5,18),true);homeView={x:controls.target.x,z:controls.target.z,zoom:camera.zoom};return
       }
 
     }
@@ -429,8 +430,12 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       camera.updateProjectionMatrix()
       controls.minZoom=boroughFitZoom()
       applyResolution()
-      if(changed&&runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
-      else if(wasMobile!==(width<=760))reset()
+      // The app follows the visible area, so a browser pinch-zoom looks like a resize.
+      // Neither that nor a window change may take the camera away from where someone is looking.
+      const pinched=(window.visualViewport?.scale??1)>1.01
+      const atHome=!homeView||(Math.hypot(controls.target.x-homeView.x,controls.target.z-homeView.z)<.5&&Math.abs(camera.zoom/homeView.zoom-1)<.01)
+      if(changed&&runtimeRef.current.activeVisitId&&!pinched)visitCourt(runtimeRef.current.activeVisitId,true)
+      else if(wasMobile!==(width<=760)&&!pinched&&atHome)reset()
       frame()
     }
     const project = (point: THREE.Vector3, element: HTMLElement | undefined | null, enabled = true, lift = 0, top = 32, bottom = 40) => {
@@ -579,6 +584,17 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     }
     const detachOrbitGesture=attachMapOrbitGesture(renderer.domElement,(yaw,pitch)=>{cancelTravel();orbitMapCamera(camera,controls.target,controls.minPolarAngle,controls.maxPolarAngle,yaw,pitch);controls.update();frame();});
     renderer.domElement.addEventListener('keydown', keydown)
+    const app=host.parentElement
+    const wheelOverlay=(event:WheelEvent)=>{
+      const target=event.target as Element|null
+      if(!target)return
+      // OrbitControls skips preventDefault mid-gesture, which would let a pinch zoom the page.
+      if(target===renderer.domElement){if(event.ctrlKey)event.preventDefault();return}
+      if(!wheelBelongsToMap(target,event.ctrlKey))return
+      event.preventDefault()
+      renderer.domElement.dispatchEvent(new WheelEvent('wheel',event))
+    }
+    app?.addEventListener('wheel',wheelOverlay,{capture:true,passive:false})
     const doubleClick = (event: MouseEvent) => { event.preventDefault(); if(runtimeRef.current.activeVisitId&&runtimeRef.current.onReset)runtimeRef.current.onReset();else reset() }
     renderer.domElement.addEventListener('dblclick', doubleClick)
     const contextLost = (event: Event) => { event.preventDefault(); setFailed(true) }
@@ -595,6 +611,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       controls.removeEventListener('change', cameraChanged)
       reducedMotion.removeEventListener('change', motionChanged)
       detachOrbitGesture()
+      app?.removeEventListener('wheel',wheelOverlay,{capture:true})
       controls.dispose()
       renderer.domElement.removeEventListener('keydown', keydown)
       renderer.domElement.removeEventListener('dblclick', doubleClick)

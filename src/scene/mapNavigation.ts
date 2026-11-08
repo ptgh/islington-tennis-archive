@@ -16,6 +16,16 @@ export function flightZoom(fromZoom: number, toZoom: number, cruise: number | nu
   return Math.exp(from + (to - from) * eased - dip * 4 * eased * (1 - eased));
 }
 
+const OWN_SCROLLING = 'dialog,.tennis-atlas,.directory-panel,.ask-dialog';
+const FLOATS_OVER_MAP = '.pill,.icon-button,.map-toolbar,.map-footer,.app-header';
+/** Pins, labels and floating buttons sit on top of the canvas, so a gesture that starts on
+ * one never reaches it, and a pinch then zooms the whole page. Panels keep their own
+ * scrolling, and the browser's pinch-zoom stays available over them for anyone who needs it. */
+export function wheelBelongsToMap(target: { closest: (selector: string) => unknown }, pinch: boolean) {
+  if (target.closest(OWN_SCROLLING)) return false;
+  return !!target.closest('.town-map') || (pinch && !!target.closest(FLOATS_OVER_MAP));
+}
+
 /** Orbit around the current target, preserving zoom, distance and geographic focus. */
 export function orbitMapCamera(camera: THREE.Camera, target: THREE.Vector3, minPolar: number, maxPolar: number, yaw: number, pitch: number) {
   const orbit = new THREE.Spherical().setFromVector3(camera.position.clone().sub(target));

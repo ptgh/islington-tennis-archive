@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { orbitMapCamera,flightPlan,flightZoom } from '../scene/mapNavigation.ts';
+import { orbitMapCamera,flightPlan,flightZoom,wheelBelongsToMap } from '../scene/mapNavigation.ts';
 import { supportsBusTour } from './busRoutes.ts';
 
 test('map orbit preserves geographic focus, distance and zoom and clamps tilt',()=>{
@@ -28,5 +28,15 @@ test('short trips stay low, long trips rise to the overview, and the flight ends
  assert.ok(Math.abs(flightZoom(6,18,far.cruise,0)-6)<1e-9);assert.ok(Math.abs(flightZoom(6,18,far.cruise,1)-18)<1e-9)
  assert.ok(Math.abs(flightZoom(6,18,far.cruise,.5)-far.cruise!)<1e-9,'the midpoint is the cruising height')
  assert.ok(Math.abs(flightZoom(6,18,null,.5)-Math.sqrt(6*18))<1e-9,'zoom moves evenly in scale')
+})
+
+test('gestures over pins and floating buttons reach the map, while panels keep their own',()=>{
+ const inside=(...selectors:string[])=>({closest:(query:string)=>selectors.some(s=>query.split(',').includes(s))||null})
+ assert.equal(wheelBelongsToMap(inside('.town-map'),true),true,'a pinch on a court label zooms the map')
+ assert.equal(wheelBelongsToMap(inside('.town-map'),false),true,'scrolling across a label keeps zooming')
+ assert.equal(wheelBelongsToMap(inside('.pill'),true),true,'a pinch on a floating button zooms the map')
+ assert.equal(wheelBelongsToMap(inside('.pill'),false),false,'a plain scroll on a button is left alone')
+ assert.equal(wheelBelongsToMap(inside('.directory-panel','.pill'),true),false,'the hub keeps the browser pinch-zoom')
+ assert.equal(wheelBelongsToMap(inside('dialog','.pill'),true),false)
 })
 
