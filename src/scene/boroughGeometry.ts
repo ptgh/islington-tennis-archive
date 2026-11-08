@@ -22,9 +22,24 @@ export function boroughCourtDimensions(c:{width:number;depth:number}){
  const w=enclosure?10.97:sourceW,d=enclosure?23.77:sourceD
  return {w,d,ow:enclosure?sourceW:w*1.45,od:enclosure?sourceD:d*1.32}
 }
-export function buildingHeight(tags:Record<string,string>={}) {
+/** Footprint area in world units squared (1 unit = 10 m). */
+export function footprintArea(points:number[][]){
+ return Math.abs(points.slice(1).reduce((sum,b,i)=>sum+points[i][0]*b[1]-b[0]*points[i][1],0))/2
+}
+/** OSM records no height for most buildings. A shed-sized one must not take the terrace default. */
+const HUT_AREA=.3,HUT_HEIGHT=.32
+export function buildingHeight(tags:Record<string,string>={},points?:number[][]) {
  const height=Number.parseFloat(tags.height??''),levels=Number.parseFloat(tags['building:levels']??'')
- return Math.max(.22,Math.min(9,Number.isFinite(height)&&height>0?height*.1:Number.isFinite(levels)&&levels>0?levels*.3:['garage','garages','shed','outbuilding'].includes(tags.building)?.28:['industrial','warehouse','sports_centre'].includes(tags.building)?1:tags.building==='apartments'?1.5:.95))
+ const unrecorded=points&&footprintArea(points)<HUT_AREA?HUT_HEIGHT:.95
+ return Math.max(.22,Math.min(9,Number.isFinite(height)&&height>0?height*.1:Number.isFinite(levels)&&levels>0?levels*.3:['garage','garages','shed','outbuilding'].includes(tags.building)?.28:['industrial','warehouse','sports_centre'].includes(tags.building)?1:tags.building==='apartments'?1.5:unrecorded))
+}
+/** Phones keep the original budget; a desktop window is wide enough to need four more cells. */
+export const detailCellLimit=(cssWidth:number)=>cssWidth>760?20:16
+/** 3D detail appears only once the budget nearly fills the view, so it can never
+ * sit on the flat overview as a hard-edged patch. Nearest cells win any remainder. */
+export function detailCellsInView<T extends {x:number;z:number}>(visible:T[],target:{x:number;z:number},limit:number){
+ if(visible.length>limit*1.25)return []
+ return [...visible].sort((a,b)=>Math.hypot(a.x-target.x,a.z-target.z)-Math.hypot(b.x-target.x,b.z-target.z)).slice(0,limit)
 }
 export function containsPoint(x:number,z:number,points:number[][]) {
  let inside=false

@@ -12,3 +12,5 @@ The source rectangle includes all of the stored borough boundary and context for
 `src/data/islington-geography.json` lists every cell and its content-addressed filename. Cells share the app's geographic projection and have no separate ground plates. `islington-overview.png` is baked from the same geometry for distant views; the app overlays source footprint geometry at street scale.
 
 Regenerate with `scripts/import-islington-geography.py` followed by `scripts/bake-islington-overview.py`. Pillow is needed only for authoring the saved overview, not for application builds. Keep the source date and attribution visible when redistributing.
+
+`islington-overview-phone.webp` is the same overview at 2048 px wide, written by `scripts/bake-islington-overview.py`. Phones load it instead of the PNG.

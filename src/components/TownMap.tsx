@@ -25,7 +25,8 @@ import { freeLabel, type NextFree } from '../data/freeCourts'
 import { cameraAvailability, type TrafficCamera } from '../data/trafficCameras'
 import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, createOcclusionExclusionTracker } from '../scene/renderQuality'
 import { createIslington, type IslingtonWorld, type BusRideStatus } from '../scene/createIslington'
-import { boroughBounds, courtsNearVenue } from '../scene/boroughGeometry'
+import { boroughBounds, boroughGeography, courtsNearVenue } from '../scene/boroughGeometry'
+import { BOROUGH_NEIGHBOURS, NEIGHBOUR_LABEL_MAX_ZOOM } from '../scene/createBoroughBoundary'
 import '../scene/TownMap.css'
 import {places} from '../data/places'
 
@@ -110,6 +111,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   const busPinRef=useRef<HTMLDivElement>(null)
   const shopRefs = useRef(new Map<string, HTMLButtonElement>())
   const cameraRefs = useRef(new Map<string, HTMLButtonElement>())
+  const neighbourRefs = useRef(new Map<string, HTMLDivElement>())
   const runtimeRef = useRef({ viewSettings, locatedPlace, suspended, selectedServiceId, followVan, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
   runtimeRef.current = { viewSettings, locatedPlace, suspended, selectedServiceId, followVan, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady,
@@ -127,7 +129,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const engine = engineRef.current
       if (!engine) return
       engine.cancelTravel()
-      engine.camera.zoom = Math.min(60, engine.camera.zoom * 1.3)
+      engine.camera.zoom = Math.min(engine.controls.maxZoom, engine.camera.zoom * 1.3)
       engine.camera.updateProjectionMatrix()
       engine.frame()
     },
@@ -135,7 +137,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const engine = engineRef.current
       if (!engine) return
       engine.cancelTravel()
-      engine.camera.zoom = Math.max(.1, engine.camera.zoom / 1.3)
+      engine.camera.zoom = Math.max(engine.controls.minZoom, engine.camera.zoom / 1.3)
       engine.camera.updateProjectionMatrix()
       engine.frame()
     },
@@ -373,6 +375,17 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       }
 
     }
+    // The furthest you can zoom out is the whole borough, edge to edge. Any further
+    // only shows how little map lies beyond it.
+    const boroughFitZoom=()=>{
+      const xs=boroughGeography.boundary.map(p=>p[0]),zs=boroughGeography.boundary.map(p=>p[1])
+      const center=new THREE.Vector3((Math.min(...xs)+Math.max(...xs))/2,0,(Math.min(...zs)+Math.max(...zs))/2),preview=camera.clone()
+      preview.position.copy(center).add(CAMERA_OFFSET);preview.lookAt(center);preview.zoom=1;preview.updateProjectionMatrix();preview.updateMatrixWorld()
+      const points=boroughGeography.boundary.map(([x,z])=>new THREE.Vector3(x,0,z).project(preview))
+      const spanX=(Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x)))*width/2
+      const spanY=(Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y)))*height/2
+      return Math.min(width*.92/spanX,height*.92/spanY)
+    }
     const quality = createAdaptiveResolution(1000 / 60, runtimeRef.current.viewSettings.preset)
     let resolutionDirty = false
     const applyResolution = () => {
@@ -399,6 +412,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       camera.top = halfHeight
       camera.bottom = -halfHeight
       camera.updateProjectionMatrix()
+      controls.minZoom=boroughFitZoom()
       applyResolution()
       if(changed&&runtimeRef.current.activeVisitId)visitCourt(runtimeRef.current.activeVisitId,true)
       else if(wasMobile!==(width<=760))reset()
@@ -436,13 +450,14 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       occlusion.blendIntensity=runtimeRef.current.night?.16:.44
       applySceneGrade(renderer,lens.uniforms,runtimeRef.current.night)
       renderer.shadowMap.needsUpdate=true
-      world.updateView(camera,camera.zoom,controls.target)
+      world.updateView(camera,camera.zoom,controls.target,width)
       const mapMessage=world.status.failed?'Some street detail could not load. The complete base map remains available.':world.status.loading?'Loading street detail…':''
       setMapStatus(previous=>previous===mapMessage?previous:mapMessage)
       composer.render()
       const runtime = runtimeRef.current
       for (const venue of venues) project(world.anchors.get(venue.id)!,markerRefs.current.get(venue.id),runtime.visibleIds.includes(venue.id),3)
       if(runtime.locatedPlace)project(geoPosition(runtime.locatedPlace.lat,runtime.locatedPlace.lng).setY(.3),placeRef.current,true,8)
+      for (const place of BOROUGH_NEIGHBOURS) project(new THREE.Vector3(place.x,0,place.z),neighbourRefs.current.get(place.name),camera.zoom<NEIGHBOUR_LABEL_MAX_ZOOM)
       for (const station of world.stations) project(station.position,stationRefs.current.get(station.name),runtime.showTransit)
       for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.15),cameraRefs.current.get(camera.id),runtime.showCameras,3)
       project(world.vanPosition.clone().setY(.3),vanRef.current,runtime.showShops)
@@ -471,6 +486,10 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
         camera.updateProjectionMatrix();needsFrame=true
         if(progress===1)journey=null
       }
+      // Panning stops at the surveyed map, so nobody can drift off into empty ground.
+      const heldX=THREE.MathUtils.clamp(controls.target.x,boroughBounds.minX,boroughBounds.maxX)-controls.target.x
+      const heldZ=THREE.MathUtils.clamp(controls.target.z,boroughBounds.minZ,boroughBounds.maxZ)-controls.target.z
+      if(heldX||heldZ){controls.target.x+=heldX;controls.target.z+=heldZ;camera.position.x+=heldX;camera.position.z+=heldZ;needsFrame=true}
       controls.update()
       weatherWorld.setKind(runtimeRef.current.weather)
       weatherWorld.animate(time / 1000, runtimeRef.current.activityRunning, weatherWind(runtimeRef.current.weather,runtimeRef.current.windMph))
@@ -533,8 +552,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       if (event.key === 'ArrowLeft') vector = right.multiplyScalar(-step)
       if (event.key === 'ArrowRight') vector = right.multiplyScalar(step)
       if (vector) { event.preventDefault(); camera.position.add(vector); controls.target.add(vector); controls.update() }
-      if (event.key === '+' || event.key === '=') { event.preventDefault(); camera.zoom = Math.min(60, camera.zoom * 1.2); camera.updateProjectionMatrix() }
-      if (event.key === '-') { event.preventDefault(); camera.zoom = Math.max(.1, camera.zoom / 1.2); camera.updateProjectionMatrix() }
+      if (event.key === '+' || event.key === '=') { event.preventDefault(); camera.zoom = Math.min(controls.maxZoom, camera.zoom * 1.2); camera.updateProjectionMatrix() }
+      if (event.key === '-') { event.preventDefault(); camera.zoom = Math.max(controls.minZoom, camera.zoom / 1.2); camera.updateProjectionMatrix() }
       if (event.key === 'Home') { event.preventDefault(); if(runtimeRef.current.activeVisitId&&runtimeRef.current.onReset)runtimeRef.current.onReset();else reset() }
       frame()
     }
@@ -636,6 +655,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
         <div className="bus-tour__actions"><button onClick={()=>engineRef.current?.followRoute(busRide.id)}>Replay tour</button><button onClick={()=>{engineRef.current?.cancelTravel();onSelect(busRide.destinationId)}}>Court details <Icon name="arrow" size={14}/></button></div>
       </section>}
       {busRide&&<div ref={busPinRef} className="bus-tour-marker" aria-hidden="true" style={{display:'none'}}><span><Icon name="bus" size={14}/> {busRide.id}</span></div>}
+      {BOROUGH_NEIGHBOURS.map(place=><div className="borough-neighbour" aria-hidden="true" key={place.name} ref={element=>{if(element)neighbourRefs.current.set(place.name,element);else neighbourRefs.current.delete(place.name)}} style={{display:'none'}}><span>{place.name}</span></div>)}
       <div className="town-map__labels" aria-label="Courts on the map">
         {venues.map((venue, index) => (
           <button

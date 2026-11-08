@@ -6,6 +6,7 @@ Re-run after scripts/import-islington-geography.py. North is image top.
 from PIL import Image,ImageDraw
 import json
 from pathlib import Path
+PHONE_WIDTH=2048
 m=json.load(open('src/data/islington-geography.json'));west,south,east,north=m['bbox'];minx=(west+.115)*6900;maxx=(east+.115)*6900;minz=-(north-51.549)*11100;maxz=-(south-51.549)*11100
 W=4096;H=round(W*(maxz-minz)/(maxx-minx));im=Image.new('RGB',(W,H),'#a9b69b');d=ImageDraw.Draw(im)
 def pts(p):return [((x-minx)/(maxx-minx)*W,(z-minz)/(maxz-minz)*H) for x,z in p]
@@ -30,3 +31,6 @@ for c in cells:
 for f in m['courts']:d.polygon(pts(f['points']),fill='#4e8b86',outline='#dce4d1')
 im.save('public/map/islington-overview.png',optimize=True)
 print(W,H,Path('public/map/islington-overview.png').stat().st_size)
+# Phones get a quarter of the pixels: less to download, a quarter of the GPU memory.
+phone=im.resize((PHONE_WIDTH,round(PHONE_WIDTH*H/W)),Image.LANCZOS);phone.save('public/map/islington-overview-phone.webp',quality=82,method=6)
+print(phone.size,Path('public/map/islington-overview-phone.webp').stat().st_size)

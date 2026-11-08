@@ -1,0 +1,18 @@
+.map-layers{position:relative}
+.map-layers__panel{display:none}
+.map-layers__links{display:none}
+@media(min-width:761px){
+ .app:has(.map-layers__panel--open) .map-footer{z-index:9}
+ .map-layers__panel--open{position:absolute;left:0;bottom:calc(100% + 10px);display:flex;flex-direction:column;gap:8px;width:max-content;padding:12px;border:1px solid #fff9;border-radius:16px;background:var(--paper);box-shadow:0 12px 40px #18342d30}
+ .map-layers__panel .layer-controls,.map-layers__links{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+ .map-layers__panel .pill{justify-content:flex-start;width:100%}
+ /* Their cards still open from these components; only the separate launchers fold away. */
+ .traffic-cameras>.pill{display:none}
+ .map-toolbar:not(:has(.quality-panel)) .quality-control{display:none}
+ .map-toolbar .quality-trigger{display:none}
+}
+@media(max-width:760px){
+ .map-layers{display:contents}
+ .map-footer .map-layers__trigger{display:none}
+ .map-layers__panel{display:contents}
+}

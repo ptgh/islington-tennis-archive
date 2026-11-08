@@ -1,4 +1,4 @@
-import {benchSites,busStopSites} from './boroughFurniture.ts'
+import {avenueTreeSites,benchSites,busStopSites} from './boroughFurniture.ts'
 import * as THREE from 'three'
 import {destinationFeature} from './destinationHighlight.ts'
 import { createBoroughLife, createBoroughLifeAssets } from './createBoroughLife.ts'
@@ -105,7 +105,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  }
  let detailedBuildings=0
  for(const f of data.buildings){
-  const id=Number(f.id),height=buildingHeight(f.tags),bounds=roofBounds(f.points),modern=bounds.width>2.2||['industrial','warehouse','commercial'].includes(f.tags?.building??'')
+  const id=Number(f.id),height=buildingHeight(f.tags,f.points),bounds=roofBounds(f.points),modern=bounds.width>2.2||['industrial','warehouse','commercial'].includes(f.tags?.building??'')
   if(addCaledonianClockTower(f,height,{stone:trim,dark:door,dial:white,roof:roofs[0],polygon,part,collect})){detailedBuildings++;continue}
   const palette=Math.abs(id)%brick.length;polygon(f,brick[palette],.012,height)
   const pitched=!modern&&!f.holes?.length&&f.tags?.['roof:shape']!=='flat'&&bounds.width>.3
@@ -159,6 +159,10 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
    tree(x,z,planted++);
   }
  }
+ // OSM records only some of the mature trees along park walks. Own index range,
+ // so the established perimeter planting above keeps its positions and look.
+ const avenue=avenueTreeSites(data)
+ avenue.forEach((site,i)=>tree(site.x,site.z,200000+i,true))
  const owned:THREE.BufferGeometry[]=[]
  for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':roofs.includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===trim||brick.includes(material as THREE.MeshStandardMaterial)||roofs.includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
  function batch(geometry:THREE.BufferGeometry,material:THREE.Material,matrices:THREE.Matrix4[],shadows=false){if(!matrices.length)return;const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.castShadow=shadows;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);return mesh}
@@ -169,6 +173,6 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  if(leaves?.boundingSphere)leaves.boundingSphere.radius+=.05
  const proxies=batch(finishes.foliageShadowGeometry,finishes.foliageShadowProxy,crowns,true);if(proxies){if(proxies.boundingSphere)proxies.boundingSphere.radius+=.05;proxies.layers.set(SHADOW_PROXY_LAYER);proxies.customDepthMaterial=finishes.foliageShadowDepth}
  const life=createBoroughLife(data,materials.lifeAssets,traffic);root.add(life.root)
- root.userData.coverage={buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted,illustrativeBenches:benches.length,recordedBusStops:stops.length}
+ root.userData.coverage={buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted,avenuePlanting:avenue.length,illustrativeBenches:benches.length,recordedBusStops:stops.length}
  return {root,life,destinationAt:(x:number,z:number,park:boolean)=>destinationFeature(data,x,z,park),dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
 }

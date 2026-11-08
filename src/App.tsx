@@ -1,4 +1,5 @@
 import { MapViewControl } from './components/MapViewControl';
+import { MapLayers } from './components/MapLayers';
 import { useVisibleViewport } from './components/useVisibleViewport';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TownMap, type TownMapHandle } from './components/TownMap';
@@ -39,7 +40,7 @@ import { TrafficCameras } from './components/TrafficCameras';
 import { cameraInMap, type TrafficCamera } from './data/trafficCameras';
 import { useTrafficCameras } from './components/useTrafficCameras';
 
-type MapCard='places'|'forecast'|'time'|'quality'|'cameras'|'view';
+type MapCard='places'|'forecast'|'time'|'quality'|'cameras'|'view'|'layers';
 
 export default function App() {
   useVisibleViewport();
@@ -125,6 +126,8 @@ export default function App() {
       setCard(null);
       if(restoreSheet.current)setPanelOpen(true);
       restoreSheet.current=false;
+      // Their own launchers are folded into Map on desktop, so focus returns there.
+      if(!isMobile&&(name==='cameras'||name==='quality'))requestAnimationFrame(()=>{if(document.activeElement===document.body)document.querySelector<HTMLButtonElement>('.map-layers__trigger')?.focus({preventScroll:true});});
     }
   }});
   useEffect(()=>{if(isMobile&&panelOpen){setCard(null);restoreSheet.current=false;}},[isMobile,panelOpen]);
@@ -211,7 +214,7 @@ export default function App() {
     {visited&&practiceOpen&&<CourtPractice venueId={visited.id} venueName={visited.name} onClose={()=>{setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}}/>}
     <div className="place-title"><h2>Islington</h2><p>London, at play.</p><span className="title-rule"/></div>
     <div className="map-toolbar" aria-label="Map controls"><QualityControl settings={viewSettings} onChange={setViewSettings} {...cardProps('quality')}/><div className="zoom-buttons"><button aria-label="Zoom in" title="Zoom in" onClick={()=>map.current?.zoomIn()}><Icon name="plus"/></button><button aria-label="Zoom out" title="Zoom out" onClick={()=>map.current?.zoomOut()}><Icon name="minus"/></button></div><MapViewControl {...cardProps('view')} onOrbit={(yaw,pitch)=>map.current?.orbit(yaw,pitch)} onReset={()=>map.current?.reset()}/><button className="icon-button" aria-label="Reset map view" title="Reset map view" onClick={()=>visitId?leaveVisit():map.current?.reset()}><Icon name="reset"/></button></div>
-    <footer className="map-footer"><div className="layer-controls"><button className="pill" aria-pressed={stations} onClick={()=>setStations(!stations)}><span className="roundel tiny"/> Stations</button><button className="pill" aria-pressed={showBuses} onClick={()=>setShowBuses(!showBuses)}><Icon name="bus" size={14}/> Buses</button><button className="pill" aria-pressed={showTrains} onClick={()=>setShowTrains(!showTrains)} title="Miniature trains on mapped surface railways"><Icon name="train" size={14}/> Trains</button><button className="pill" aria-pressed={motionRunning} onClick={()=>setMotionRunning(!motionRunning)}><Icon name={motionRunning?'pause':'play'} size={13}/><span>{motionRunning?'Pause world':'Play world'}</span></button></div><button className="map-note" onClick={()=>setAbout(true)}>Islington · OSM geography <Icon name="info" size={13}/></button></footer>
+    <footer className="map-footer"><MapLayers {...cardProps('layers')} onCameras={()=>setCard('cameras')} onQuality={()=>setCard('quality')}><div className="layer-controls"><button className="pill" aria-pressed={stations} onClick={()=>setStations(!stations)}><span className="roundel tiny"/> Stations</button><button className="pill" aria-pressed={showBuses} onClick={()=>setShowBuses(!showBuses)}><Icon name="bus" size={14}/> Buses</button><button className="pill" aria-pressed={showTrains} onClick={()=>setShowTrains(!showTrains)} title="Miniature trains on mapped surface railways"><Icon name="train" size={14}/> Trains</button><button className="pill" aria-pressed={motionRunning} onClick={()=>setMotionRunning(!motionRunning)}><Icon name={motionRunning?'pause':'play'} size={13}/><span>{motionRunning?'Pause world':'Play world'}</span></button></div></MapLayers><button className="map-note" onClick={()=>setAbout(true)}>Islington · OSM geography <Icon name="info" size={13}/></button></footer>
     <LoadingScreen ready={ready}/>
     <a className="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
     {atlas&&<TennisAtlas naturalTime={manualNight===null} viewSettings={viewSettings} onViewSettings={setViewSettings} lightingTime={lightingTime} onLightingTime={changeLightingTime} night={night} motionRunning={motionRunning} weather={weather} windMph={windMph} onNight={toggleNight} onMotion={()=>setMotionRunning(!motionRunning)} today={londonDate(todayClock)} onClose={()=>setAtlas(false)} onHome={()=>{setAtlas(false);home();}}/>}

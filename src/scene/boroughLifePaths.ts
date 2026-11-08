@@ -20,6 +20,10 @@ function hullCutsEdge(x:number,z:number,dx:number,dz:number,a:number[],b:number[
  return true
 }
 
+const RUN_CLEARANCE=.6
+const runSamples=(run:LifeRoute)=>Array.from({length:Math.ceil(run.length/.25)+1},(_,i)=>sampleRoadRun(run,i*.25))
+function runsConflict(a:LifeRoute,b:LifeRoute){const others=runSamples(b);return runSamples(a).some(p=>others.some(q=>Math.hypot(p.x-q.x,p.z-q.z)<RUN_CLEARANCE))}
+
 /** Local collision buckets keep construction bounded even in dense source cells. */
 export function lifePaths(data:BoroughCell) {
  const grid=new Map<string,GeoFeature[]>(),size=2
@@ -63,11 +67,15 @@ export function lifePaths(data:BoroughCell) {
    const safe=safeRun(r,walking?.055:.25,walking&&!footway?r.width/2+.07:0)
    if(!safe||safe.length<(walking?1:2.5))continue
    if(out.some(p=>Math.hypot((p.a[0]+p.b[0]-safe.a[0]-safe.b[0])/2,(p.a[1]+p.b[1]-safe.a[1]-safe.b[1])/2)<2))continue
-   out.push(walking?safe:connectRoadRun(safe,data.roads,clear));seen.add(r.id)
+   const run=walking?safe:connectRoadRun(safe,data.roads,clear)
+   // Road users shuttle on fixed runs and wait for clear space. Two runs that cross
+   // or share a junction can therefore hold each other up for good, so keep them apart.
+   if(!walking&&out.some(other=>runsConflict(run,other)))continue
+   out.push(run);seen.add(r.id)
   }
   return out
  }
- const roadUsers=select(false,6),cars=roadUsers.slice(0,3),cycles=roadUsers.slice(3,5),motors=roadUsers.slice(5,6),walkers=select(true,8)
+ const roadUsers=select(false,10),cars=roadUsers.slice(0,6),cycles=roadUsers.slice(6,9),motors=roadUsers.slice(9,10),walkers=select(true,12)
  const train=data.railways.flatMap(f=>f.points.slice(1).map((b,i)=>route(f.points[i],b,.3,hash(f.id)))).sort((a,b)=>b.length-a.length).slice(0,20).map(r=>safeRun(r,.22)).find((r):r is LifeRoute=>!!r&&r.length>6)??null
  const transportGrid=new Map<string,{a:number[];b:number[];width:number;length:number}[]>()
  for(const f of data.water.length?[...data.roads,...data.railways]:[])for(let i=1;i<f.points.length;i++){

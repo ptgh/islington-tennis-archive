@@ -62,3 +62,7 @@
 
 /* Lift discovery labels away from the small moving model below them. */
 .map-destination--wildlife{--label-lift:calc(-100% - 26px);--stem-top:-26px;--stem-height:33px}
+
+.borough-neighbour{position:absolute;left:0;top:0;z-index:1;pointer-events:none}
+.borough-neighbour span{display:block;transform:translate(-50%,-50%);font:500 11px 'DM Sans',sans-serif;letter-spacing:.32em;text-transform:uppercase;white-space:nowrap;color:#3f4a3d;opacity:.62;text-shadow:0 0 6px #f4eedc}
+.town-map--night .borough-neighbour span{color:#dfe4d2;opacity:.5;text-shadow:0 0 6px #14242a}

@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import * as THREE from 'three'
-import { boroughGeography, boroughBounds, boroughCourts, courtsNearVenue, boroughCourtDimensions, buildingHeight, type BoroughCell } from '../scene/boroughGeometry.ts'
+import { boroughGeography, boroughBounds, boroughCourts, containsPoint, courtsNearVenue, boroughCourtDimensions, buildingHeight, detailCellLimit, detailCellsInView, footprintArea, type BoroughCell } from '../scene/boroughGeometry.ts'
+import { avenueTreeSites } from '../scene/boroughFurniture.ts'
+import { BOROUGH_NEIGHBOURS, boundaryStrength, washGeometry } from '../scene/createBoroughBoundary.ts'
 import { projectPoint } from '../scene/courtGeometry.ts'
 import { createBoroughMaterials, createBoroughTile } from '../scene/createBoroughTile.ts'
 import { createIslington } from '../scene/createIslington.ts'
@@ -124,4 +126,46 @@ test('bus follow anchors share the rendered vehicle position and freeze with wor
   world.animate(3,false,false,false);world.busPosition('19',point)
   assert.ok(point.distanceTo(before)<1e-9,'pause freezes the vehicle and its follow anchor')
  }finally{world.dispose()}
+})
+
+test('a shed-sized building with no recorded height stays one storey, and a terrace does not',()=>{
+ const square=(metres:number)=>{const side=Math.sqrt(metres)/10;return [[0,0],[side,0],[side,side],[0,side],[0,0]]}
+ assert.ok(Math.abs(footprintArea(square(100))-1)<1e-9)
+ assert.equal(buildingHeight({building:'yes'},square(13)),.32)
+ assert.equal(buildingHeight({building:'yes'},square(60)),.95)
+ assert.ok(Math.abs(buildingHeight({building:'yes',height:'12'},square(13))-1.2)<1e-10,'a recorded height always wins')
+})
+
+test('3D detail appears only once its budget nearly fills the view',()=>{
+ const cells=Array.from({length:40},(_,i)=>({x:i*40,z:0})),target={x:0,z:0}
+ assert.equal(detailCellLimit(1440),20);assert.equal(detailCellLimit(390),16)
+ assert.deepEqual(detailCellsInView(cells.slice(0,26),target,20),[],'too many cells: flat overview, not a patch')
+ const shown=detailCellsInView(cells.slice(0,25),target,20)
+ assert.equal(shown.length,20);assert.equal(shown[0].x,0);assert.equal(shown.at(-1)!.x,19*40)
+})
+
+test('the wash covers everything outside the real boundary and nothing inside it',()=>{
+ const positions=washGeometry(boroughGeography.boundary).getAttribute('position'),index=washGeometry(boroughGeography.boundary).getIndex()!
+ const washed=(x:number,z:number)=>{for(let i=0;i<index.count;i+=3){const [a,b,c]=[0,1,2].map(k=>[positions.getX(index.getX(i+k)),positions.getZ(index.getX(i+k))]);const side=(p:number[],q:number[])=>(x-q[0])*(p[1]-q[1])-(p[0]-q[0])*(z-q[1]);const s=[side(a,b),side(b,c),side(c,a)];if(s.every(v=>v>=0)||s.every(v=>v<=0))return true}return false}
+ const highbury=venues.find(v=>v.id==='highbury-fields')!,[x,z]=projectPoint(highbury.lng,highbury.lat)
+ assert.equal(washed(x,z),false)
+ for(const place of BOROUGH_NEIGHBOURS){assert.equal(containsPoint(place.x,place.z,boroughGeography.boundary),false,place.name);assert.equal(washed(place.x,place.z),true,place.name)}
+ assert.equal(boundaryStrength(6),1);assert.equal(boundaryStrength(25),0)
+})
+
+test('every park walk tree stays in its park and clear of courts',()=>{
+ for(const cell of boroughGeography.cells.slice(0,300)){
+  const data=JSON.parse(fs.readFileSync(path.join(dir,cell.url),'utf8')) as BoroughCell
+  const sites=avenueTreeSites(data);assert.ok(sites.length<=36)
+  for(const site of sites){
+   assert.ok(data.parks.some(p=>containsPoint(site.x,site.z,p.points)),cell.id)
+   assert.ok(!data.buildings.some(b=>containsPoint(site.x,site.z,b.points)),cell.id)
+   assert.ok(!boroughCourts.some(c=>Math.hypot(c.x-site.x,c.z-site.z)<Math.max(c.width,c.depth)),cell.id)
+  }
+ }
+})
+
+test('phones get a smaller overview with the same proportions as the full map',()=>{
+ for(const file of ['map/islington-overview.png','map/islington-overview-phone.webp'])assert.ok(fs.statSync(path.join(dir,file)).size>100000,file)
+ assert.ok(fs.statSync(path.join(dir,'map/islington-overview-phone.webp')).size<fs.statSync(path.join(dir,'map/islington-overview.png')).size/3)
 })

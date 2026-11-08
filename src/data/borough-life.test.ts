@@ -13,7 +13,7 @@ const source=(id:string):BoroughCell=>JSON.parse(fs.readFileSync('public/'+borou
 test('local actors use bounded source paths and keep off buildings and courts',()=>{
  for(const id of ['2_-1','1_-1','3_4']){
   const data=source(id),paths=lifePaths(data)
-  assert.ok(paths.cars.length<=3&&paths.walkers.length<=8&&paths.foxes.length<=1&&paths.birds.length<=2&&paths.boats.length<=1)
+  assert.ok(paths.cars.length<=6&&paths.walkers.length<=12&&paths.foxes.length<=1&&paths.birds.length<=2&&paths.boats.length<=1)
   for(const path of [...paths.cars,...paths.walkers,...paths.foxes])for(let i=0;i<=100;i++){
    const {x,z}=sampleRoadRun(path,path.length*i/100)
    assert.ok(!data.buildings.some(f=>inPolygon(x,z,f)),id+' actor inside building')
