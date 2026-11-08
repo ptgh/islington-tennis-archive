@@ -10,6 +10,7 @@ import { courtPicker, otherCourtPins, watchableCourts } from '../scene/boroughGe
 import { projectPoint } from '../scene/courtGeometry.ts'
 import { createBoroughMaterials, createBoroughTile } from '../scene/createBoroughTile.ts'
 import { createIslington } from '../scene/createIslington.ts'
+import { courtLinesVisible, courtLineWidth } from '../scene/createBoroughCourts.ts'
 import { venues } from './venues.ts'
 import { places } from './places.ts'
 
@@ -207,5 +208,11 @@ test('every court drawn on the map can be picked, across its whole enclosure and
  const site=otherCourtPins.find(s=>s.id==='parliament-hill')!
  assert.deepEqual(pick(site.courts[0].x,site.courts[0].z),{id:'parliament-hill',name:site.name})
  assert.equal(pick(boroughBounds.minX,boroughBounds.minZ),null)
+})
+
+test('court lines hold a pixel when close, stop growing further out, and go when a court is tiny',()=>{
+ assert.ok(Math.abs(courtLineWidth(.02)-.022)<1e-9,'about one pixel at rally zoom')
+ assert.equal(courtLineWidth(.5),.05,'never thick enough to fill a court')
+ assert.ok(courtLineWidth(.005)<.008,'real width wins once the line is wider than a pixel');assert.equal(courtLinesVisible(2),false);assert.equal(courtLinesVisible(6),true)
 })
 

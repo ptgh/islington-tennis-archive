@@ -129,7 +129,7 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
  const frustum=new THREE.Frustum(),matrix=new THREE.Matrix4()
  function updateView(camera:THREE.OrthographicCamera,zoom:number,target:THREE.Vector3,cssWidth=1440){
   if(disposed)return
-  boundary.setView(camera,zoom,cssWidth)
+  boundary.setView(camera,zoom,cssWidth);courts.setView(camera,zoom,cssWidth)
   const fine=zoom>=FINE_DETAIL_ZOOM
   if(fine!==fineDetail){fineDetail=fine;for(const item of loaded.values())item.tile.setFineDetail(fine)}
   detailLife=zoom>=3.5
