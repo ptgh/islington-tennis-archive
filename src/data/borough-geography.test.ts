@@ -140,9 +140,9 @@ test('a shed-sized building with no recorded height stays one storey, and a terr
 
 test('3D detail appears only once its budget nearly fills the view',()=>{
  const cells=Array.from({length:40},(_,i)=>({x:i*40,z:0})),target={x:0,z:0}
- assert.equal(detailCellLimit(1440),20);assert.equal(detailCellLimit(390),16)
- assert.deepEqual(detailCellsInView(cells.slice(0,26),target,20),[],'too many cells: flat overview, not a patch')
- const shown=detailCellsInView(cells.slice(0,25),target,20)
+ assert.equal(detailCellLimit(1440),24);assert.equal(detailCellLimit(390),16)
+ assert.deepEqual(detailCellsInView(cells.slice(0,24),target,20),[],'too many cells: flat overview, not a patch')
+ const shown=detailCellsInView(cells.slice(0,23),target,20)
  assert.equal(shown.length,20);assert.equal(shown[0].x,0);assert.equal(shown.at(-1)!.x,19*40)
 })
 

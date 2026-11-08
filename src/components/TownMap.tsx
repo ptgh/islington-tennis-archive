@@ -104,6 +104,8 @@ const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 /** Only miniature traffic moves on a still map: 30 frames a second is plenty, and drawing flat out just heats the machine. */
 const IDLE_FRAME_MS = 31
+/** Close enough that the players read at a one-court site; bigger venues still fit in view. */
+const RALLY_MAX_ZOOM = 44
 /** Quiet map labels hide before they reach the header and the bottom row of buttons. */
 const LABEL_CLEAR_TOP = 110, LABEL_CLEAR_BOTTOM = 90
 
@@ -350,7 +352,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       raycaster.ray.intersectPlane(ground,framedCenter)
       const available=visibleMapFrame()
       const zoom=Math.min((available.right-available.left)*.88/spanX,(available.bottom-available.top)*.82/spanY)
-      travel(framedCenter,THREE.MathUtils.clamp(zoom,.7,18),immediate)
+      travel(framedCenter,THREE.MathUtils.clamp(zoom,.7,RALLY_MAX_ZOOM),immediate)
     }
     const focus = (point: THREE.Vector3) => {
       camera.updateMatrixWorld()
@@ -613,12 +615,16 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const court=courtUnder(event)
       if(court)runtimeRef.current.onVisitSite?.(court.id)
     }
-    const hideCourtHover=()=>{host.classList.remove('town-map--over-court');if(courtHoverRef.current)courtHoverRef.current.style.display='none'}
+    // The tag carries the name while hovering, so the court's own label steps aside.
+    let coveredLabel:HTMLElement|null=null
+    const coverLabel=(label:HTMLElement|null)=>{if(label===coveredLabel)return;coveredLabel?.classList.remove('court-site--covered');label?.classList.add('court-site--covered');coveredLabel=label}
+    const hideCourtHover=()=>{host.classList.remove('town-map--over-court');coverLabel(null);if(courtHoverRef.current)courtHoverRef.current.style.display='none'}
     const pointerMove=(event:PointerEvent)=>{
       if(event.pointerType!=='mouse')return
       const court=event.buttons?null:courtUnder(event),tip=courtHoverRef.current,name=courtHoverNameRef.current
       if(!court||!tip||!name){hideCourtHover();return}
       host.classList.add('town-map--over-court')
+      coverLabel(siteRefs.current.get(court.id)??null)
       if(name.textContent!==court.name)name.textContent=court.name
       const box=host.getBoundingClientRect()
       tip.style.display='flex'

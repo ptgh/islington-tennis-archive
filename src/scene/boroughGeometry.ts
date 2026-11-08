@@ -66,12 +66,12 @@ export function buildingHeight(tags:Record<string,string>={},points?:number[][])
  const unrecorded=points&&footprintArea(points)<HUT_AREA?HUT_HEIGHT:.95
  return Math.max(.22,Math.min(9,Number.isFinite(height)&&height>0?height*.1:Number.isFinite(levels)&&levels>0?levels*.3:['garage','garages','shed','outbuilding'].includes(tags.building)?.28:['industrial','warehouse','sports_centre'].includes(tags.building)?1:tags.building==='apartments'?1.5:unrecorded))
 }
-/** Phones keep the original budget; a desktop window is wide enough to need four more cells. */
-export const detailCellLimit=(cssWidth:number)=>cssWidth>760?20:16
+/** Phones keep the original budget. Desktop can afford more, because window detail is off at this scale. */
+export const detailCellLimit=(cssWidth:number)=>cssWidth>760?24:16
 /** 3D detail appears only once the budget nearly fills the view, so it can never
  * sit on the flat overview as a hard-edged patch. Nearest cells win any remainder. */
 export function detailCellsInView<T extends {x:number;z:number}>(visible:T[],target:{x:number;z:number},limit:number){
- if(visible.length>limit*1.25)return []
+ if(visible.length>limit*1.15)return []
  return [...visible].sort((a,b)=>Math.hypot(a.x-target.x,a.z-target.z)-Math.hypot(b.x-target.x,b.z-target.z)).slice(0,limit)
 }
 export function containsPoint(x:number,z:number,points:number[][]) {
