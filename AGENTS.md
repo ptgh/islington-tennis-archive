@@ -48,3 +48,9 @@
 - `buildingHeight` takes the footprint: pass `points` from every caller, so a shed with no recorded height is one storey everywhere it is drawn or highlighted.
 - Borough road users shuttle on fixed runs and wait for clear space, so `lifePaths` rejects runs that cross or share a junction with one already chosen in the cell; without that they hold each other up for good.
 - On desktop, Stations, Buses, Trains, Pause world, Cameras and Quality fold behind `MapLayers`. Phones keep their existing row: the same buttons, unwrapped by CSS.
+- Only one of the hub, a floating card or the guide is open at a time, on every screen size (App). A new overlay goes through `cardProps`, or must drop the others the same way.
+- Long camera journeys rise to a height where the overview is sharp and descend onto cells loaded in advance (`flightPlan`, `prepareFlight`); never fetch cells the camera only passes over. Cells build across frames from `buildBoroughTile`, so streaming cannot freeze a move.
+- The outside wash sits below court surfaces, buildings and trees (`WASH_HEIGHT`) and relies on the depth test, so anything standing on the map stays at full strength.
+- Mapped courts no venue covers are labelled from `src/data/otherCourts.ts`. A new map import must assign every unlinked court to a site; the test fails otherwise.
+- With only miniature traffic moving the map draws at 30 fps (`IDLE_FRAME_MS`), and resolution adapts only while the camera moves. Window sills and glazing bars are separate meshes, shown from `FINE_DETAIL_ZOOM`; at map scale they are sub-pixel and most of the triangles.
+

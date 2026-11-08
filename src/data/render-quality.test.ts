@@ -37,7 +37,7 @@ test('adaptive resolution rewards sustained headroom and backs off under load',(
  run(1600,40,20);
  assert.equal(quality.scale,1,'sustained slow frames lower resolution');
  run(30000,40,20);
- assert.equal(quality.scale,.7);
+ assert.equal(quality.scale,.85);
  run(65000,1000/60,5);
  assert.equal(quality.scale,1.15);
  assert.ok(quality.stats.frameMs>0);
@@ -193,3 +193,10 @@ test('streamed occlusion exclusions follow cell arrival and eviction without res
   root.add(first);assert.deepEqual(exclusions(),[canopy]);assert.equal(scans,2,'a reattached group is scanned afresh after eviction')
  }finally{geometry.dispose();leaf.dispose();solid.dispose()}
 })
+
+test('a machine holding its frame rate keeps full resolution however long draw submission takes',()=>{
+ const quality=createAdaptiveResolution();
+ for(let i=1;i<=1200;i++)quality.sample(i*19,16);
+ assert.equal(quality.scale,1.15,'19 ms frames are headroom; cutting pixels cannot shorten CPU work');
+});
+

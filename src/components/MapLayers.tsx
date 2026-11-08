@@ -15,10 +15,11 @@ export function MapLayers({ open, onOpenChange, onCameras, onQuality, children }
   return <div ref={root} className="map-layers" onKeyDown={event => { if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); onOpenChange(false); trigger.current?.focus({ preventScroll: true }); } }}>
     <button ref={trigger} className="pill map-layers__trigger" aria-expanded={open} aria-controls={id} onClick={() => onOpenChange(!open)}><Icon name="layers" size={14}/> Map</button>
     <div id={id} className={`map-layers__panel${open ? ' map-layers__panel--open' : ''}`}>
+      <h2 className="map-layers__title">On the map</h2>
       {children}
       <div className="map-layers__links">
-        <button className="pill" onClick={onCameras}><Icon name="camera" size={14}/> Cameras</button>
-        <button className="pill" onClick={onQuality}><Icon name="layers" size={14}/> Quality</button>
+        <button className="pill" onClick={onCameras}><Icon name="camera" size={15}/> Traffic cameras<Icon name="arrow" size={13}/></button>
+        <button className="pill" onClick={onQuality}><Icon name="layers" size={15}/> Picture quality<Icon name="arrow" size={13}/></button>
       </div>
     </div>
   </div>;

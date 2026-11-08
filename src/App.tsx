@@ -98,12 +98,12 @@ export default function App() {
   const [askHash,setAskHash]=useState(()=>threadIdFromHash(window.location.hash));
   const [askMinimized,setAskMinimized]=useState(false);
   useEffect(()=>{const sync=()=>setAskHash(threadIdFromHash(window.location.hash));window.addEventListener('hashchange',sync);return()=>window.removeEventListener('hashchange',sync);},[]);
-  const closeAsk=useCallback(()=>{history.pushState(null,'',window.location.pathname+window.location.search);setAskHash(undefined);setAskMinimized(false);document.querySelector<HTMLButtonElement>('.ask-launch')?.focus({preventScroll:true});},[]);
-  const [panelOpen,setPanelOpen]=useState(true);
+  const closeAsk=useCallback(()=>{history.pushState(null,'',window.location.pathname+window.location.search);setAskHash(undefined);setAskMinimized(false);if(restoreSheet.current){restoreSheet.current=false;setPanelOpen(true);}document.querySelector<HTMLButtonElement>('.ask-launch')?.focus({preventScroll:true});},[]);
+  const [panelOpen,setPanelOpen]=useState(()=>threadIdFromHash(window.location.hash)===undefined);
   const [isMobile,setIsMobile]=useState(()=>window.matchMedia('(max-width:760px)').matches);
-  // One floating map card at a time. On phones a card retracts the hub sheet so
-  // the map shows beneath it; closing restores the sheet unless the card moved
-  // the map on purpose. Opening the sheet closes the card.
+  // One thing open at a time, on every screen: the hub, a floating map card or the
+  // guide. Opening one drops the others; closing a card or the guide brings the hub
+  // back unless it moved the map on purpose.
   const [planner,setPlanner]=useState(()=>{try{return parsePlannerPreferences(localStorage.getItem('islington-tennis:planner'));}catch{return parsePlannerPreferences(null);}});
   const [plannerError,setPlannerError]=useState(false);
   const [compareIds,setCompareIds]=useState<string[]>([]);
@@ -116,21 +116,29 @@ export default function App() {
   const [cameraId,setCameraId]=useState('JamCams_00001.09705');
   const cameraDirectory=useTrafficCameras(card==='cameras'&&!atlas);
   const cameraPins=useMemo(()=>cameraDirectory.cameras.filter(cameraInMap),[cameraDirectory.cameras]);
-  const restoreSheet=useRef(false);
+  const restoreSheet=useRef(threadIdFromHash(window.location.hash)!==undefined);
+  const askOpen=askHash!==undefined&&!askMinimized;
+  const restoreTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
   const selectCamera=(camera:TrafficCamera)=>{setCameraId(camera.id);if(!cameraInMap(camera))return;restoreSheet.current=false;setPanelOpen(false);locateMap(camera.lat,camera.lng);};
   const cardProps=(name:MapCard)=>({open:card===name,onOpenChange:(open:boolean)=>{
     if(open){
-      if(card===null){restoreSheet.current=isMobile&&panelOpen;if(isMobile)setPanelOpen(false);}
+      clearTimeout(restoreTimer.current);
+      if(card===null&&panelOpen)restoreSheet.current=true;
+      setPanelOpen(false);
+      if(askOpen)setAskMinimized(true);
       setCard(name);
     }else if(card===name){
       setCard(null);
-      if(restoreSheet.current)setPanelOpen(true);
-      restoreSheet.current=false;
+      // Moving from one card to another closes the first on pointer-down; the wait
+      // stops the hub flashing back in between the two.
+      restoreTimer.current=setTimeout(()=>{if(restoreSheet.current){restoreSheet.current=false;setPanelOpen(true);}},180);
       // Their own launchers are folded into Map on desktop, so focus returns there.
       if(!isMobile&&(name==='cameras'||name==='quality'))requestAnimationFrame(()=>{if(document.activeElement===document.body)document.querySelector<HTMLButtonElement>('.map-layers__trigger')?.focus({preventScroll:true});});
     }
   }});
-  useEffect(()=>{if(isMobile&&panelOpen){setCard(null);restoreSheet.current=false;}},[isMobile,panelOpen]);
+  useEffect(()=>{if(panelOpen){setCard(null);restoreSheet.current=false;setAskMinimized(minimized=>askHash!==undefined||minimized);}},[panelOpen]);// eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{if(!askOpen)return;clearTimeout(restoreTimer.current);setCard(null);if(panelOpen){restoreSheet.current=true;setPanelOpen(false);}},[askOpen]);// eslint-disable-line react-hooks/exhaustive-deps
+  const changeAskMinimized=(minimized:boolean)=>{setAskMinimized(minimized);if(minimized&&restoreSheet.current){restoreSheet.current=false;setPanelOpen(true);}};
   const [ready,setReady]=useState(false);
   const previousDetail=useRef<string|null>(null);
   const previousVisit=useRef<string|null>(null);
@@ -165,7 +173,7 @@ export default function App() {
   function locatePlayCourt(id:string){
     setPlayFocusId(id);const venue=venues.find(v=>v.id===id);if(venue)locateMap(venue.lat,venue.lng);
   }
-  function visitCourt(id:string){setLocatedPlace(null);setVisitId(id);setPracticeOpen(false);setMotionRunning(true);setPanelOpen(false);}
+  function visitCourt(id:string){setCard(null);setLocatedPlace(null);setVisitId(id);setPracticeOpen(false);setMotionRunning(true);setPanelOpen(false);}
   function leaveVisit(){setLocatedPlace(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);map.current?.reset();}
   function home(){changeSection('courts');setQuery('');setFilter('all');setSavedOnly(false);map.current?.reset();}
   useEffect(()=>{
@@ -197,12 +205,12 @@ export default function App() {
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen]);
   return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} ${card?'card-open':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
-    <TownMap locatedPlace={locatedPlace} naturalTime={manualNight===null} cameras={cameraPins} showCameras={card==='cameras'} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} showTrains={showTrains} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} followVan={followVan} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
+    <TownMap locatedPlace={locatedPlace} naturalTime={manualNight===null} cameras={cameraPins} showCameras={card==='cameras'} showOtherCourts={section==='courts'&&!visitId} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} showTrains={showTrains} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} followVan={followVan} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
     <div className="map-vignette"/><Weather onWeather={changeWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onFindLife={kind=>{const point=map.current?.lifeLocation(kind);if(!point)return false;setVisitId(null);setPracticeOpen(false);setServiceId(null);setRouteId(null);restoreSheet.current=false;setPanelOpen(false);if(isMobile)setCard(null);setLightingTime(null);setNight(kind==='fox');setMotionRunning(true);locateMap(point.lat,point.lng,60);setLocatedPlace({...point,name:kind==='fox'?'Fox habitat':kind==='emergency'?'Emergency miniature':'Cyclists nearby',wildlife:true});return true;}} onLocate={(lat,lng,zoom,name)=>{setVisitId(null);setPracticeOpen(false);setServiceId(null);setRouteId(null);restoreSheet.current=false;setPanelOpen(false);if(isMobile)setCard(null);setStations(true);locateMap(lat,lng,zoom);if(name)setLocatedPlace({lat,lng,name});}}/>
     <TrafficCameras directory={cameraDirectory} {...cardProps('cameras')} selectedId={cameraId} onSelect={selectCamera}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
     <button className="pill ask-launch" onClick={()=>{if(askHash===undefined)window.location.hash='#/ask';setAskMinimized(false);}} aria-haspopup="dialog" aria-expanded={askHash!==undefined&&!askMinimized} aria-controls={askHash!==undefined?'ask-guide':undefined}>Ask</button>
-    <AccountCircle openRequest={accountRequest} venues={venues} onRacquets={openMyFrame} onPartners={()=>{changeSection('play');setPartnersOpen(true);}}/>
+    <AccountCircle onOpen={()=>{setCard(null);setAskMinimized(minimized=>askHash!==undefined||minimized);}} openRequest={accountRequest} venues={venues} onRacquets={openMyFrame} onPartners={()=>{changeSection('play');setPartnersOpen(true);}}/>
     <header className="app-header"><button className="brand" onClick={home} aria-label="Islington Tennis home"><Icon name="ball" size={35}/><span>Islington Tennis</span></button><div className="header-actions"><button className="pill about-button" onClick={()=>setAbout(true)} aria-label="About"><span>About</span><Icon name="info" size={17}/></button><LightingControl night={night} time={lightingTime} onTime={changeLightingTime} onNight={toggleNight} {...cardProps('time')}/></div></header>
     <aside id="court-browser" className={`directory-panel ${hasDetail?'has-detail':''}`} aria-label="Explore the tennis hub" inert={!panelOpen} aria-hidden={!panelOpen?true:undefined}>
       <button className="mobile-handle" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen} aria-label={panelOpen?'Minimise tennis hub':'Open tennis hub'}><span/></button>
@@ -219,7 +227,7 @@ export default function App() {
     <a className="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
     {atlas&&<TennisAtlas naturalTime={manualNight===null} viewSettings={viewSettings} onViewSettings={setViewSettings} lightingTime={lightingTime} onLightingTime={changeLightingTime} night={night} motionRunning={motionRunning} weather={weather} windMph={windMph} onNight={toggleNight} onMotion={()=>setMotionRunning(!motionRunning)} today={londonDate(todayClock)} onClose={()=>setAtlas(false)} onHome={()=>{setAtlas(false);home();}}/>}
     {racquetRoom&&<RacquetStudio onAccount={()=>{setRacquetRoom(false);setAccountRequest(n=>n+1);}} initialView={racquetView} onPartners={()=>{setRacquetRoom(false);changeSection('play');setPartnersOpen(true);}} onClose={()=>setRacquetRoom(false)}/>}
-    {askHash!==undefined&&<AskIslington threadId={askHash} minimized={askMinimized} onMinimizedChange={setAskMinimized} onNavigate={id=>{window.location.hash=`#/ask/${id}`;}} onClose={closeAsk}/>}
+    {askHash!==undefined&&<AskIslington threadId={askHash} minimized={askMinimized} onMinimizedChange={changeAskMinimized} onNavigate={id=>{window.location.hash=`#/ask/${id}`;}} onClose={closeAsk}/>}
     {about&&<AboutDialog onClose={()=>setAbout(false)}/>}
   </main>;
 }

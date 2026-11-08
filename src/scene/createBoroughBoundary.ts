@@ -18,12 +18,17 @@ const NIGHT={wash:'#14242a',washOpacity:.3,line:'#d9cfae',lineOpacity:.55}
 
 /** Full strength at map scale; gone by street scale, where the flat overlay would cross façades. */
 export function boundaryStrength(zoom:number){return 1-THREE.MathUtils.smoothstep(zoom,10,20)}
+/** The wash is for reading the map; by the time you are looking at a place it has gone. */
+export function washStrength(zoom:number){return 1-THREE.MathUtils.smoothstep(zoom,6,12)}
+/** Above the ground layers but below every court surface, building and tree, so the
+ * depth test leaves anything standing on the map at full strength. */
+const WASH_HEIGHT=.012
 
 /** Ring of the borough, kept separate so tests can check the same points the mesh uses. */
 export function washGeometry(ring:number[][]){
  const shape=new THREE.Shape([[-WASH_REACH,-WASH_REACH],[WASH_REACH,-WASH_REACH],[WASH_REACH,WASH_REACH],[-WASH_REACH,WASH_REACH]].map(([x,y])=>new THREE.Vector2(x,y)))
  shape.holes.push(new THREE.Path(ring.slice(0,-1).map(([x,z])=>new THREE.Vector2(x,-z))))
- const geometry=new THREE.ShapeGeometry(shape);geometry.rotateX(-Math.PI/2);geometry.translate(0,.06,0);return geometry
+ const geometry=new THREE.ShapeGeometry(shape);geometry.rotateX(-Math.PI/2);geometry.translate(0,WASH_HEIGHT,0);return geometry
 }
 
 /** Each edge is a quad whose width is added in the vertex shader, so zooming costs no rebuild. */
@@ -45,8 +50,8 @@ function ribbonGeometry(ring:number[][]){
 export function createBoroughBoundary(){
  const root=new THREE.Group();root.name='Islington boundary'
  const ring=boroughGeography.boundary
- const overlay=()=>new THREE.MeshBasicMaterial({transparent:true,depthTest:false,depthWrite:false,fog:false,side:THREE.DoubleSide})
- const washMaterial=overlay(),lineMaterial=overlay(),halfWidth={value:.5}
+ const overlay=(depthTest:boolean)=>new THREE.MeshBasicMaterial({transparent:true,depthTest,depthWrite:false,fog:false,side:THREE.DoubleSide})
+ const washMaterial=overlay(true),lineMaterial=overlay(false),halfWidth={value:.5}
  lineMaterial.onBeforeCompile=shader=>{
   shader.uniforms.boundaryHalfWidth=halfWidth
   shader.vertexShader='attribute vec2 edgeSide;\nuniform float boundaryHalfWidth;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.xz+=edgeSide*boundaryHalfWidth;')
@@ -55,16 +60,16 @@ export function createBoroughBoundary(){
  const wash=new THREE.Mesh(washGeometry(ring),washMaterial);wash.name='Outside Islington wash';wash.renderOrder=30;wash.frustumCulled=false
  const line=new THREE.Mesh(ribbonGeometry(ring),lineMaterial);line.name='Islington boundary line';line.renderOrder=31;line.frustumCulled=false
  root.add(wash,line)
- let palette=DAY,strength=1
+ let palette=DAY,strength=1,washFade=1
  function apply(){
   washMaterial.color.set(palette.wash);lineMaterial.color.set(palette.line)
-  washMaterial.opacity=palette.washOpacity*strength;lineMaterial.opacity=palette.lineOpacity*strength
-  root.visible=strength>.001
+  washMaterial.opacity=palette.washOpacity*washFade;lineMaterial.opacity=palette.lineOpacity*strength
+  wash.visible=washFade>.001;line.visible=strength>.001
  }
  apply()
  return {root,
   setView(camera:THREE.OrthographicCamera,zoom:number,cssWidth:number){
-   strength=boundaryStrength(zoom);halfWidth.value=LINE_PIXELS*(camera.right-camera.left)/zoom/cssWidth/2;apply()
+   strength=boundaryStrength(zoom);washFade=washStrength(zoom);halfWidth.value=LINE_PIXELS*(camera.right-camera.left)/zoom/cssWidth/2;apply()
   },
   setNight(value:boolean){palette=value?NIGHT:DAY;apply()},
   dispose(){wash.geometry.dispose();line.geometry.dispose();washMaterial.dispose();lineMaterial.dispose()},

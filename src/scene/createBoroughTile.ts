@@ -50,9 +50,16 @@ export function createBoroughMaterials() {
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
 export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,traffic?:TrafficSpace,cellId?:string) {
+ const steps=buildBoroughTile(data,materials,traffic,cellId)
+ let step=steps.next()
+ while(!step.done)step=steps.next()
+ return step.value
+}
+/** Yields between pieces of work, so a cell can be built across several frames. */
+export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,traffic?:TrafficSpace,cellId?:string) {
  const root=new THREE.Group();root.name='Islington geographic cell'
  const {finishes,brick,roofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,stopRed,water,box,circle}=materials
- const batches=new Map<THREE.Material,THREE.BufferGeometry[]>(),instances=new Map<THREE.Material,THREE.Matrix4[]>(),caps=new Map<THREE.Material,THREE.Matrix4[]>()
+ const batches=new Map<THREE.Material,THREE.BufferGeometry[]>(),instances=new Map<THREE.Material,THREE.Matrix4[]>(),caps=new Map<THREE.Material,THREE.Matrix4[]>(),fine=new Map<THREE.Material,THREE.Matrix4[]>()
  const transform=new THREE.Object3D()
  function part(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number,angle=0,target=instances){transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,angle,0);transform.updateMatrix();const list=target.get(m)??[];list.push(transform.matrix.clone());target.set(m,list)}
  function collect(m:THREE.Material,g:THREE.BufferGeometry){const plain=g.index?g.toNonIndexed():g;if(plain!==g)g.dispose();const list=batches.get(m)??[];list.push(plain);batches.set(m,list)}
@@ -65,8 +72,11 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  }
  for(const f of data.parks)polygon(f,finishes.parkGrass,-.004)
  for(const f of data.water)polygon(f,water,0)
+ yield
  const junctions=new Set<string>()
+ let done=0
  for(const f of data.roads){
+  if(++done%40===0)yield
   const {walking,width}=boroughRoadProfile(f.kind)
   for(let i=1;i<f.points.length;i++){
    const a=f.points[i-1],b=f.points[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);if(len<.001)continue
@@ -103,8 +113,10 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
   part(stone,(a[0]+b[0])/2,.005,(a[1]+b[1])/2,len,.005,.3,angle)
   for(const side of [-1,1])part(metal,(a[0]+b[0])/2-dz/len*side*.07,.015,(a[1]+b[1])/2+dx/len*side*.07,len,.01,.014,angle)
  }
+ yield
  let detailedBuildings=0
  for(const f of data.buildings){
+  if(++done%14===0)yield
   const id=Number(f.id),height=buildingHeight(f.tags,f.points),bounds=roofBounds(f.points),modern=bounds.width>2.2||['industrial','warehouse','commercial'].includes(f.tags?.building??'')
   if(addCaledonianClockTower(f,height,{stone:trim,dark:door,dial:white,roof:roofs[0],polygon,part,collect})){detailedBuildings++;continue}
   const palette=Math.abs(id)%brick.length;polygon(f,brick[palette],.012,height)
@@ -124,9 +136,9 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
      const y=(floor+.58)*height/floors
      part(trim,x+nx*.012,y,z+nz*.012,w+.026,h+.026,.018,angle)
      part(glass,x+nx*.023,y,z+nz*.023,w,h,.012,angle)
-     part(trim,x+nx*.03,y-h/2-.008,z+nz*.03,w+.045,.012,.034,angle)
-     part(trim,x+nx*.031,y,z+nz*.031,.006,h,.008,angle)
-     if(!modern)part(trim,x+nx*.031,y,z+nz*.031,w,.006,.008,angle)
+     part(trim,x+nx*.03,y-h/2-.008,z+nz*.03,w+.045,.012,.034,angle,fine)
+     part(trim,x+nx*.031,y,z+nz*.031,.006,h,.008,angle,fine)
+     if(!modern)part(trim,x+nx*.031,y,z+nz*.031,w,.006,.008,angle,fine)
     }
     if(!modern&&col%3===0){part(door,x+nx*.025,.105,z+nz*.025,.085,.21,.021,angle);part(trim,x+nx*.04,.219,z+nz*.04,.112,.016,.039,angle)}
    }
@@ -137,6 +149,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
   }
   detailedBuildings++
  }
+ yield
  const crowns:THREE.Matrix4[]=[]
  function tree(x:number,z:number,index:number,source=false){
   // Stable source IDs vary illustrative mature canopies without moving mapped
@@ -163,16 +176,23 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  // so the established perimeter planting above keeps its positions and look.
  const avenue=avenueTreeSites(data)
  avenue.forEach((site,i)=>tree(site.x,site.z,200000+i,true))
+ yield
  const owned:THREE.BufferGeometry[]=[]
  for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':roofs.includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===trim||brick.includes(material as THREE.MeshStandardMaterial)||roofs.includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
  function batch(geometry:THREE.BufferGeometry,material:THREE.Material,matrices:THREE.Matrix4[],shadows=false){if(!matrices.length)return;const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.castShadow=shadows;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);return mesh}
- for(const [material,matrices] of instances)batch(box,material,matrices,material===trunk)
+ yield
+ for(const [material,matrices] of instances){batch(box,material,matrices,material===trunk);yield}
+ // Sills and glazing bars are thinner than a pixel until you are close; drawing them
+ // at map scale is most of the scene's triangles for nothing you can see.
+ const fineMeshes:THREE.InstancedMesh[]=[]
+ for(const [material,matrices] of fine){const mesh=batch(box,material,matrices);if(mesh)fineMeshes.push(mesh);yield}
  for(const [material,matrices] of caps)batch(circle,material,matrices)
  const leaves=batch(finishes.foliageGeometry,finishes.foliage,crowns)
  crowns.forEach((_,i)=>leaves?.setColorAt(i,new THREE.Color(['#6a854f','#7f965c','#5f7e4d','#8b9f62'][i%4])))
  if(leaves?.boundingSphere)leaves.boundingSphere.radius+=.05
  const proxies=batch(finishes.foliageShadowGeometry,finishes.foliageShadowProxy,crowns,true);if(proxies){if(proxies.boundingSphere)proxies.boundingSphere.radius+=.05;proxies.layers.set(SHADOW_PROXY_LAYER);proxies.customDepthMaterial=finishes.foliageShadowDepth}
+ yield
  const life=createBoroughLife(data,materials.lifeAssets,traffic);root.add(life.root)
  root.userData.coverage={buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted,avenuePlanting:avenue.length,illustrativeBenches:benches.length,recordedBusStops:stops.length}
- return {root,life,destinationAt:(x:number,z:number,park:boolean)=>destinationFeature(data,x,z,park),dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
+ return {root,life,setFineDetail(show:boolean){for(const mesh of fineMeshes)mesh.visible=show},destinationAt:(x:number,z:number,park:boolean)=>destinationFeature(data,x,z,park),dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
 }

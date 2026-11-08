@@ -69,8 +69,10 @@ export function createAdaptiveResolution(targetFrameMs = 1000 / 60, initialPrese
       elapsed += interval; totalRender += submissionMs; frames++
       if (elapsed < 1000 || frames < 20) return false
       frameMs = elapsed / frames; renderMs = totalRender / frames
-      const slow = frameMs > targetFrameMs * 1.3 || renderMs > targetFrameMs * .9
-      const headroom = frameMs <= targetFrameMs * 1.2 && renderMs < targetFrameMs * .65
+      // Judge by the frames actually delivered. Time spent submitting draw calls is
+      // CPU work, so cutting pixels for it only blurs the picture and speeds up nothing.
+      const slow = frameMs > targetFrameMs * 1.3
+      const headroom = frameMs <= targetFrameMs * 1.15
       if (!slow && elapsed < 5000) return false
       const bounds = QUALITY_PRESETS[preset]
       const next = Math.round(Math.min(bounds.max, Math.max(bounds.min, scale + (slow ? -.05 : headroom ? .05 : 0))) * 100) / 100

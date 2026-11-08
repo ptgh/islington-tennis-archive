@@ -1,11 +1,20 @@
 .map-layers{position:relative}
-.map-layers__panel{display:none}
-.map-layers__links{display:none}
+.map-layers__panel,.map-layers__links,.map-layers__title{display:none}
 @media(min-width:761px){
  .app:has(.map-layers__panel--open) .map-footer{z-index:9}
- .map-layers__panel--open{position:absolute;left:0;bottom:calc(100% + 10px);display:flex;flex-direction:column;gap:8px;width:max-content;padding:12px;border:1px solid #fff9;border-radius:16px;background:var(--paper);box-shadow:0 12px 40px #18342d30}
- .map-layers__panel .layer-controls,.map-layers__links{display:flex;flex-direction:column;align-items:stretch;gap:8px}
- .map-layers__panel .pill{justify-content:flex-start;width:100%}
+ .map-layers__trigger[aria-expanded=true]{background:#244b3d;color:#faf8f0;border-color:#244b3d}
+ .map-layers__panel--open{position:absolute;left:0;bottom:calc(100% + 10px);display:block;width:256px;padding:17px 9px 9px;border:1px solid #fff9;border-radius:16px;background:var(--paper);box-shadow:0 12px 40px #18342d30}
+ .map-layers__title{display:block;margin:0 11px 9px;font:400 23px/1.15 var(--serif);color:var(--ink)}
+ .map-layers__panel .layer-controls,.map-layers__links{display:flex;flex-direction:column;gap:1px}
+ .map-layers__links{margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}
+ .app .map-layers__panel .pill{justify-content:flex-start;gap:11px;width:100%;min-height:40px;padding:8px 11px;border:0;border-radius:10px;background:transparent;box-shadow:none;color:var(--ink);font-size:12.5px;font-weight:500;text-align:left;transition:background .15s}
+ .app .map-layers__panel .pill[aria-pressed=false]{background:transparent;color:var(--ink)}
+ .app .map-layers__panel .pill:hover,.app .map-layers__panel .pill[aria-pressed=false]:hover{background:#edefe3}
+ .map-layers__panel .pill[aria-pressed]::after{content:"";flex:none;margin-left:auto;width:32px;height:19px;border-radius:10px;background:radial-gradient(circle at 9.5px 9.5px,#fff 0 7px,transparent 7.5px),#cdd5c2;transition:background .18s}
+ .map-layers__panel .pill[aria-pressed=true]::after{background:radial-gradient(circle at 22.5px 9.5px,#fff 0 7px,transparent 7.5px),#244b3d}
+ /* This row's wording already flips between Pause and Play, so it needs no switch. */
+ .map-layers__panel .layer-controls>.pill:last-child::after{display:none}
+ .map-layers__links .pill svg:last-child{margin-left:auto;color:#8a9684}
  /* Their cards still open from these components; only the separate launchers fold away. */
  .traffic-cameras>.pill{display:none}
  .map-toolbar:not(:has(.quality-panel)) .quality-control{display:none}
@@ -14,5 +23,5 @@
 @media(max-width:760px){
  .map-layers{display:contents}
  .map-footer .map-layers__trigger{display:none}
- .map-layers__panel{display:contents}
+ .map-footer .map-layers__panel{display:contents}
 }

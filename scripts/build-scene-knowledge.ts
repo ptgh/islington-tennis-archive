@@ -4,6 +4,7 @@ import { borough } from '../src/data/borough';
 import { courtApproaches } from '../src/data/courtApproaches';
 import { iconicClubs } from '../src/data/tennisAtlas';
 import { centreCoaches, centreSessions } from '../src/data/centre';
+import { otherCourtSites } from '../src/data/otherCourts';
 const data = {
   borough: borough.name,
   map: { coverage: 'Continuous Islington borough and neighbouring streets', source: 'OpenStreetMap', checked: '30 October 2026', detail: 'Mapped street, park, building and outdoor court outlines; recorded building heights where available, otherwise estimated. Roofs, facades, planting and street furniture are illustrative. Indoor courts are not mapped outside their halls. The map starts close to Highbury Fields; zoom out to explore the same continuous map. Close-up 3D detail loads progressively. Named parks and gardens and recorded bus-stop locations can be explored in Places. Open TfL links for current routes and arrivals. Benches are illustrative, not an accessibility survey. Sparse fire, police and ambulance miniatures replace existing car slots, use the same checked road traffic and are not live emergency locations. Cars, walkers, birds, urban foxes, narrowboats, surface trains and traffic signals are illustrative animated details on suitable source geography, not live observations. Selecting a supported bus route starts a 45-second illustrative road tour towards a nearby public tennis venue, with replay, a highlighted road line and an estimated remaining straight-line distance from the road to the courts. Route 139 lies outside this stored map and has no local tour. Pause world freezes activity. Forecast wind influences tree sway and the grass and water finishes. The Time card previews dates, sunrise, sunset and estimated moon phases, calculated locally rather than an observing ephemeris.' },
@@ -12,6 +13,7 @@ const data = {
   parksAndBusStops: borough.amenities,
   busRoutes: borough.busRoutes, stations: borough.stations, tour: borough.tour,
   iconicLondonClubs: iconicClubs,
+  otherMappedCourts: { note: 'Named from OpenStreetMap and shown on the map. Not checked for public use; many are private or for schools.', sites: otherCourtSites.map(({ name, note, courtIds }) => ({ name, courts: courtIds.length, ...(note ? { note } : {}) })) },
   tennisCentre: { coaches: centreCoaches, sessions: centreSessions },
 };
 writeFileSync('supabase/functions/ask-islington/scene-data.json', JSON.stringify(data));

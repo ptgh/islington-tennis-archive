@@ -1,5 +1,6 @@
 import geography from '../data/islington-geography.json' with { type: 'json' }
 import { projectPoint } from './courtGeometry.ts'
+import { otherCourtSites } from '../data/otherCourts.ts'
 
 export type GeoFeature = { id: number | string; points: number[][]; holes?: number[][][]; tags?: Record<string,string>; kind?: string }
 export type BoroughCell = { buildings: GeoFeature[]; roads: GeoFeature[]; parks: GeoFeature[]; trees: GeoFeature[]; railways: GeoFeature[]; water: GeoFeature[] }
@@ -12,6 +13,11 @@ export const boroughCourts=geography.courts.map(court=>{
  const edges=p.map((a,i)=>{const b=p[(i+1)%p.length];return {dx:b[0]-a[0],dz:b[1]-a[1],length:Math.hypot(b[0]-a[0],b[1]-a[1])}})
  const long=edges.reduce((a,b)=>a.length>b.length?a:b),short=edges.reduce((a,b)=>a.length<b.length?a:b)
  return {...court,x,z,width:short.length,depth:long.length,rotation:Math.atan2(long.dx,long.dz)}
+})
+/** Labels for the mapped courts no listed venue covers. Count and position come from the courts themselves. */
+export const otherCourtPins=otherCourtSites.map(site=>{
+ const courts=boroughCourts.filter(c=>site.courtIds.includes(c.id))
+ return {...site,courts,x:courts.reduce((s,c)=>s+c.x,0)/courts.length,z:courts.reduce((s,c)=>s+c.z,0)/courts.length}
 })
 /** Association only affects framing; it never substitutes operator court counts.
  * School/club/park venue pins may be published general locations rather than gates. */

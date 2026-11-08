@@ -8,7 +8,7 @@
 .quality-panel fieldset{margin:0;padding:0;border:0}
 .quality-panel legend{font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
 .quality-option,.quality-focus{display:flex;align-items:flex-start;gap:9px;cursor:pointer;padding:10px 0;font-size:12px}
-.quality-panel input{margin:2px 0 0;accent-color:#244b3d;flex-shrink:0}
+.quality-panel input{margin:2px 0 0;flex-shrink:0}
 .quality-panel strong{display:block;font-weight:600}
 .quality-panel small{display:block;font-size:11px;line-height:1.5;color:#62765e;margin-top:3px}
 .quality-focus{margin-top:8px;padding-top:14px;border-top:1px solid #d9e1ce}

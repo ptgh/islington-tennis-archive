@@ -6,7 +6,8 @@ import { Icon } from './Icon';
 import { HittingPartners } from './HittingPartners';
 import './AccountCircle.css';
 
-export function AccountCircle({ venues, onRacquets, onPartners, openRequest = 0 }: {
+export function AccountCircle({ venues, onRacquets, onPartners, onOpen, openRequest = 0 }: {
+  onOpen?: () => void;
   openRequest?: number;
   venues: { id: string; name: string }[];
   onRacquets: () => void;
@@ -39,7 +40,7 @@ export function AccountCircle({ venues, onRacquets, onPartners, openRequest = 0 
   const close = () => { setOpen(false); trigger.current?.focus(); };
   const destination = accountDestination(signedIn);
   return <>
-    <button ref={trigger} className="pill account-launch" data-signed-in={signedIn} aria-label={signedIn ? 'Your player profile' : 'Sign up or sign in'} title={signedIn ? 'Your player profile' : 'Sign up or sign in'} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><Icon name="person" size={22}/></button>
+    <button ref={trigger} className="pill account-launch" data-signed-in={signedIn} aria-label={signedIn ? 'Your player profile' : 'Sign up or sign in'} title={signedIn ? 'Your player profile' : 'Sign up or sign in'} aria-haspopup="dialog" aria-expanded={open} onClick={() => { onOpen?.(); setOpen(true); }}><Icon name="person" size={22}/></button>
     {open && <dialog ref={dialog} className="about-dialog account-dialog" aria-label={signedIn ? 'Your player profile' : 'Create your account'} onCancel={close} onClick={e => { if (e.target === e.currentTarget) close(); }}>
       <CloseButton label="Close account" onClick={close} className="dialog-close icon-button"/>
       <HittingPartners venues={venues} onBack={close} onRacquets={() => { close(); onRacquets(); }} account initialMode={destination === 'signup' ? 'up' : 'in'} onPartners={() => { close(); onPartners(); }}/>

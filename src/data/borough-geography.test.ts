@@ -5,7 +5,8 @@ import path from 'node:path'
 import * as THREE from 'three'
 import { boroughGeography, boroughBounds, boroughCourts, containsPoint, courtsNearVenue, boroughCourtDimensions, buildingHeight, detailCellLimit, detailCellsInView, footprintArea, type BoroughCell } from '../scene/boroughGeometry.ts'
 import { avenueTreeSites } from '../scene/boroughFurniture.ts'
-import { BOROUGH_NEIGHBOURS, boundaryStrength, washGeometry } from '../scene/createBoroughBoundary.ts'
+import { BOROUGH_NEIGHBOURS, boundaryStrength, washGeometry, washStrength } from '../scene/createBoroughBoundary.ts'
+import { otherCourtPins } from '../scene/boroughGeometry.ts'
 import { projectPoint } from '../scene/courtGeometry.ts'
 import { createBoroughMaterials, createBoroughTile } from '../scene/createBoroughTile.ts'
 import { createIslington } from '../scene/createIslington.ts'
@@ -151,6 +152,8 @@ test('the wash covers everything outside the real boundary and nothing inside it
  assert.equal(washed(x,z),false)
  for(const place of BOROUGH_NEIGHBOURS){assert.equal(containsPoint(place.x,place.z,boroughGeography.boundary),false,place.name);assert.equal(washed(place.x,place.z),true,place.name)}
  assert.equal(boundaryStrength(6),1);assert.equal(boundaryStrength(25),0)
+ assert.equal(washStrength(5),1);assert.equal(washStrength(12),0,'the wash has gone by the time you are looking at a place')
+ assert.ok(positions.getY(0)<.014,'below every court playing surface')
 })
 
 test('every park walk tree stays in its park and clear of courts',()=>{
@@ -169,3 +172,12 @@ test('phones get a smaller overview with the same proportions as the full map',(
  for(const file of ['map/islington-overview.png','map/islington-overview-phone.webp'])assert.ok(fs.statSync(path.join(dir,file)).size>100000,file)
  assert.ok(fs.statSync(path.join(dir,'map/islington-overview-phone.webp')).size<fs.statSync(path.join(dir,'map/islington-overview.png')).size/3)
 })
+
+test('every mapped court belongs to a listed venue or a named site, never both or neither',()=>{
+ const linked=new Set(venues.flatMap(v=>courtsNearVenue(v.lat,v.lng).map(c=>c.id)))
+ const named=otherCourtPins.flatMap(site=>site.courts.map(c=>c.id))
+ assert.equal(new Set(named).size,named.length,'a court appears under one site only')
+ for(const court of boroughCourts)assert.equal(linked.has(court.id)!==named.includes(court.id),true,`court ${court.id}`)
+ for(const site of otherCourtPins){assert.equal(site.courts.length,site.courtIds.length,site.name);assert.ok(Number.isFinite(site.x)&&site.name.length>2)}
+})
+

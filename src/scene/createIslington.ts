@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import {destinationGeometry,destinationOutline} from './destinationHighlight.ts'
 import { boroughBounds, boroughGeography, courtsNearVenue, detailCellLimit, detailCellsInView, type BoroughCell } from './boroughGeometry.ts'
 import { createBoroughBoundary } from './createBoroughBoundary.ts'
-import { createBoroughMaterials, createBoroughTile } from './createBoroughTile.ts'
+import { buildBoroughTile, createBoroughMaterials, createBoroughTile } from './createBoroughTile.ts'
 import { createBoroughCourts } from './createBoroughCourts.ts'
 import { mapStations } from '../data/transit.ts'
 import { createGear } from './createGear.ts'
@@ -20,9 +20,13 @@ const OVERVIEW_EDGE_FADE=36
 /** Decoded, the full overview is about 90 MB of GPU memory: too much to spend on a phone. */
 const overviewPath=typeof window!=='undefined'&&window.matchMedia?.('(max-width:760px)').matches?'map/islington-overview-phone.webp':'map/islington-overview.png'
 const buildingsRise=typeof window!=='undefined'&&!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-const RISE_SECONDS=.45,RISE_FROM=.02
+const RISE_SECONDS=.45,SINK_SECONDS=.3,RISE_FROM=.02,FLIGHT_CELLS=10,FINE_DETAIL_ZOOM=11
+/** A flat map is cheap to draw, so more of the frame can go on building what comes next. */
+const BUILD_MS_WITH_3D=6,BUILD_MS_FLAT=14,BUILD_MS_NO_FRAMES=60
+/** Browsers build cells across frames; tests and tools have no frames to wait for. */
+const buildInSlices=typeof window!=='undefined'
 export type BusRideStatus={id:string;progress:number;destinationId:string;walkMetres:number}
-export type IslingtonWorld=TownWorld & { ready:Promise<void>; updateView:(camera:THREE.OrthographicCamera,zoom:number,target:THREE.Vector3,cssWidth?:number)=>void; setTrains:(value:boolean)=>void; setDestination:(point:THREE.Vector3|null,park?:boolean)=>void; lifeLocation:(kind:'cycle'|'fox'|'emergency',near:THREE.Vector3)=>THREE.Vector3|null; busPosition:(id:string,target:THREE.Vector3)=>boolean; startBusRide:(id:string)=>boolean; busRideStatus:()=>BusRideStatus|null; retry:()=>void; status:{loading:number;failed:number;loaded:number} }
+export type IslingtonWorld=TownWorld & { ready:Promise<void>; updateView:(camera:THREE.OrthographicCamera,zoom:number,target:THREE.Vector3,cssWidth?:number)=>void; setTrains:(value:boolean)=>void; setDestination:(point:THREE.Vector3|null,park?:boolean)=>void; prepareFlight:(camera:THREE.OrthographicCamera,target:THREE.Vector3,cssWidth:number,hold:boolean)=>void; endFlight:()=>void; lifeLocation:(kind:'cycle'|'fox'|'emergency',near:THREE.Vector3)=>THREE.Vector3|null; busPosition:(id:string,target:THREE.Vector3)=>boolean; startBusRide:(id:string)=>boolean; busRideStatus:()=>BusRideStatus|null; retry:()=>void; status:{loading:number;failed:number;loaded:number} }
 
 /** One continuous source map. Stream/cull local detail in shared world coordinates;
  * the borough-wide overview remains present during loading and across cell seams. */
@@ -68,38 +72,78 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
  transport.root.scale.setScalar(.1);root.add(transport.root)
  const gear=createGear((lat,lng)=>project(lat,lng).multiplyScalar(10),[],true,traffic);gear.root.scale.setScalar(.1);gear.van.scale.setScalar(.7);root.add(gear.root)
  const vanPosition=new THREE.Vector3();gear.root.updateMatrixWorld(true);gear.van.getWorldPosition(vanPosition)
- const loaded=new Map<string,{tile:Tile;used:number;rise:number}>(),loading=new Map<string,AbortController>(),failed=new Set<string>(),queue:Cell[]=[]
+ const loaded=new Map<string,{tile:Tile;used:number;rise:number;target:number}>(),building=new Map<string,{cell:Cell;steps:ReturnType<typeof buildBoroughTile>}>(),loading=new Map<string,AbortController>(),failed=new Set<string>(),queue:Cell[]=[]
  const status={loading:0,failed:0,loaded:0};root.userData.streaming=status;root.userData.source={checked:boroughGeography.checked,counts:boroughGeography.counts,cells:boroughGeography.cells.length}
- let retainedCells=20,disposed=false,revision=0,lastKey='',desired=new Set<string>(),night=false,detailLife=true,trainsVisible=true
+ let retainedCells=20,shownCells=new Set<string>(),fineDetail=false,lastBuildStep=0,buildWatch:ReturnType<typeof setTimeout>|undefined,flight:{cells:Cell[];hold:boolean}|null=null,disposed=false,revision=0,lastKey='',desired=new Set<string>(),night=false,detailLife=true,trainsVisible=true
  let readyResolve:()=>void=()=>{};const ready=new Promise<void>(resolve=>{readyResolve=resolve})
  const sourceCells=boroughGeography.cells.map(cell=>({cell,box:new THREE.Box3(new THREE.Vector3(cell.bounds[0],-.1,cell.bounds[1]),new THREE.Vector3(cell.bounds[2],9,cell.bounds[3]))}))
- function notify(){status.loading=loading.size+queue.length;status.failed=failed.size+(overviewFailed?1:0);status.loaded=loaded.size;invalidate()}
+ function notify(){status.loading=loading.size+queue.length+building.size;status.failed=failed.size+(overviewFailed?1:0);status.loaded=loaded.size;invalidate()}
  function evict(){while(loaded.size>retainedCells){const oldest=[...loaded.entries()].filter(([id])=>!desired.has(id)).sort((a,b)=>a[1].used-b[1].used)[0];if(!oldest)break;root.remove(oldest[1].tile.root);oldest[1].tile.dispose();loaded.delete(oldest[0])}}
+ function adopt(cell:Cell,tile:Tile){
+  const shown=shownCells.has(cell.id)
+  tile.life.setNight(night);tile.life.setTrains(trainsVisible);tile.life.root.visible=detailLife;tile.root.userData.cellId=cell.id;tile.root.visible=shown;tile.root.scale.y=buildingsRise?RISE_FROM:1;tile.setFineDetail(fineDetail);root.add(tile.root)
+  loaded.set(cell.id,{tile,used:++revision,rise:buildingsRise?0:1,target:shown?1:0});failed.delete(cell.id);readyResolve();evict();refreshHighlight()
+ }
+ function stepBuilds(budget=shownCells.size?BUILD_MS_WITH_3D:BUILD_MS_FLAT){
+  lastBuildStep=performance.now()
+  const deadline=lastBuildStep+budget
+  for(const [id,job] of building){
+   if(!desired.has(id)){building.delete(id);notify();continue}
+   for(;;){
+    const step=job.steps.next()
+    if(step.done){building.delete(id);adopt(job.cell,step.value);notify();return}
+    if(performance.now()>=deadline)return
+   }
+  }
+ }
+ // Frames stop in a background tab; the map must still finish loading behind the scenes.
+ function watchBuilds(){
+  if(buildWatch||disposed||!building.size)return
+  buildWatch=setTimeout(()=>{buildWatch=undefined;if(disposed)return;if(performance.now()-lastBuildStep>200)stepBuilds(BUILD_MS_NO_FRAMES);watchBuilds()},250)
+ }
  function pump(){
   if(disposed)return
   while(loading.size<2&&queue.length){
-   const cell=queue.shift()!;if(loaded.has(cell.id)||loading.has(cell.id)||!desired.has(cell.id))continue
+   const cell=queue.shift()!;if(loaded.has(cell.id)||loading.has(cell.id)||building.has(cell.id)||!desired.has(cell.id))continue
    const controller=new AbortController();let timedOut=false;const timeout=setTimeout(()=>{timedOut=true;controller.abort()},15000);loading.set(cell.id,controller);notify()
    fetch(sourceUrl(cell.url),{signal:controller.signal}).then(r=>{if(!r.ok)throw Error('Map cell unavailable');return r.json()}).then((data:BoroughCell)=>{
     if(disposed||!desired.has(cell.id))return
-    const tile=createBoroughTile(data,materials,traffic,cell.id);tile.life.setNight(night);tile.life.setTrains(trainsVisible);tile.life.root.visible=detailLife;tile.root.userData.cellId=cell.id;root.add(tile.root);const rise=buildingsRise?0:1;tile.root.scale.y=buildingsRise?RISE_FROM:1;loaded.set(cell.id,{tile,used:++revision,rise});failed.delete(cell.id);readyResolve();evict();refreshHighlight()
-   }).catch(error=>{if(!disposed&&(error.name!=='AbortError'||timedOut))failed.add(cell.id)}).finally(()=>{clearTimeout(timeout);loading.delete(cell.id);if(!disposed&&desired.has(cell.id)&&!loaded.has(cell.id)&&!failed.has(cell.id)&&!queue.some(c=>c.id===cell.id))queue.push(cell);notify();if(!disposed){readyResolve();pump()}})
+    if(buildInSlices){building.set(cell.id,{cell,steps:buildBoroughTile(data,materials,traffic,cell.id)});watchBuilds()}
+    else adopt(cell,createBoroughTile(data,materials,traffic,cell.id))
+   }).catch(error=>{if(!disposed&&(error.name!=='AbortError'||timedOut))failed.add(cell.id)}).finally(()=>{clearTimeout(timeout);loading.delete(cell.id);if(!disposed&&desired.has(cell.id)&&!loaded.has(cell.id)&&!building.has(cell.id)&&!failed.has(cell.id)&&!queue.some(c=>c.id===cell.id))queue.push(cell);notify();if(!disposed){if(!buildInSlices||failed.size)readyResolve();pump()}})
   }
   notify()
  }
- function request(cells:Cell[]){desired=new Set(cells.map(c=>c.id));for(const [id,item] of loaded){if(desired.has(id)){if(!item.tile.root.visible&&buildingsRise){item.rise=0;item.tile.root.scale.y=RISE_FROM}item.used=++revision}item.tile.root.visible=desired.has(id)}queue.splice(0,queue.length,...cells.filter(c=>!loaded.has(c.id)&&!loading.has(c.id)&&!failed.has(c.id)));for(const [id,c] of loading)if(!desired.has(id))c.abort();pump();evict()}
+ function request(cells:Cell[],ahead:Cell[]=[]){
+  shownCells=new Set(cells.map(c=>c.id));desired=new Set([...shownCells,...ahead.map(c=>c.id)])
+  for(const [id,item] of loaded){
+   if(desired.has(id))item.used=++revision
+   const show=shownCells.has(id)
+   if(!buildingsRise){item.tile.root.visible=show;continue}
+   item.target=show?1:0
+   if(show&&!item.tile.root.visible){item.rise=0;item.tile.root.scale.y=RISE_FROM;item.tile.root.visible=true}
+  }
+  const wanted=[...new Set([...ahead,...cells])]
+  queue.splice(0,queue.length,...wanted.filter(c=>!loaded.has(c.id)&&!loading.has(c.id)&&!building.has(c.id)&&!failed.has(c.id)));for(const [id,c] of loading)if(!desired.has(id))c.abort();pump();evict()
+ }
  const frustum=new THREE.Frustum(),matrix=new THREE.Matrix4()
  function updateView(camera:THREE.OrthographicCamera,zoom:number,target:THREE.Vector3,cssWidth=1440){
   if(disposed)return
   boundary.setView(camera,zoom,cssWidth)
+  const fine=zoom>=FINE_DETAIL_ZOOM
+  if(fine!==fineDetail){fineDetail=fine;for(const item of loaded.values())item.tile.setFineDetail(fine)}
   detailLife=zoom>=3.5
   for(const item of loaded.values()){item.tile.life.root.visible=detailLife;if(!detailLife||!item.tile.root.visible)item.tile.life.clearTraffic()}
   // At overview scale the complete source-derived map replaces subpixel facade
   // detail. Footprint geometry overlays that same map once it can fill the view.
   matrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);frustum.setFromProjectionMatrix(matrix)
   const limit=detailCellLimit(cssWidth);retainedCells=limit+4
-  const cells=detailCellsInView(sourceCells.filter(({box})=>frustum.intersectsBox(box)).map(({cell})=>cell),target,limit)
-  const key=cells.map(c=>c.id).sort().join(',');if(key!==lastKey){lastKey=key;request(cells)}
+  const inView=detailCellsInView(sourceCells.filter(({box})=>frustum.intersectsBox(box)).map(({cell})=>cell),target,limit)
+  // In flight, fetch only where the camera is going: cells it merely passes over would
+  // be cancelled before they arrived. On a long trip 3D waits until it can fill the view.
+  const cells=!flight?inView:flight.hold?(inView.length&&inView.every(c=>loaded.has(c.id))?inView:[]):inView.filter(c=>loaded.has(c.id)||flight!.cells.includes(c))
+  const ahead=flight?.cells??[]
+  const key=cells.map(c=>c.id).sort().join(',')+'|'+ahead.map(c=>c.id).join(',');if(key!==lastKey){lastKey=key;request(cells,ahead)}
  }
  // Prime source detail at the first court before releasing the startup artwork.
  const first=anchors.get('highbury-fields')??project(51.5515,-.0988)
@@ -113,10 +157,11 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
    for(const [venueId,anchor] of anchors){if(venues.find(v=>v.id===venueId)?.access!=='public')continue;for(const [x,z] of points){const d=Math.hypot(x-anchor.x,z-anchor.z);if(d<distance){distance=d;destinationId=venueId}}}
    return transport.startBusRide(id,anchors.get(destinationId)??first)
  },busRideStatus(){const ride=transport.rideProgress();return ride?{...ride,destinationId}:null},retry(){failed.clear();if(overviewFailed&&texture){new THREE.TextureLoader().load(sourceUrl(overviewPath),loaded=>{if(disposed){loaded.dispose();return}texture.image=loaded.image;texture.needsUpdate=true;loaded.dispose();overviewFailed=false;notify()},undefined,()=>notify())}lastKey='';notify()},
+ prepareFlight(camera,target,cssWidth,hold){camera.updateMatrixWorld();matrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);frustum.setFromProjectionMatrix(matrix);flight={cells:detailCellsInView(sourceCells.filter(({box})=>frustum.intersectsBox(box)).map(({cell})=>cell),target,detailCellLimit(cssWidth)).slice(0,FLIGHT_CELLS),hold};lastKey='';invalidate()},endFlight(){if(!flight)return;flight=null;lastKey='';invalidate()},
  setDestination(point,park=false){if(highlightTimer)clearTimeout(highlightTimer);destination=point;destinationPark=park;highlightId='';highlightMaterial.opacity=.10;refreshHighlight();invalidate();if(point)highlightTimer=setTimeout(()=>{highlightMaterial.opacity=0;invalidate()},2500)},
  lifeLocation(kind,near){const points=[...loaded.values()].filter(item=>item.tile.root.visible&&item.tile.life.root.visible).flatMap(item=>{const point=item.tile.life.lifeLocation(kind);return point?[point]:[]});return points.sort((a,b)=>a.distanceToSquared(near)-b.distanceToSquared(near))[0]??null},
  setWind(strength){windStrength=strength*.1},setRain:materials.finishes.setRain,setTransit(){},setActivity(value){courts.setActivity(value);transport.setActivity(value)},setBuses:transport.setBuses,setTrains(value){trainsVisible=value;loaded.forEach(item=>item.tile.life.setTrains(value));invalidate()},setBusRoute:transport.setBusRoute,
  setNight(value){if(value===night)return;night=value;boundary.setNight(value);materials.setNight(value);courts.setNight(value);transport.setNight(value);loaded.forEach(item=>item.tile.life.setNight(value))},
- animate(seconds,runTrain,activity,buses){const delta=Math.min(.08,Math.max(0,seconds-previous));previous=seconds;if(buildingsRise)for(const item of loaded.values())if(item.tile.root.visible&&item.rise<1){item.rise=Math.min(1,item.rise+delta/RISE_SECONDS);item.tile.root.scale.y=Math.max(RISE_FROM,item.rise*item.rise*(3-2*item.rise));invalidate()}if(activity)windTime+=delta;materials.finishes.setWind(windTime,windStrength);materials.animateSurfaces(windTime,windStrength);for(const item of loaded.values())if(item.tile.root.visible&&item.tile.life.root.visible)item.tile.life.animate(delta,activity,runTrain);gear.animate(delta,activity);gear.root.updateMatrixWorld(true);gear.van.getWorldPosition(vanPosition);courts.animate(delta,activity,false);transport.animate(delta,activity,buses)},
- dispose(){disposed=true;if(highlightTimer)clearTimeout(highlightTimer);highlight.geometry.dispose();highlightMaterial.dispose();outline.geometry.dispose();outlineMaterial.dispose();loading.forEach(c=>c.abort());queue.length=0;loaded.forEach(v=>v.tile.dispose());loaded.clear();courts.dispose();boundary.dispose();materials.dispose();baseGeometry.dispose();baseMaterial.dispose();surroundGeometry.dispose();surroundMaterial.dispose();texture?.dispose();const geometries=new Set<THREE.BufferGeometry>(),mats=new Set<THREE.Material>();for(const group of [transport.root,gear.root])group.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>mats.add(m));if(o instanceof THREE.InstancedMesh)o.dispose()}});geometries.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());readyResolve()}}
+ animate(seconds,runTrain,activity,buses){const delta=Math.min(.08,Math.max(0,seconds-previous));previous=seconds;if(building.size){stepBuilds();invalidate()}if(buildingsRise)for(const item of loaded.values())if(item.tile.root.visible&&item.rise!==item.target){item.rise=item.target>item.rise?Math.min(1,item.rise+delta/RISE_SECONDS):Math.max(0,item.rise-delta/SINK_SECONDS);item.tile.root.scale.y=Math.max(RISE_FROM,item.rise*item.rise*(3-2*item.rise));if(!item.rise&&!item.target)item.tile.root.visible=false;invalidate()}if(activity)windTime+=delta;materials.finishes.setWind(windTime,windStrength);materials.animateSurfaces(windTime,windStrength);for(const item of loaded.values())if(item.tile.root.visible&&item.tile.life.root.visible)item.tile.life.animate(delta,activity,runTrain);gear.animate(delta,activity);gear.root.updateMatrixWorld(true);gear.van.getWorldPosition(vanPosition);courts.animate(delta,activity,false);transport.animate(delta,activity,buses)},
+ dispose(){disposed=true;if(buildWatch)clearTimeout(buildWatch);if(highlightTimer)clearTimeout(highlightTimer);highlight.geometry.dispose();highlightMaterial.dispose();outline.geometry.dispose();outlineMaterial.dispose();loading.forEach(c=>c.abort());queue.length=0;building.clear();loaded.forEach(v=>v.tile.dispose());loaded.clear();courts.dispose();boundary.dispose();materials.dispose();baseGeometry.dispose();baseMaterial.dispose();surroundGeometry.dispose();surroundMaterial.dispose();texture?.dispose();const geometries=new Set<THREE.BufferGeometry>(),mats=new Set<THREE.Material>();for(const group of [transport.root,gear.root])group.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>mats.add(m));if(o instanceof THREE.InstancedMesh)o.dispose()}});geometries.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());readyResolve()}}
 }
