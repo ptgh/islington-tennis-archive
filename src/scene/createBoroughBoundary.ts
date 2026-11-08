@@ -13,8 +13,10 @@ export const BOROUGH_NEIGHBOURS=[
 /** Above this zoom the neighbour names are off the point: the view is a single street. */
 export const NEIGHBOUR_LABEL_MAX_ZOOM=8
 const LINE_PIXELS=2.2,WASH_REACH=6000
-const DAY={wash:'#efe8d4',washOpacity:.16,line:'#fff4d2',lineOpacity:.9}
-const NIGHT={wash:'#14242a',washOpacity:.3,line:'#d9cfae',lineOpacity:.55}
+const DAY={wash:'#efe8d4',washOpacity:.05,line:'#fff4d2',lineOpacity:.85,trace:'#ffcf5e'}
+const NIGHT={wash:'#14242a',washOpacity:.1,line:'#d9cfae',lineOpacity:.55,trace:'#ffe2a0'}
+/** A pen stroke travels the whole boundary once per lap, leaving a fading tail behind it. */
+const TRACE_LAP_SECONDS=16,TRACE_TAIL=.16
 
 /** Full strength at map scale; gone by street scale, where the flat overlay would cross façades. */
 export function boundaryStrength(zoom:number){return 1-THREE.MathUtils.smoothstep(zoom,10,20)}
@@ -33,16 +35,20 @@ export function washGeometry(ring:number[][]){
 
 /** Each edge is a quad whose width is added in the vertex shader, so zooming costs no rebuild. */
 function ribbonGeometry(ring:number[][]){
- const positions:number[]=[],sides:number[]=[],indices:number[]=[]
+ const positions:number[]=[],sides:number[]=[],along:number[]=[],indices:number[]=[]
+ let travelled=0
+ const perimeter=ring.slice(1).reduce((sum,b,i)=>sum+Math.hypot(b[0]-ring[i][0],b[1]-ring[i][1]),0)
  for(let i=1;i<ring.length;i++){
   const a=ring[i-1],b=ring[i],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);if(!length)continue
   const nx=-dz/length,nz=dx/length,first=positions.length/3
-  for(const [point,side] of [[a,1],[a,-1],[b,1],[b,-1]] as const){positions.push(point[0],.07,point[1]);sides.push(nx*side,nz*side)}
+  const start=travelled/perimeter;travelled+=length;const end=travelled/perimeter
+  for(const [point,side,place] of [[a,1,start],[a,-1,start],[b,1,end],[b,-1,end]] as const){positions.push(point[0],.07,point[1]);sides.push(nx*side,nz*side);along.push(place)}
   indices.push(first,first+1,first+2,first+1,first+3,first+2)
  }
  const geometry=new THREE.BufferGeometry()
  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3))
  geometry.setAttribute('edgeSide',new THREE.Float32BufferAttribute(sides,2))
+ geometry.setAttribute('edgeAlong',new THREE.Float32BufferAttribute(along,1))
  geometry.setIndex(indices);return geometry
 }
 
@@ -51,18 +57,23 @@ export function createBoroughBoundary(){
  const root=new THREE.Group();root.name='Islington boundary'
  const ring=boroughGeography.boundary
  const overlay=(depthTest:boolean)=>new THREE.MeshBasicMaterial({transparent:true,depthTest,depthWrite:false,fog:false,side:THREE.DoubleSide})
- const washMaterial=overlay(true),lineMaterial=overlay(false),halfWidth={value:.5}
+ const washMaterial=overlay(true),lineMaterial=overlay(false),halfWidth={value:.5},tracePlace={value:-1},traceColor={value:new THREE.Color(DAY.trace)}
  lineMaterial.onBeforeCompile=shader=>{
-  shader.uniforms.boundaryHalfWidth=halfWidth
-  shader.vertexShader='attribute vec2 edgeSide;\nuniform float boundaryHalfWidth;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.xz+=edgeSide*boundaryHalfWidth;')
+  shader.uniforms.boundaryHalfWidth=halfWidth;shader.uniforms.boundaryTrace=tracePlace;shader.uniforms.boundaryTraceColor=traceColor
+  shader.vertexShader='attribute vec2 edgeSide;\nattribute float edgeAlong;\nuniform float boundaryHalfWidth;\nuniform float boundaryTrace;\nvarying float boundaryGlow;\n'+shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
+   boundaryGlow=boundaryTrace<0.0?0.0:pow(max(0.0,1.0-fract(boundaryTrace-edgeAlong)/${TRACE_TAIL.toFixed(3)}),2.0);
+   transformed.xz+=edgeSide*boundaryHalfWidth*(1.0+boundaryGlow*.9);`)
+  shader.fragmentShader='varying float boundaryGlow;\nuniform vec3 boundaryTraceColor;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+   diffuseColor.rgb=mix(diffuseColor.rgb,boundaryTraceColor,boundaryGlow);
+   diffuseColor.a=min(1.0,diffuseColor.a*(1.0+boundaryGlow*.6));`)
  }
- lineMaterial.customProgramCacheKey=()=>'borough-boundary-ribbon-v1'
+ lineMaterial.customProgramCacheKey=()=>'borough-boundary-ribbon-v2'
  const wash=new THREE.Mesh(washGeometry(ring),washMaterial);wash.name='Outside Islington wash';wash.renderOrder=30;wash.frustumCulled=false
  const line=new THREE.Mesh(ribbonGeometry(ring),lineMaterial);line.name='Islington boundary line';line.renderOrder=31;line.frustumCulled=false
  root.add(wash,line)
- let palette=DAY,strength=1,washFade=1
+ let palette=DAY,strength=1,washFade=1,clock=0
  function apply(){
-  washMaterial.color.set(palette.wash);lineMaterial.color.set(palette.line)
+  washMaterial.color.set(palette.wash);lineMaterial.color.set(palette.line);traceColor.value.set(palette.trace)
   washMaterial.opacity=palette.washOpacity*washFade;lineMaterial.opacity=palette.lineOpacity*strength
   wash.visible=washFade>.001;line.visible=strength>.001
  }
@@ -72,6 +83,8 @@ export function createBoroughBoundary(){
    strength=boundaryStrength(zoom);washFade=washStrength(zoom);halfWidth.value=LINE_PIXELS*(camera.right-camera.left)/zoom/cssWidth/2;apply()
   },
   setNight(value:boolean){palette=value?NIGHT:DAY;apply()},
+  /** Advances only while the world runs, so Pause holds the stroke where it is. */
+  animate(delta:number){clock=(clock+delta/TRACE_LAP_SECONDS)%1;tracePlace.value=clock},
   dispose(){wash.geometry.dispose();line.geometry.dispose();washMaterial.dispose();lineMaterial.dispose()},
  }
 }

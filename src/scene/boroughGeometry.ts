@@ -19,6 +19,17 @@ export const otherCourtPins=otherCourtSites.map(site=>{
  const courts=boroughCourts.filter(c=>site.courtIds.includes(c.id))
  return {...site,courts,x:courts.reduce((s,c)=>s+c.x,0)/courts.length,z:courts.reduce((s,c)=>s+c.z,0)/courts.length}
 })
+export type WatchableCourt={id:string;name:string;courts:number|null}
+/** Every venue and named site, split by the real boundary rather than by hand. */
+export function watchableCourts(venues:{id:string;name:string;lat:number;lng:number;courts:number|null}[]){
+ const rows=[
+  ...venues.map(v=>{const [x,z]=projectPoint(v.lng,v.lat);return {id:v.id,name:v.name,courts:v.courts,x,z}}),
+  ...otherCourtPins.map(s=>({id:s.id,name:s.name,courts:s.courts.length as number|null,x:s.x,z:s.z})),
+ ].sort((a,b)=>a.name.localeCompare(b.name))
+ const inside=(r:{x:number;z:number})=>containsPoint(r.x,r.z,geography.boundary)
+ const row=({id,name,courts}:WatchableCourt)=>({id,name,courts})
+ return {islington:rows.filter(inside).map(row),nearby:rows.filter(r=>!inside(r)).map(row)}
+}
 /** Association only affects framing; it never substitutes operator court counts.
  * School/club/park venue pins may be published general locations rather than gates. */
 export function courtsNearVenue(lat:number,lng:number){const [x,z]=projectPoint(lng,lat);return boroughCourts.filter(c=>Math.hypot(c.x-x,c.z-z)<22)}

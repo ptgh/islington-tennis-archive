@@ -77,6 +77,7 @@ interface TownMapProps {
   showOtherCourts?: boolean
   selectedCameraId?: string
   onSelectCamera?: (camera: TrafficCamera) => void
+  onVisitSite?: (id: string) => void
 }
 
 interface SceneHandle {
@@ -91,7 +92,6 @@ interface SceneHandle {
   resize: () => void
   frame: () => void
   focus: (point: THREE.Vector3) => void
-  frameCourts: (points: THREE.Vector3[]) => void
   travel: (point: THREE.Vector3, zoom: number) => void
   cancelTravel: () => void
   followRoute: (id: string) => boolean
@@ -104,8 +104,10 @@ const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 /** Only miniature traffic moves on a still map: 30 frames a second is plenty, and drawing flat out just heats the machine. */
 const IDLE_FRAME_MS = 31
+/** Quiet map labels hide before they reach the header and the bottom row of buttons. */
+const LABEL_CLEAR_TOP = 110, LABEL_CLEAR_BOTTOM = 90
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, locatedPlace, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showTrains, busRouteId, showShops, selectedServiceId, followVan = true, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, showOtherCourts = false, selectedCameraId, onSelectCamera }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, locatedPlace, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showTrains, busRouteId, showShops, selectedServiceId, followVan = true, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, showOtherCourts = false, selectedCameraId, onSelectCamera, onVisitSite }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -321,12 +323,12 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       return true
     }
     const visitCourt=(id:string,immediate=false)=>{
-      const venue=venues.find(item=>item.id===id)
-      if(!venue)return
+      const venue=venues.find(item=>item.id===id),site=otherCourtPins.find(item=>item.id===id)
+      if(!venue&&!site)return
       const points:THREE.Vector3[]=[]
-      const sourceCourts=courtsNearVenue(venue.lat,venue.lng)
+      const sourceCourts=site?site.courts:courtsNearVenue(venue!.lat,venue!.lng)
       for(const court of sourceCourts)for(const [x,z] of court.points)for(const y of [0,1.2])points.push(new THREE.Vector3(x,y,z))
-      if(!points.length){const point=geoPosition(venue.lat,venue.lng);for(const x of [-5,5])for(const z of [-5,5])points.push(point.clone().add(new THREE.Vector3(x,0,z)))}
+      if(!points.length){const point=geoPosition(venue!.lat,venue!.lng);for(const x of [-5,5])for(const z of [-5,5])points.push(point.clone().add(new THREE.Vector3(x,0,z)))}
       frameCourts(points,immediate)
     }
     const frameCourts=(points:THREE.Vector3[],immediate=false)=>{
@@ -431,12 +433,12 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       else if(wasMobile!==(width<=760))reset()
       frame()
     }
-    const project = (point: THREE.Vector3, element: HTMLElement | undefined | null, enabled = true, lift = 0) => {
+    const project = (point: THREE.Vector3, element: HTMLElement | undefined | null, enabled = true, lift = 0, top = 32, bottom = 40) => {
       if (!element) return
       projection.copy(point).project(camera)
       const x = (projection.x * .5 + .5) * width
       const y = (-projection.y * .5 + .5) * height - lift
-      const visible = enabled && projection.z > -1 && projection.z < 1 && x > 12 && x < width - 12 && y > 32 && y < height - 40
+      const visible = enabled && projection.z > -1 && projection.z < 1 && x > 12 && x < width - 12 && y > top && y < height - bottom
       element.style.display = visible ? '' : 'none'
       if (visible) {
         element.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`
@@ -470,8 +472,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       const runtime = runtimeRef.current
       for (const venue of venues) project(world.anchors.get(venue.id)!,markerRefs.current.get(venue.id),runtime.visibleIds.includes(venue.id),3)
       if(runtime.locatedPlace)project(geoPosition(runtime.locatedPlace.lat,runtime.locatedPlace.lng).setY(.3),placeRef.current,true,8)
-      for (const place of BOROUGH_NEIGHBOURS) project(new THREE.Vector3(place.x,0,place.z),neighbourRefs.current.get(place.name),camera.zoom<NEIGHBOUR_LABEL_MAX_ZOOM)
-      for (const site of otherCourtPins) project(new THREE.Vector3(site.x,.15,site.z),siteRefs.current.get(site.id),!!runtime.showOtherCourts&&(site.courts.length>=3||camera.zoom>=2.2))
+      for (const place of BOROUGH_NEIGHBOURS) project(new THREE.Vector3(place.x,0,place.z),neighbourRefs.current.get(place.name),camera.zoom<NEIGHBOUR_LABEL_MAX_ZOOM,0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
+      for (const site of otherCourtPins) project(new THREE.Vector3(site.x,.15,site.z),siteRefs.current.get(site.id),!!runtime.showOtherCourts&&(site.courts.length>=3||camera.zoom>=2.2),0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
       host.classList.toggle('town-map--far',camera.zoom<1.4)
       for (const station of world.stations) project(station.position,stationRefs.current.get(station.name),runtime.showTransit)
       for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.15),cameraRefs.current.get(camera.id),runtime.showCameras,3)
@@ -481,7 +483,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       for(const service of mappedServices)project(geoPosition(service.lat,service.lng).setY(.3),shopRefs.current.get(service.id),runtime.showShops)
 
     }
-    const engine: SceneHandle = { camera, controls, world, scene, sunlight, ambient, renderer, reset, resize, frame, focus, frameCourts, travel, cancelTravel, followRoute, visitCourt }
+    const engine: SceneHandle = { camera, controls, world, scene, sunlight, ambient, renderer, reset, resize, frame, focus, travel, cancelTravel, followRoute, visitCourt }
     engineRef.current = engine
     // Dev-only handle for pinned-camera render comparisons; stripped from production builds.
     if (import.meta.env.DEV) Object.assign(window, { __town: { engine, runtime: runtimeRef, composer, quality } })
@@ -692,7 +694,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
         ))}
 
         {cameras.map(camera => <button className={`town-pin town-pin--camera${camera.available===false?' town-pin--camera-offline':''}${selectedCameraId === camera.id ? ' town-pin--selected' : ''}`} key={camera.id} ref={element => { if (element) cameraRefs.current.set(camera.id,element); else cameraRefs.current.delete(camera.id) }} style={{display:'none'}} aria-label={`${camera.name}. Show TfL traffic camera. ${cameraAvailability(camera)}`} aria-pressed={selectedCameraId === camera.id} onClick={() => onSelectCamera?.(camera)}><span className="town-pin__number"><Icon name="camera" size={17}/></span><span className="town-pin__label">{camera.name}<span>TfL · {cameraAvailability(camera)} · refreshed still</span></span></button>)}
-        {otherCourtPins.map(site=><button className="court-site" key={site.id} ref={element=>{if(element)siteRefs.current.set(site.id,element);else siteRefs.current.delete(site.id)}} style={{display:'none'}} aria-label={`${site.name}, ${site.courts.length} tennis ${site.courts.length===1?'court':'courts'}${site.note?`. ${site.note}`:''}. Show on the map`} onClick={()=>{const e=engineRef.current;if(e)e.frameCourts(site.courts.flatMap(c=>c.points.flatMap(([x,z])=>[0,1.2].map(y=>new THREE.Vector3(x,y,z)))))}}><span className="court-site__dot" aria-hidden="true"/><span className="court-site__label" aria-hidden="true">{site.name}<small>{site.courts.length}{site.note?` · ${site.note}`:''}</small></span></button>)}
+        {otherCourtPins.map(site=><button className="court-site" key={site.id} ref={element=>{if(element)siteRefs.current.set(site.id,element);else siteRefs.current.delete(site.id)}} style={{display:'none'}} aria-label={`${site.name}, ${site.courts.length} tennis ${site.courts.length===1?'court':'courts'}${site.note?`. ${site.note}`:''}. Watch a rally`} onClick={()=>onVisitSite?.(site.id)}><span className="court-site__dot" aria-hidden="true"/><span className="court-site__label" aria-hidden="true">{site.name}<small>{site.courts.length}{site.note?` · ${site.note}`:''}</small></span></button>)}
         {locatedPlace&&<div className={`map-destination${locatedPlace.wildlife?' map-destination--wildlife':''}`} ref={placeRef} style={{display:'none'}} role="status"><span><Icon name="pin" size={16}/>{locatedPlace.name}</span></div>}
         {STATION_NAMES.map((name) => (
           <div className={`town-station${name === 'Highbury & Islington' || name === 'Angel' ? ' town-station--major' : ''}`} key={name} ref={(element) => { if (element) stationRefs.current.set(name, element); else stationRefs.current.delete(name) }} style={{ display: 'none' }}>

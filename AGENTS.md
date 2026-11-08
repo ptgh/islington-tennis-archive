@@ -53,4 +53,6 @@
 - The outside wash sits below court surfaces, buildings and trees (`WASH_HEIGHT`) and relies on the depth test, so anything standing on the map stays at full strength.
 - Mapped courts no venue covers are labelled from `src/data/otherCourts.ts`. A new map import must assign every unlinked court to a site; the test fails otherwise.
 - With only miniature traffic moving the map draws at 30 fps (`IDLE_FRAME_MS`), and resolution adapts only while the camera moves. Window sills and glazing bars are separate meshes, shown from `FINE_DETAIL_ZOOM`; at map scale they are sub-pixel and most of the triangles.
+- Named court sites share the venue visit flow: their ids go through the same `visitCourt`, from a map label or the Courts list (`watchableCourts`). Anything repositioned every frame by transform must set `transition:none`, because `button` has a global transform transition.
+- The boundary line carries a travelling stroke (`TRACE_LAP_SECONDS`) that advances with the world clock and is off for reduced motion. It replaced a stronger wash: keep the wash faint.
 

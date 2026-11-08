@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { boroughGeography, boroughBounds, boroughCourts, containsPoint, courtsNearVenue, boroughCourtDimensions, buildingHeight, detailCellLimit, detailCellsInView, footprintArea, type BoroughCell } from '../scene/boroughGeometry.ts'
 import { avenueTreeSites } from '../scene/boroughFurniture.ts'
 import { BOROUGH_NEIGHBOURS, boundaryStrength, washGeometry, washStrength } from '../scene/createBoroughBoundary.ts'
-import { otherCourtPins } from '../scene/boroughGeometry.ts'
+import { otherCourtPins, watchableCourts } from '../scene/boroughGeometry.ts'
 import { projectPoint } from '../scene/courtGeometry.ts'
 import { createBoroughMaterials, createBoroughTile } from '../scene/createBoroughTile.ts'
 import { createIslington } from '../scene/createIslington.ts'
@@ -179,5 +179,18 @@ test('every mapped court belongs to a listed venue or a named site, never both o
  assert.equal(new Set(named).size,named.length,'a court appears under one site only')
  for(const court of boroughCourts)assert.equal(linked.has(court.id)!==named.includes(court.id),true,`court ${court.id}`)
  for(const site of otherCourtPins){assert.equal(site.courts.length,site.courtIds.length,site.name);assert.ok(Number.isFinite(site.x)&&site.name.length>2)}
+})
+
+test('the Courts list holds every venue and site, split by the real boundary',()=>{
+ const {islington,nearby}=watchableCourts(venues)
+ assert.equal(islington.length+nearby.length,venues.length+otherCourtPins.length)
+ assert.ok(islington.some(c=>c.id==='highbury-fields'));assert.ok(nearby.some(c=>c.id==='coolhurst'));assert.ok(nearby.some(c=>c.id==='finsbury-park'))
+ assert.equal(islington.some(c=>c.id==='finsbury-park'),false)
+ assert.deepEqual(nearby.map(c=>c.name),[...nearby.map(c=>c.name)].sort((a,b)=>a.localeCompare(b)))
+})
+
+test('map labels placed by transform opt out of the global button transition',()=>{
+ const rule=fs.readFileSync('src/scene/TownMap.css','utf8').match(/\.court-site\{[^}]*\}/)![0]
+ assert.match(rule,/transition:none/)
 })
 

@@ -1,5 +1,7 @@
 import { MapViewControl } from './components/MapViewControl';
 import { MapLayers } from './components/MapLayers';
+import { MapCourts } from './components/MapCourts';
+import { otherCourtPins, watchableCourts } from './scene/boroughGeometry';
 import { useVisibleViewport } from './components/useVisibleViewport';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TownMap, type TownMapHandle } from './components/TownMap';
@@ -20,6 +22,7 @@ import type { WeatherSceneKind } from './scene/createWeather';
 import { borough } from './data/borough';
 import { parseFavourites } from './data/favourites';
 const venues=borough.venues;
+const courtList=watchableCourts(venues);
 import { MapPlaces } from './components/MapPlaces';
 import { Weather } from './components/Weather';
 import { TennisAtlas } from './components/TennisAtlas';
@@ -40,7 +43,7 @@ import { TrafficCameras } from './components/TrafficCameras';
 import { cameraInMap, type TrafficCamera } from './data/trafficCameras';
 import { useTrafficCameras } from './components/useTrafficCameras';
 
-type MapCard='places'|'forecast'|'time'|'quality'|'cameras'|'view'|'layers';
+type MapCard='places'|'forecast'|'time'|'quality'|'cameras'|'view'|'layers'|'courts';
 
 export default function App() {
   useVisibleViewport();
@@ -152,7 +155,7 @@ export default function App() {
   const selected=venues.find(v=>v.id===selectedId);
   const service=hubServices.find(s=>s.id===serviceId);
   const route=busRoutes.find(r=>r.id===routeId);
-  const visited=venues.find(v=>v.id===visitId);
+  const visited=venues.find(v=>v.id===visitId)??otherCourtPins.find(site=>site.id===visitId);
   const hasDetail=!!(selected||service||route||opportunity||(section==='play'&&partnersOpen));
   function changeSection(next:HubSection){setLocatedPlace(null);document.getElementById('court-browser')?.scrollTo({top:0});setPartnersOpen(false);setCoachVenue(null);if(visitId||next==='play')map.current?.reset();setPlayId(null);setPlayVenueId(null);setPlayFocusId(null);setPlayFilter('all');setSection(next);setSelectedId(null);setServiceId(null);setRouteId(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);if(next==='buses')setShowBuses(true);}
   function select(id:string){setBookingId(null);setLocatedPlace(null);setPlayId(null);setSelectedId(id);setServiceId(null);setRouteId(null);setVisitId(null);setSection('courts');setPanelOpen(true);}
@@ -173,7 +176,7 @@ export default function App() {
   function locatePlayCourt(id:string){
     setPlayFocusId(id);const venue=venues.find(v=>v.id===id);if(venue)locateMap(venue.lat,venue.lng);
   }
-  function visitCourt(id:string){setCard(null);setLocatedPlace(null);setVisitId(id);setPracticeOpen(false);setMotionRunning(true);setPanelOpen(false);}
+  function visitCourt(id:string){clearTimeout(restoreTimer.current);restoreSheet.current=false;setCard(null);setLocatedPlace(null);setVisitId(id);setPracticeOpen(false);setMotionRunning(true);setPanelOpen(false);}
   function leaveVisit(){setLocatedPlace(null);setVisitId(null);setPracticeOpen(false);setPanelOpen(true);map.current?.reset();}
   function home(){changeSection('courts');setQuery('');setFilter('all');setSavedOnly(false);map.current?.reset();}
   useEffect(()=>{
@@ -205,7 +208,7 @@ export default function App() {
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!about&&!atlas&&!racquetRoom){if(practiceOpen){setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}else if(visitId)leaveVisit();else{setSelectedId(null);setServiceId(null);setRouteId(null);setPlayId(null);}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[about,atlas,racquetRoom,visitId,practiceOpen]);
   return <main className={`app ${night?'night':''} ${panelOpen?'panel-open':'panel-closed'} ${visitId?'court-visit':''} ${card?'card-open':''} hub-section-${section}`}>
     <a className="skip-link" href="#court-browser" onClick={()=>setPanelOpen(true)}>Skip to tennis hub</a>
-    <TownMap locatedPlace={locatedPlace} naturalTime={manualNight===null} cameras={cameraPins} showCameras={card==='cameras'} showOtherCourts={section==='courts'&&!visitId} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} showTrains={showTrains} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} followVan={followVan} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
+    <TownMap locatedPlace={locatedPlace} naturalTime={manualNight===null} cameras={cameraPins} showCameras={card==='cameras'} showOtherCourts={section==='courts'&&!visitId} onVisitSite={visitCourt} selectedCameraId={cameraId} onSelectCamera={selectCamera} viewSettings={viewSettings} ref={map} suspended={atlas} venues={venues} selectedId={section==='play'?playFocusId:section==='coaching'?service?.venueId??coachVenue:selectedId??service?.venueId??null} playCounts={section==='play'?playCounts:section==='coaching'?coachCounts:undefined} nextFree={section==='courts'&&!visitId?nextFree:undefined} coachingPins={section==='coaching'} visibleIds={visibleIds} onSelect={id=>{if(section==='coaching'){setCoachVenue(id);setServiceId(null);setPanelOpen(true);}else if(section==='play')browsePlayAtVenue(id);else select(id);}} night={night} lightingTime={lightingTime} weather={weather} windMph={windMph} showTransit={stations} trainRunning={motionRunning&&!atlas} activityRunning={motionRunning&&!atlas} showBuses={showBuses} showTrains={showTrains} busRouteId={routeId} showShops={section==='gear'} selectedServiceId={serviceId} followVan={followVan} activeVisitId={visitId} onSelectService={selectService} onReset={leaveVisit} onReady={()=>setReady(true)}/>
     <div className="map-vignette"/><Weather onWeather={changeWeather} {...cardProps('forecast')}/><MapPlaces {...cardProps('places')} onFindLife={kind=>{const point=map.current?.lifeLocation(kind);if(!point)return false;setVisitId(null);setPracticeOpen(false);setServiceId(null);setRouteId(null);restoreSheet.current=false;setPanelOpen(false);if(isMobile)setCard(null);setLightingTime(null);setNight(kind==='fox');setMotionRunning(true);locateMap(point.lat,point.lng,60);setLocatedPlace({...point,name:kind==='fox'?'Fox habitat':kind==='emergency'?'Emergency miniature':'Cyclists nearby',wildlife:true});return true;}} onLocate={(lat,lng,zoom,name)=>{setVisitId(null);setPracticeOpen(false);setServiceId(null);setRouteId(null);restoreSheet.current=false;setPanelOpen(false);if(isMobile)setCard(null);setStations(true);locateMap(lat,lng,zoom);if(name)setLocatedPlace({lat,lng,name});}}/>
     <TrafficCameras directory={cameraDirectory} {...cardProps('cameras')} selectedId={cameraId} onSelect={selectCamera}/>
     <button className="pill atlas-launch" onClick={()=>setAtlas(true)} aria-haspopup="dialog">Atlas</button>
@@ -222,7 +225,7 @@ export default function App() {
     {visited&&practiceOpen&&<CourtPractice venueId={visited.id} venueName={visited.name} onClose={()=>{setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}}/>}
     <div className="place-title"><h2>Islington</h2><p>London, at play.</p><span className="title-rule"/></div>
     <div className="map-toolbar" aria-label="Map controls"><QualityControl settings={viewSettings} onChange={setViewSettings} {...cardProps('quality')}/><div className="zoom-buttons"><button aria-label="Zoom in" title="Zoom in" onClick={()=>map.current?.zoomIn()}><Icon name="plus"/></button><button aria-label="Zoom out" title="Zoom out" onClick={()=>map.current?.zoomOut()}><Icon name="minus"/></button></div><MapViewControl {...cardProps('view')} onOrbit={(yaw,pitch)=>map.current?.orbit(yaw,pitch)} onReset={()=>map.current?.reset()}/><button className="icon-button" aria-label="Reset map view" title="Reset map view" onClick={()=>visitId?leaveVisit():map.current?.reset()}><Icon name="reset"/></button></div>
-    <footer className="map-footer"><MapLayers {...cardProps('layers')} onCameras={()=>setCard('cameras')} onQuality={()=>setCard('quality')}><div className="layer-controls"><button className="pill" aria-pressed={stations} onClick={()=>setStations(!stations)}><span className="roundel tiny"/> Stations</button><button className="pill" aria-pressed={showBuses} onClick={()=>setShowBuses(!showBuses)}><Icon name="bus" size={14}/> Buses</button><button className="pill" aria-pressed={showTrains} onClick={()=>setShowTrains(!showTrains)} title="Miniature trains on mapped surface railways"><Icon name="train" size={14}/> Trains</button><button className="pill" aria-pressed={motionRunning} onClick={()=>setMotionRunning(!motionRunning)}><Icon name={motionRunning?'pause':'play'} size={13}/><span>{motionRunning?'Pause world':'Play world'}</span></button></div></MapLayers><button className="map-note" onClick={()=>setAbout(true)}>Islington · OSM geography <Icon name="info" size={13}/></button></footer>
+    <footer className="map-footer"><div className="map-footer__left"><MapLayers {...cardProps('layers')} onCameras={()=>setCard('cameras')} onQuality={()=>setCard('quality')}><div className="layer-controls"><button className="pill" aria-pressed={stations} onClick={()=>setStations(!stations)}><span className="roundel tiny"/> Stations</button><button className="pill" aria-pressed={showBuses} onClick={()=>setShowBuses(!showBuses)}><Icon name="bus" size={14}/> Buses</button><button className="pill" aria-pressed={showTrains} onClick={()=>setShowTrains(!showTrains)} title="Miniature trains on mapped surface railways"><Icon name="train" size={14}/> Trains</button><button className="pill" aria-pressed={motionRunning} onClick={()=>setMotionRunning(!motionRunning)}><Icon name={motionRunning?'pause':'play'} size={13}/><span>{motionRunning?'Pause world':'Play world'}</span></button></div></MapLayers><MapCourts {...cardProps('courts')} groups={courtList} onWatch={visitCourt}/></div><button className="map-note" onClick={()=>setAbout(true)}>Islington · OSM geography <Icon name="info" size={13}/></button></footer>
     <LoadingScreen ready={ready}/>
     <a className="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
     {atlas&&<TennisAtlas naturalTime={manualNight===null} viewSettings={viewSettings} onViewSettings={setViewSettings} lightingTime={lightingTime} onLightingTime={changeLightingTime} night={night} motionRunning={motionRunning} weather={weather} windMph={windMph} onNight={toggleNight} onMotion={()=>setMotionRunning(!motionRunning)} today={londonDate(todayClock)} onClose={()=>setAtlas(false)} onHome={()=>{setAtlas(false);home();}}/>}

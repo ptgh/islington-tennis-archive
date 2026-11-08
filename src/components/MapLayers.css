@@ -1,6 +1,7 @@
 .map-layers{position:relative}
 .map-layers__panel,.map-layers__links,.map-layers__title{display:none}
 @media(min-width:761px){
+ .map-footer__left{display:flex;align-items:center;gap:8px}
  .app:has(.map-layers__panel--open) .map-footer{z-index:9}
  .map-layers__trigger[aria-expanded=true]{background:#244b3d;color:#faf8f0;border-color:#244b3d}
  .map-layers__panel--open{position:absolute;left:0;bottom:calc(100% + 10px);display:block;width:256px;padding:17px 9px 9px;border:1px solid #fff9;border-radius:16px;background:var(--paper);box-shadow:0 12px 40px #18342d30}
@@ -25,3 +26,23 @@
  .map-footer .map-layers__trigger{display:none}
  .map-footer .map-layers__panel{display:contents}
 }
+.app:has(.map-courts__panel) .map-footer{z-index:9}
+.map-courts{position:relative;pointer-events:auto}
+.map-courts__trigger[aria-expanded=true]{background:#244b3d;color:#faf8f0;border-color:#244b3d}
+.map-courts__panel{position:absolute;left:0;bottom:calc(100% + 10px);width:278px;max-height:min(560px,calc(var(--app-visible-height,100dvh) - 150px));overflow-y:auto;overscroll-behavior:contain;padding:17px 9px 9px;border:1px solid #fff9;border-radius:16px;background:var(--paper);box-shadow:0 12px 40px #18342d30}
+.map-courts__panel h2{margin:0 11px 4px;font:400 23px/1.15 var(--serif);color:var(--ink)}
+.map-courts__panel h3{margin:13px 11px 5px;font:600 10px/1.2 'DM Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#7b8775}
+.map-courts__panel ul{margin:0;padding:0;list-style:none}
+.map-courts__panel li button{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;padding:7px 11px;border-radius:10px;color:var(--ink);font-size:13px;text-align:left;transition:background .15s}
+.map-courts__panel li button:hover,.map-courts__panel li button:focus-visible{background:#edefe3}
+.map-courts__panel li small{margin-left:auto;font-size:11px;color:#7b8775}
+.map-courts__panel li svg{flex:none;color:#8a9684;opacity:0;transition:opacity .15s}
+.map-courts__panel li span+svg{margin-left:auto}
+.map-courts__panel li button:hover svg,.map-courts__panel li button:focus-visible svg{opacity:1}
+@media(max-width:760px){
+ .map-footer__left{display:contents}
+ .map-courts{position:fixed;left:calc(var(--app-visible-left,0px) + 19px);bottom:20px}
+ .app.panel-open .map-courts,.app.court-visit .map-courts{display:none}
+ .map-courts__panel{width:min(290px,calc(var(--app-visible-width,100vw) - 38px));max-height:calc(var(--app-visible-height,100dvh) - 190px)}
+}
+
