@@ -34,6 +34,22 @@ export function watchableCourts(venues:{id:string;name:string;lat:number;lng:num
  * School/club/park venue pins may be published general locations rather than gates. */
 export function courtsNearVenue(lat:number,lng:number){const [x,z]=projectPoint(lng,lat);return boroughCourts.filter(c=>Math.hypot(c.x-x,c.z-z)<22)}
 /** Some source polygons include run-off (not just the white-line rectangle). */
+/** What a point on the ground lands on: every court drawn on the map belongs to a venue or named site. */
+export function courtPicker(venues:{id:string;name:string;lat:number;lng:number}[]){
+ const owners=new Map<number,{id:string;name:string}>()
+ for(const venue of venues)for(const court of courtsNearVenue(venue.lat,venue.lng))owners.set(court.id,{id:venue.id,name:venue.name})
+ for(const site of otherCourtPins)for(const court of site.courts)owners.set(court.id,{id:site.id,name:site.name})
+ // The drawn enclosure, plus a finger's width: a court can be narrower than its source polygon.
+ const footprints=boroughCourts.flatMap(court=>{
+  const owner=owners.get(court.id);if(!owner)return []
+  const {ow,od}=boroughCourtDimensions(court)
+  return [{court,owner,halfWidth:ow*.05+.06,halfDepth:od*.05+.06,cos:Math.cos(court.rotation),sin:Math.sin(court.rotation)}]
+ })
+ return (x:number,z:number)=>{
+  for(const f of footprints){const dx=x-f.court.x,dz=z-f.court.z;if(Math.abs(dx*f.cos-dz*f.sin)<=f.halfWidth&&Math.abs(dx*f.sin+dz*f.cos)<=f.halfDepth)return f.owner}
+  return null
+ }
+}
 export function boroughCourtDimensions(c:{width:number;depth:number}){
  const sourceW=c.width*10,sourceD=c.depth*10,enclosure=sourceW>13&&sourceD>28
  const w=enclosure?10.97:sourceW,d=enclosure?23.77:sourceD

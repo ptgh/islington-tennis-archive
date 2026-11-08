@@ -56,4 +56,5 @@
 - Named court sites share the venue visit flow: their ids go through the same `visitCourt`, from a map label or the Courts list (`watchableCourts`). Anything repositioned every frame by transform must set `transition:none`, because `button` has a global transform transition.
 - The boundary line carries a travelling stroke (`TRACE_LAP_SECONDS`) that advances with the world clock and is off for reduced motion. It replaced a stronger wash: keep the wash faint.
 - `.app` follows the visual viewport, so a browser pinch-zoom reads as a resize: never move the camera from `resize` unless it is still at its home view and the page is not pinched. Wheel and pinch gestures over map pins and floating buttons are forwarded to the canvas (`wheelBelongsToMap`).
+- Every court drawn on the map opens its rally when tapped (`courtPicker`, ground point against the drawn enclosure). A tap is under 6 px and 500 ms; anything longer is the map being dragged. Double-clicking a court must not trigger the map reset.
 

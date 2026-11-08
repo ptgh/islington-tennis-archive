@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { boroughGeography, boroughBounds, boroughCourts, containsPoint, courtsNearVenue, boroughCourtDimensions, buildingHeight, detailCellLimit, detailCellsInView, footprintArea, type BoroughCell } from '../scene/boroughGeometry.ts'
 import { avenueTreeSites } from '../scene/boroughFurniture.ts'
 import { BOROUGH_NEIGHBOURS, boundaryStrength, washGeometry, washStrength } from '../scene/createBoroughBoundary.ts'
-import { otherCourtPins, watchableCourts } from '../scene/boroughGeometry.ts'
+import { courtPicker, otherCourtPins, watchableCourts } from '../scene/boroughGeometry.ts'
 import { projectPoint } from '../scene/courtGeometry.ts'
 import { createBoroughMaterials, createBoroughTile } from '../scene/createBoroughTile.ts'
 import { createIslington } from '../scene/createIslington.ts'
@@ -192,5 +192,20 @@ test('the Courts list holds every venue and site, split by the real boundary',()
 test('map labels placed by transform opt out of the global button transition',()=>{
  const rule=fs.readFileSync('src/scene/TownMap.css','utf8').match(/\.court-site\{[^}]*\}/)![0]
  assert.match(rule,/transition:none/)
+})
+
+test('every court drawn on the map can be picked, across its whole enclosure and nowhere else',()=>{
+ const pick=courtPicker(venues)
+ for(const court of boroughCourts){
+  assert.ok(pick(court.x,court.z),`court ${court.id}`)
+  const {ow,od}=boroughCourtDimensions(court),half=[ow*.05*.9,od*.05*.9]
+  for(const [sx,sz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){
+   const lx=sx*half[0],lz=sz*half[1],c=Math.cos(court.rotation),s=Math.sin(court.rotation)
+   assert.ok(pick(court.x+lx*c+lz*s,court.z-lx*s+lz*c),`corner of court ${court.id}`)
+  }
+ }
+ const site=otherCourtPins.find(s=>s.id==='parliament-hill')!
+ assert.deepEqual(pick(site.courts[0].x,site.courts[0].z),{id:'parliament-hill',name:site.name})
+ assert.equal(pick(boroughBounds.minX,boroughBounds.minZ),null)
 })
 

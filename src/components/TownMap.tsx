@@ -25,7 +25,7 @@ import { freeLabel, type NextFree } from '../data/freeCourts'
 import { cameraAvailability, type TrafficCamera } from '../data/trafficCameras'
 import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, createOcclusionExclusionTracker } from '../scene/renderQuality'
 import { createIslington, type IslingtonWorld, type BusRideStatus } from '../scene/createIslington'
-import { boroughBounds, boroughGeography, courtsNearVenue, otherCourtPins } from '../scene/boroughGeometry'
+import { boroughBounds, boroughGeography, courtPicker, courtsNearVenue, otherCourtPins } from '../scene/boroughGeometry'
 import { BOROUGH_NEIGHBOURS, NEIGHBOUR_LABEL_MAX_ZOOM } from '../scene/createBoroughBoundary'
 import '../scene/TownMap.css'
 import {places} from '../data/places'
@@ -119,9 +119,11 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
   const cameraRefs = useRef(new Map<string, HTMLButtonElement>())
   const neighbourRefs = useRef(new Map<string, HTMLDivElement>())
   const siteRefs = useRef(new Map<string, HTMLButtonElement>())
-  const runtimeRef = useRef({ viewSettings, locatedPlace, suspended, selectedServiceId, followVan, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, showOtherCourts, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady })
+  const courtHoverRef = useRef<HTMLDivElement>(null)
+  const courtHoverNameRef = useRef<HTMLElement>(null)
+  const runtimeRef = useRef({ viewSettings, locatedPlace, suspended, selectedServiceId, followVan, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, showOtherCourts, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady, onVisitSite })
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
-  runtimeRef.current = { viewSettings, locatedPlace, suspended, selectedServiceId, followVan, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, showOtherCourts, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady,
+  runtimeRef.current = { viewSettings, locatedPlace, suspended, selectedServiceId, followVan, night, lightingTime, naturalTime, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showShops, showCameras, showOtherCourts, cameras, selectedId, activeVisitId, visibleIds, onReset, onReady, onVisitSite,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
   const [failed, setFailed] = useState(false)
   const [mapStatus,setMapStatus]=useState('')
@@ -478,7 +480,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       for (const venue of venues) project(world.anchors.get(venue.id)!,markerRefs.current.get(venue.id),runtime.visibleIds.includes(venue.id),3)
       if(runtime.locatedPlace)project(geoPosition(runtime.locatedPlace.lat,runtime.locatedPlace.lng).setY(.3),placeRef.current,true,8)
       for (const place of BOROUGH_NEIGHBOURS) project(new THREE.Vector3(place.x,0,place.z),neighbourRefs.current.get(place.name),camera.zoom<NEIGHBOUR_LABEL_MAX_ZOOM,0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
-      for (const site of otherCourtPins) project(new THREE.Vector3(site.x,.15,site.z),siteRefs.current.get(site.id),!!runtime.showOtherCourts&&(site.courts.length>=3||camera.zoom>=2.2),0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
+      for (const site of otherCourtPins) project(new THREE.Vector3(site.x,.15,site.z),siteRefs.current.get(site.id),!!runtime.showOtherCourts&&site.id!==runtime.activeVisitId&&(site.courts.length>=3||camera.zoom>=2.2),0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
       host.classList.toggle('town-map--far',camera.zoom<1.4)
       for (const station of world.stations) project(station.position,stationRefs.current.get(station.name),runtime.showTransit)
       for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.15),cameraRefs.current.get(camera.id),runtime.showCameras,3)
@@ -595,7 +597,39 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       renderer.domElement.dispatchEvent(new WheelEvent('wheel',event))
     }
     app?.addEventListener('wheel',wheelOverlay,{capture:true,passive:false})
-    const doubleClick = (event: MouseEvent) => { event.preventDefault(); if(runtimeRef.current.activeVisitId&&runtimeRef.current.onReset)runtimeRef.current.onReset();else reset() }
+    // Any court you can see can be opened. Only a tap counts: a drag is the map moving.
+    const courtAt=courtPicker(venues)
+    const courtUnder=(event:MouseEvent)=>{
+      const box=renderer.domElement.getBoundingClientRect()
+      raycaster.setFromCamera(new THREE.Vector2((event.clientX-box.left)/box.width*2-1,1-(event.clientY-box.top)/box.height*2),camera)
+      const point=new THREE.Vector3()
+      return raycaster.ray.intersectPlane(ground,point)?courtAt(point.x,point.z):null
+    }
+    let press:{x:number;y:number;time:number;id:number}|null=null
+    const pointerDown=(event:PointerEvent)=>{press=press||event.button!==0?null:{x:event.clientX,y:event.clientY,time:performance.now(),id:event.pointerId}}
+    const pointerUp=(event:PointerEvent)=>{
+      const start=press;press=null
+      if(!start||start.id!==event.pointerId||Math.hypot(event.clientX-start.x,event.clientY-start.y)>6||performance.now()-start.time>500)return
+      const court=courtUnder(event)
+      if(court)runtimeRef.current.onVisitSite?.(court.id)
+    }
+    const hideCourtHover=()=>{host.classList.remove('town-map--over-court');if(courtHoverRef.current)courtHoverRef.current.style.display='none'}
+    const pointerMove=(event:PointerEvent)=>{
+      if(event.pointerType!=='mouse')return
+      const court=event.buttons?null:courtUnder(event),tip=courtHoverRef.current,name=courtHoverNameRef.current
+      if(!court||!tip||!name){hideCourtHover();return}
+      host.classList.add('town-map--over-court')
+      if(name.textContent!==court.name)name.textContent=court.name
+      const box=host.getBoundingClientRect()
+      tip.style.display='flex'
+      tip.style.transform=`translate3d(${Math.min(event.clientX-box.left+14,box.width-250)}px,${event.clientY-box.top-34}px,0)`
+    }
+    renderer.domElement.addEventListener('pointerdown',pointerDown)
+    renderer.domElement.addEventListener('pointerup',pointerUp)
+    renderer.domElement.addEventListener('pointercancel',pointerUp)
+    renderer.domElement.addEventListener('pointermove',pointerMove)
+    renderer.domElement.addEventListener('pointerleave',hideCourtHover)
+    const doubleClick = (event: MouseEvent) => { event.preventDefault(); if(courtUnder(event))return; if(runtimeRef.current.activeVisitId&&runtimeRef.current.onReset)runtimeRef.current.onReset();else reset() }
     renderer.domElement.addEventListener('dblclick', doubleClick)
     const contextLost = (event: Event) => { event.preventDefault(); setFailed(true) }
     renderer.domElement.addEventListener('webglcontextlost', contextLost)
@@ -615,6 +649,11 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       controls.dispose()
       renderer.domElement.removeEventListener('keydown', keydown)
       renderer.domElement.removeEventListener('dblclick', doubleClick)
+      renderer.domElement.removeEventListener('pointerdown',pointerDown)
+      renderer.domElement.removeEventListener('pointerup',pointerUp)
+      renderer.domElement.removeEventListener('pointercancel',pointerUp)
+      renderer.domElement.removeEventListener('pointermove',pointerMove)
+      renderer.domElement.removeEventListener('pointerleave',hideCourtHover)
       renderer.domElement.removeEventListener('webglcontextlost', contextLost)
       beauty.dispose();occlusion.dispose();output.dispose();antialias.dispose();lens.dispose();composer.dispose()
       // These two shader materials are not released by Three's GTAOPass.dispose().
@@ -693,6 +732,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       </section>}
       {busRide&&<div ref={busPinRef} className="bus-tour-marker" aria-hidden="true" style={{display:'none'}}><span><Icon name="bus" size={14}/> {busRide.id}</span></div>}
       {BOROUGH_NEIGHBOURS.map(place=><div className="borough-neighbour" aria-hidden="true" key={place.name} ref={element=>{if(element)neighbourRefs.current.set(place.name,element);else neighbourRefs.current.delete(place.name)}} style={{display:'none'}}><span>{place.name}</span></div>)}
+      <div className="court-hover" ref={courtHoverRef} aria-hidden="true" style={{display:'none'}}><b ref={courtHoverNameRef}/><small>Watch a rally</small></div>
       <div className="town-map__labels" aria-label="Courts on the map">
         {venues.map((venue, index) => (
           <button
