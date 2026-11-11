@@ -6,7 +6,7 @@ import {boroughAmenities} from '../data/boroughAmenities'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { createAntialiasedBeauty } from '../scene/antialiasedBeauty'
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
@@ -239,7 +239,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     // Ground the miniature with subtle contact occlusion. Colour stays at display
     // resolution, while the more expensive depth/AO buffers have a separate cap.
     const composer=new EffectComposer(renderer)
-    const beauty=new RenderPass(scene,camera)
+    const beauty=createAntialiasedBeauty(renderer,scene,camera)
     const occlusion=new GTAOPass(scene,camera,1,1)
     occlusion.updateGtaoMaterial({radius:1.6,distanceExponent:1.5,thickness:1.2,distanceFallOff:1,scale:1,samples:host.clientWidth>760?16:8,screenSpaceRadius:false})
     occlusion.updatePdMaterial({lumaPhi:5,depthPhi:1,normalPhi:3,radius:4,samples:8})
@@ -413,8 +413,8 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       renderer.setPixelRatio(ratio)
       renderer.setSize(width, height)
       composer.setPixelRatio(ratio); composer.setSize(width, height)
-      // Retina already resolves fine edges; avoid softening brickwork twice.
-      antialias.enabled = ratio < 1.75
+      const multisampled = beauty.resize(width * ratio, height * ratio, quality.stats.preset !== 'battery')
+      antialias.enabled = !multisampled && ratio < 1.75
       antialias.uniforms.resolution.value.set(1 / (width * ratio), 1 / (height * ratio))
       resizeLensFinish(lens.uniforms, width, height, ratio)
       resolutionDirty = false

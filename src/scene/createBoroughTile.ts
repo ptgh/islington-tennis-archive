@@ -15,8 +15,8 @@ export function createBoroughMaterials() {
  const finishes=createMiniatureMaterials(.1)
  const brick=['#b9997f','#d1bda4','#ad816a','#c6ae91','#ded2b9','#b7a68c'].map(c=>cloneWorldArchitecturalFinish(finishes.brick,c,false,.1))
  const roofs=['#7d8881','#90998c','#7d8d89','#9ba093'].map(c=>cloneWorldArchitecturalFinish(finishes.slate,c,true,.1))
- // Large flat roofs take the slate at full size and read almost black; they are felt and gravel.
- const flatRoofs=['#d2d4c7','#dcdccf','#c8ccbf','#d6d6c8'].map(c=>cloneWorldArchitecturalFinish(finishes.slate,c,true,.1))
+ // Keep the lighter roof palette, with seams and weathering scaled to the borough.
+ const flatRoofs=['#c7c9bd','#d0d0c3','#bec2b5','#cacabd'].map(c=>cloneArchitecturalFinish(finishes.membrane,c))
  const plain=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.94})
  // Preserve the metre-calibrated pane/curtain shader on the shared glass.
  const glass=cloneArchitecturalFinish(finishes.glazing,'#46665e')

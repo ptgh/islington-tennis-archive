@@ -464,18 +464,18 @@ export function createMiniatureMaterials(worldScale=1) {
   foliageAlpha.repeat.copy(foliageMap.repeat)
 
   const brick = new THREE.MeshStandardMaterial({
-    color: '#ffffff', map: brickMap, bumpMap: brickBump, bumpScale: .022, roughness: .92,
+    color: '#ffffff', map: brickMap, bumpMap: brickBump, bumpScale: .022 * worldScale, roughness: .92,
   })
   const slate = new THREE.MeshStandardMaterial({
-    color: '#9ca7a5', map: slateMap, bumpMap: slateBump, bumpScale: .035, roughnessMap:slateRoughness, roughness: .98,
+    color: '#9ca7a5', map: slateMap, bumpMap: slateBump, bumpScale: .035 * worldScale, roughnessMap:slateRoughness, roughness: .98,
   })
   // Fixed course sizes replace stretched per-box UVs. The same instanced world
   // coordinates anchor weathering during pans, zooms and day/night changes.
   architecturalUV(brick,false,4,true);architecturalUV(slate,true,3,true)
   const stucco = new THREE.MeshStandardMaterial({color:'#d4cebc',map:renderMap,bumpMap:renderBump,bumpScale:.018,roughness:.96})
   const seamRoof = new THREE.MeshStandardMaterial({color:'#87938b',map:metalRoofMap,bumpMap:metalRoofBump,bumpScale:.055,roughnessMap:metalRoofRoughness,roughness:.8,metalness:.22})
-  const membrane = new THREE.MeshStandardMaterial({color:'#b3b8b2',map:membraneMap,bumpMap:renderBump,bumpScale:.012,roughnessMap:membraneRoughness,roughness:1})
-  architecturalUV(stucco,false);architecturalUV(seamRoof,true);architecturalUV(membrane,true)
+  const membrane = new THREE.MeshStandardMaterial({color:'#b3b8b2',map:membraneMap,bumpMap:renderBump,bumpScale:.012 * worldScale,roughnessMap:membraneRoughness,roughness:1})
+  architecturalUV(stucco,false);architecturalUV(seamRoof,true);architecturalUV(membrane,true,6 * worldScale,false,worldScale)
   // Broad, world-anchored weathering sits above the fine repeating texture.
   // Roofs retain their mapped outlines; variation adds scale without geometry.
   for (const material of [stucco, seamRoof, membrane]) {
@@ -483,7 +483,7 @@ export function createMiniatureMaterials(worldScale=1) {
     material.onBeforeCompile=(shader,renderer)=>{
       prepare.call(material,shader,renderer)
       shader.vertexShader='varying vec3 finishWorld;\n'+shader.vertexShader.replace('#include <project_vertex>',`
-        finishWorld=architectureWorld;
+        finishWorld=architectureWorld / ${(material===membrane ? worldScale : 1).toFixed(3)};
         #include <project_vertex>`)
       shader.fragmentShader=`varying vec3 finishWorld;
         float finishHash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
@@ -584,14 +584,17 @@ export function createMiniatureMaterials(worldScale=1) {
         }
         ` + shader.fragmentShader.replace('#include <color_fragment>', `
         #include <color_fragment>
-        float groundWetAmount = miniatureRainWetness * mix(.55,1.0,smoothstep(.2,.8,groundWetNoise(wetGroundWorld / 5.0)));
+        // Break up the repeated aggregate and slabs with broad wear fixed to the street.
+        float groundVariation = smoothstep(.2,.8,groundWetNoise(wetGroundWorld / 5.0));
+        diffuseColor.rgb *= mix(${material === asphalt ? '.93,1.05' : '.955,1.035'}, groundVariation);
+        float groundWetAmount = miniatureRainWetness * mix(.55,1.0,groundVariation);
         diffuseColor.rgb *= mix(1.0, ${material === asphalt ? '.72' : '.82'}, groundWetAmount);
         `).replace('#include <roughnessmap_fragment>', `
         #include <roughnessmap_fragment>
         roughnessFactor = mix(roughnessFactor,max(.32,roughnessFactor*.48),groundWetAmount);
         `)
     }
-    material.customProgramCacheKey = () => `${cacheKey}-rain-ground-v1`
+    material.customProgramCacheKey = () => `${cacheKey}-rain-ground-v2`
   }
   const parkPath = cloneArchitecturalFinish(paving, '#d0c8b4')
   const preparePath = parkPath.onBeforeCompile, pathKey = parkPath.customProgramCacheKey()

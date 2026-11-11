@@ -508,7 +508,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     // Match the main map's contact shading, with a capped AO buffer so the
     // animated scene remains practical on smaller displays.
     const composer = new EffectComposer(renderer)
-    const beauty = createAntialiasedBeauty(world.scene, camera)
+    const beauty = createAntialiasedBeauty(renderer, world.scene, camera)
     const occlusion = new GTAOPass(world.scene, camera, 1, 1)
     const drawOcclusion = occlusion.render.bind(occlusion)
     occlusion.render = (renderer, writeBuffer, readBuffer) => {
@@ -583,8 +583,8 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       renderer.setPixelRatio(ratio)
       renderer.setSize(width, height)
       composer.setPixelRatio(ratio); composer.setSize(width, height)
-      // Match Islington: multisampling and Retina already resolve fine edges.
-      antialias.enabled = ratio < 1.75
+      const multisampled = beauty.resize(width * ratio, height * ratio, quality.stats.preset !== 'battery')
+      antialias.enabled = !multisampled && ratio < 1.75
       antialias.uniforms.resolution.value.set(1 / (width * ratio), 1 / (height * ratio))
       resizeLensFinish(lens.uniforms, width, height, ratio)
       resolutionDirty = false
