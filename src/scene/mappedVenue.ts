@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import geography from '../data/iconic-geography.json' with { type: 'json' }
 import { cloneArchitecturalFinish } from './miniatureMaterials.ts'
 import type { createMiniatureMaterials } from './miniatureMaterials'
-import { createFootprintRoof, createFootprintGables } from './footprintRoof.ts'
+import { createFootprintRoof, createFootprintGables, setFlatRoofUVs } from './footprintRoof.ts'
 import { mappedRailwayParts } from './mappedRailway.ts'
 import { clubCourtSurface, type ClubCourtSurface } from './clubSurfaces.ts'
 
@@ -15,7 +15,7 @@ type Venue = 'wimbledon' | 'queens'
 type Box = (x:number,y:number,z:number,w:number,h:number,d:number,colour:string,shadow?:boolean)=>void
 export type VenuePrimitives = {
   scene: THREE.Scene; finishes: ReturnType<typeof createMiniatureMaterials>; box: Box
-  pathJoin: (x:number,z:number,width:number)=>void
+  pathJoin: (x:number,z:number,width:number,colour?:string)=>void
   place: (x:number,z:number,angle:number,scale:number,draw:()=>void)=>void
   tree: (x:number,z:number,size:number,shade:string)=>void
   parkedCar: (colour:string,variation:number)=>void
@@ -58,7 +58,7 @@ export function footprint(points:Point[]) {
 const random=(n:number)=>{const v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v)}
 const paint=['#b39a79','#c7b090','#b0876e','#d1bba0','#ad8269','#c4ad90','#9e775f']
 const roofs=['#7c8983','#6b7a74','#87918a','#74807b']
-// Flat roofs inside the grounds read as pale membrane panels, not dark slate courses.
+// A soft palette for the mapped flat roofs and surrounding blocks.
 const flatRoofs=['#b3b8b2','#a8aea8','#bcbfb7']
 const foliage=['#64814a','#769354','#8da260','#a0ad6e','#6d8b4d']
 
@@ -75,10 +75,11 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   const withinVenue=(p:Point)=>outlines.some(outline=>inside(p,outline))
   const geometryBatches=new Map<THREE.Material,THREE.BufferGeometry[]>()
   const mats=new Map<string,THREE.MeshStandardMaterial>()
-  const mat=(colour:string,kind:'brick'|'roof'|'paving'|'grass'|'plain'|'stucco'|'membrane'='plain')=>{
+  const mat=(colour:string,kind:'brick'|'roof'|'paving'|'grass'|'ground'|'plain'|'stucco'|'membrane'='plain')=>{
     const key=kind+colour
     if(!mats.has(key)){
-      const m=kind==='plain'?new THREE.MeshStandardMaterial({roughness:.9}):cloneArchitecturalFinish(finishes[kind==='roof'?'slate':kind==='grass'?'parkGrass':kind],colour)
+      const m=kind==='plain'||kind==='ground'?new THREE.MeshStandardMaterial({roughness:.9}):cloneArchitecturalFinish(finishes[kind==='roof'?'slate':kind==='grass'?'parkGrass':kind==='membrane'?'mappedMembrane':kind],colour)
+      if(kind==='ground'||kind==='paving')finishes.applyGroundGrain(m)
       m.color.set(colour); m.userData.castsShadow = kind === 'brick' || kind === 'roof' || kind === 'stucco'; mats.set(key,m)
     }
     return mats.get(key)!
@@ -89,12 +90,11 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     if(!geometryBatches.has(m))geometryBatches.set(m,[])
     geometryBatches.get(m)!.push(flat)
   }
-  function shape(points:Point[],y:number,colour:string,kind:'paving'|'grass'|'roof'|'plain'|'membrane'='plain') {
+  function shape(points:Point[],y:number,colour:string,kind:'paving'|'grass'|'ground'|'roof'|'plain'|'membrane'='plain',roof?:ReturnType<typeof footprint>) {
     if(!closed(points))return
     const g=new THREE.ShapeGeometry(new THREE.Shape(points.map(([x,z])=>new THREE.Vector2(x,-z))))
     g.rotateX(-Math.PI/2);g.translate(0,y,0)
-    const uv=g.getAttribute('uv'), pos=g.getAttribute('position')
-    for(let i=0;i<uv.count;i++)uv.setXY(i,pos.getX(i)/(kind==='grass'?220:kind==='roof'?3:24),pos.getZ(i)/(kind==='grass'?220:kind==='roof'?3:24))
+    if(roof)setFlatRoofUVs(g,roof)
     collect(g,mat(colour,kind))
   }
   function segment(a:Point,b:Point,width:number,y:number,colour:string,height=.06) {
@@ -107,7 +107,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   // Area geometry supplies the real park/garden/venue outlines, rather than a rectangular island.
   for(const f of features) {
     if(!closed(f.points)||f.tags.building||f.tags.leisure==='pitch'||f.tags.leisure==='stadium')continue
-    if(f.tags.landuse==='residential')shape(f.points,-.18,'#abb396','grass')
+    if(f.tags.landuse==='residential')shape(f.points,-.18,'#a3ab90','ground')
     else if(['park','garden','recreation_ground'].includes(f.tags.leisure)||['grass','forest','cemetery','meadow'].includes(f.tags.landuse)||['wood','scrub','grassland'].includes(f.tags.natural))shape(f.points,-.12,f.tags.natural==='wood'?'#788e60':'#91a774','grass')
     else if(f.tags.natural==='water')shape(f.points,-.10,'#7d9e9a')
   }
@@ -122,16 +122,17 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   for(const f of roads) {
     if(f.tags.area==='yes') { shape(f.points,.01,'#c7c5b0','paving'); continue }
     const path=['footway','path','pedestrian','cycleway'].includes(f.tags.highway)
+    const pathColour=f.tags.surface==='asphalt'?'#a4a598':['paved','paving_stones','concrete'].includes(f.tags.surface)?'#ccc5b0':'#c9c2ad'
     const width=path?2.4:f.tags.highway==='service'?4.2:['primary','secondary','tertiary'].includes(f.tags.highway)?8:5.5
     for(let i=1;i<f.points.length;i++) {
       const a=f.points[i-1],b=f.points[i]
-      segment(a,b,width+(path?.3:3.6),.01,path?'#c9c2ad':'#ccc5b0')
+      segment(a,b,width+(path?.3:3.6),.01,path?pathColour:'#ccc5b0')
       if(!path)segment(a,b,width,.065,'#85897e')
       roadSegments.push({a,b,width,path})
     }
     if(path)for(let i=1;i<f.points.length-1;i++){
       const a=f.points[i-1],p=f.points[i],b=f.points[i+1],first=Math.hypot(p[0]-a[0],p[1]-a[1]),last=Math.hypot(b[0]-p[0],b[1]-p[1])
-      if(first>.05&&last>.05&&Math.abs((p[0]-a[0])*(b[1]-p[1])-(p[1]-a[1])*(b[0]-p[0]))/(first*last)>.08)pathJoin(p[0],p[1],width+.3)
+      if(first>.05&&last>.05&&Math.abs((p[0]-a[0])*(b[1]-p[1])-(p[1]-a[1])*(b[0]-p[0]))/(first*last)>.08)pathJoin(p[0],p[1],width+.3,pathColour)
     }
   }
   const carriageways=roadSegments.filter(s=>!s.path)
@@ -204,11 +205,11 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     const uv=g.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/6,uv.getY(i)/6)
     const modern = inVenue && !clubhouse && b.area > 500
     collect(g,mat(colour,modern?'stucco':'brick'))
-    const flatRoof=inVenue&&!clubhouse
-    shape(f.points,height+.035,flatRoof?flatRoofs[Math.abs(f.id)%flatRoofs.length]:roofTone,flatRoof?'membrane':'roof')
     let polygonArea=0
     for(let i=1;i<f.points.length;i++)polygonArea+=f.points[i-1][0]*f.points[i][1]-f.points[i][0]*f.points[i-1][1]
     const coverage=Math.abs(polygonArea)/2/b.area
+    const pitched=coverage>.60 && b.width<32 && f.tags['roof:shape']!=='flat' && (!inVenue || clubhouse)
+    shape(f.points,height+.035,pitched?roofTone:flatRoofs[Math.abs(f.id)%flatRoofs.length],pitched?'roof':'membrane',pitched?undefined:b)
     for(let i=1;i<f.points.length;i++) {
       const a=f.points[i-1],c=f.points[i],dx=c[0]-a[0],dz=c[1]-a[1],len=Math.hypot(dx,dz)
       if(len<2)continue
@@ -287,7 +288,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
         })
       }
     }
-    if(coverage>.60 && b.width<32 && f.tags['roof:shape']!=='flat' && (!inVenue || clubhouse)) {
+    if(pitched) {
       const roofRise=Math.min(3.3,b.width*.30)
       collect(createFootprintRoof(f.points,b,height+.04,roofRise),mat(roofTone,'roof'))
       collect(createFootprintGables(f.points,b,height+.04,roofRise),mat(colour,'brick'))

@@ -5,7 +5,7 @@ import { createBoroughLife, createBoroughLifeAssets } from './createBoroughLife.
 import type { TrafficSpace } from './trafficSpace.ts'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
-import { createFootprintRoof } from './footprintRoof.ts'
+import { createFootprintRoof, setFlatRoofUVs } from './footprintRoof.ts'
 import { addCaledonianClockTower } from './caledonianClockTower.ts'
 import { boroughRoadProfile, boroughStreetEdges } from './boroughStreetEdges.ts'
 import { buildingHeight, containsPoint, roofBounds, boroughCourts, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
@@ -16,7 +16,7 @@ export function createBoroughMaterials() {
  const brick=['#b9997f','#d1bda4','#ad816a','#c6ae91','#ded2b9','#b7a68c'].map(c=>cloneWorldArchitecturalFinish(finishes.brick,c,false,.1))
  const roofs=['#7d8881','#90998c','#7d8d89','#9ba093'].map(c=>cloneWorldArchitecturalFinish(finishes.slate,c,true,.1))
  // Keep the lighter roof palette, with seams and weathering scaled to the borough.
- const flatRoofs=['#c7c9bd','#d0d0c3','#bec2b5','#cacabd'].map(c=>cloneArchitecturalFinish(finishes.membrane,c))
+ const flatRoofs=['#c7c9bd','#d0d0c3','#bec2b5','#cacabd'].map(c=>cloneArchitecturalFinish(finishes.mappedMembrane,c))
  const plain=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.94})
  // Preserve the metre-calibrated pane/curtain shader on the shared glass.
  const glass=cloneArchitecturalFinish(finishes.glazing,'#46665e')
@@ -65,12 +65,14 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  const transform=new THREE.Object3D()
  function part(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number,angle=0,target=instances){transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,angle,0);transform.updateMatrix();const list=target.get(m)??[];list.push(transform.matrix.clone());target.set(m,list)}
  function collect(m:THREE.Material,g:THREE.BufferGeometry){const plain=g.index?g.toNonIndexed():g;if(plain!==g)g.dispose();const list=batches.get(m)??[];list.push(plain);batches.set(m,list)}
- function polygon(f:GeoFeature,m:THREE.Material,y:number,height=0){
+ function polygon(f:GeoFeature,m:THREE.Material,y:number,height=0,roof?:ReturnType<typeof roofBounds>){
   if(f.points.length<4)return
   const shape=new THREE.Shape(f.points.slice(0,-1).map(([x,z])=>new THREE.Vector2(x,-z)))
   for(const hole of f.holes??[])if(containsPoint(hole[0][0],hole[0][1],f.points))shape.holes.push(new THREE.Path(hole.slice(0,-1).map(([x,z])=>new THREE.Vector2(x,-z))))
   const g=height?new THREE.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false,steps:1}):new THREE.ShapeGeometry(shape)
-  g.rotateX(-Math.PI/2);g.translate(0,y,0);collect(m,g)
+  g.rotateX(-Math.PI/2);g.translate(0,y,0)
+  if(roof)setFlatRoofUVs(g,roof,.1)
+  collect(m,g)
  }
  for(const f of data.parks)polygon(f,finishes.parkGrass,-.004)
  for(const f of data.water)polygon(f,water,0)
@@ -123,12 +125,13 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
   if(addCaledonianClockTower(f,height,{stone:trim,dark:door,dial:white,roof:roofs[0],polygon,part,collect})){detailedBuildings++;continue}
   const palette=Math.abs(id)%brick.length;polygon(f,brick[palette],.012,height)
   const pitched=!modern&&!f.holes?.length&&f.tags?.['roof:shape']!=='flat'&&bounds.width>.3
-  if(pitched){const g=createFootprintRoof(f.points,bounds,height+.012,Math.min(.3,bounds.width*.30));collect(roofs[Math.abs(id)%roofs.length],g)}else polygon(f,flatRoofs[Math.abs(id)%flatRoofs.length],height+.015)
+  if(pitched){const g=createFootprintRoof(f.points,bounds,height+.012,Math.min(.3,bounds.width*.30));collect(roofs[Math.abs(id)%roofs.length],g)}else polygon(f,flatRoofs[Math.abs(id)%flatRoofs.length],height+.015,0,bounds)
+  const parapet=!pitched&&modern
   const floors=Math.max(1,Math.min(7,Math.round(height/.30))),signed=f.points.slice(1).reduce((sum,b,i)=>sum+f.points[i][0]*b[1]-b[0]*f.points[i][1],0),sign=signed>0?1:-1
   for(let i=1;i<f.points.length;i++){
    const a=f.points[i-1],b=f.points[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);if(len<.22)continue
    const nx=dz/len*sign,nz=-dx/len*sign,angle=-Math.atan2(dz,dx)
-   part(trim,(a[0]+b[0])/2+nx*.012,height,(a[1]+b[1])/2+nz*.012,len,.035,.045,angle)
+   part(parapet?stone:trim,(a[0]+b[0])/2+nx*.012,height+(parapet?.035:0),(a[1]+b[1])/2+nz*.012,len,parapet?.060:.035,.045,angle)
    part(stone,(a[0]+b[0])/2,.04,(a[1]+b[1])/2,len,.065,.025,angle)
    if(len<.3||height<.45)continue
    const columns=Math.max(1,Math.min(24,Math.floor(len/(modern?.55:.32)))),w=modern?Math.min(.32,len/columns*.7):.102,h=modern?.17:.145

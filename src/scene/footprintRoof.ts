@@ -1,5 +1,15 @@
 import * as THREE from 'three'
 
+/** Lay membrane seams along the long axis of the footprint at a six-metre repeat. */
+export function setFlatRoofUVs(geometry: THREE.BufferGeometry, bounds: { x: number; z: number; angle: number }, worldScale = 1) {
+  const positions = geometry.getAttribute('position'), uv = geometry.getAttribute('uv')
+  const c = Math.cos(bounds.angle), s = Math.sin(bounds.angle), span = 6 * worldScale
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i) - bounds.x, z = positions.getZ(i) - bounds.z
+    uv.setXY(i, (x * c - z * s) / span, (x * s + z * c) / span)
+  }
+}
+
 /** Split triangulated mapped footprints at the ridge; never replace them with rectangles. */
 export function createFootprintRoof(points: number[][], bounds: { x: number; z: number; width: number; angle: number }, height: number, rise: number) {
   const c = Math.cos(bounds.angle), s = Math.sin(bounds.angle)

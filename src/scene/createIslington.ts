@@ -57,12 +57,14 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
   `)
  }
  baseMaterial.customProgramCacheKey=()=>'islington-overview-edge-v1'
+ materials.finishes.applyGroundGrain(baseMaterial)
  const baseGeometry=new THREE.PlaneGeometry(w,h);baseGeometry.rotateX(-Math.PI/2)
  const base=new THREE.Mesh(baseGeometry,baseMaterial);base.name='Whole Islington continuous base';base.position.set((bounds.minX+bounds.maxX)/2,-.02,(bounds.minZ+bounds.maxZ)/2);base.receiveShadow=true;root.add(base)
  // A quiet ground surround keeps the source map seated in a landscape at overview
  // scale without inventing streets beyond the surveyed coverage.
  const surroundGeometry=new THREE.PlaneGeometry(w*12,h*12);surroundGeometry.rotateX(-Math.PI/2)
  const surroundMaterial=new THREE.MeshStandardMaterial({color:'#a9b69b',roughness:1})
+ materials.finishes.applyGroundGrain(surroundMaterial)
  const surround=new THREE.Mesh(surroundGeometry,surroundMaterial);surround.position.copy(base.position).setY(-.04);surround.receiveShadow=true;root.add(surround)
  const courts=createBoroughCourts(materials,invalidate);root.add(courts.root)
  const boundary=createBoroughBoundary();root.add(boundary.root)

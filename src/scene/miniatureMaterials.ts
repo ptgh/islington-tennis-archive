@@ -40,7 +40,7 @@ export function cloneWorldArchitecturalFinish(base:THREE.MeshStandardMaterial,co
   return copy
 }
 
-function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, span = roof ? 6 : 4, weathered = false, worldScale = 1) {
+function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, span = roof ? 6 : 4, weathered = false, worldScale = 1, footprintUV = false) {
   material.userData.architecturalWeathering = weathered
   material.onBeforeCompile = shader => {
     if(weathered)shader.vertexShader='varying vec3 masonryWorld;\n'+shader.vertexShader
@@ -53,7 +53,7 @@ function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, sp
       vec3 architectureWorld = (architectureModel * vec4(transformed, 1.0)).xyz;
       ${weathered?`masonryWorld = architectureWorld / ${worldScale.toFixed(3)};`:''}
       vec3 architectureNormal = mat3(architectureModel) * normal;
-      ${weathered&&roof?`
+      ${footprintUV ? 'vec2 architectureUv = uv;' : weathered&&roof?`
         // Inverse-scale each orthogonal model axis before transforming normals.
         // Slate courses follow the pitched plane, including merged mapped roofs;
         // camera movement never changes the basis or the weathering field.
@@ -92,7 +92,7 @@ function architecturalUV(material: THREE.MeshStandardMaterial, roof: boolean, sp
         `}
       `)
   }
-  material.customProgramCacheKey = () => `architecture-world-uv-${roof ? 'roof' : 'wall'}-${span}-${weathered?'weathered':'plain'}-${worldScale}-v3`
+  material.customProgramCacheKey = () => `architecture-uv-${roof ? 'roof' : 'wall'}-${span}-${weathered?'weathered':'plain'}-${worldScale}-${footprintUV}-v4`
 }
 
 /** Varied panes and selective warm rooms use the existing lighting and PBR
@@ -412,7 +412,7 @@ export function createMiniatureMaterials(worldScale=1) {
     return [v,v,v]
   },false)
   const membraneMap = surface(256,(x,y)=>{
-    const seam=x%64<1||y%128<1, grain=noise(x,y,241)-.5
+    const seam=x%64<2||y%128<1, grain=noise(x,y,241)-.5
     const value=seam?188:229+grain*18+(field(x,y,37,251)-.5)*24
     return [value,value*.993,value*.974]
   })
@@ -475,15 +475,17 @@ export function createMiniatureMaterials(worldScale=1) {
   const stucco = new THREE.MeshStandardMaterial({color:'#d4cebc',map:renderMap,bumpMap:renderBump,bumpScale:.018,roughness:.96})
   const seamRoof = new THREE.MeshStandardMaterial({color:'#87938b',map:metalRoofMap,bumpMap:metalRoofBump,bumpScale:.055,roughnessMap:metalRoofRoughness,roughness:.8,metalness:.22})
   const membrane = new THREE.MeshStandardMaterial({color:'#b3b8b2',map:membraneMap,bumpMap:renderBump,bumpScale:.012 * worldScale,roughnessMap:membraneRoughness,roughness:1})
+  const mappedMembrane = membrane.clone()
   architecturalUV(stucco,false);architecturalUV(seamRoof,true);architecturalUV(membrane,true,6 * worldScale,false,worldScale)
+  architecturalUV(mappedMembrane,true,6 * worldScale,false,worldScale,true)
   // Broad, world-anchored weathering sits above the fine repeating texture.
   // Roofs retain their mapped outlines; variation adds scale without geometry.
-  for (const material of [stucco, seamRoof, membrane]) {
+  for (const material of [stucco, seamRoof, membrane, mappedMembrane]) {
     const prepare=material.onBeforeCompile,key=material.customProgramCacheKey()
     material.onBeforeCompile=(shader,renderer)=>{
       prepare.call(material,shader,renderer)
       shader.vertexShader='varying vec3 finishWorld;\n'+shader.vertexShader.replace('#include <project_vertex>',`
-        finishWorld=architectureWorld / ${(material===membrane ? worldScale : 1).toFixed(3)};
+        finishWorld=architectureWorld / ${(material===membrane || material===mappedMembrane ? worldScale : 1).toFixed(3)};
         #include <project_vertex>`)
       shader.fragmentShader=`varying vec3 finishWorld;
         float finishHash(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
@@ -559,6 +561,33 @@ export function createMiniatureMaterials(worldScale=1) {
   }
   mottle(grass, 'miniature-lawn-v1')
   mottle(parkGrass, 'miniature-park-lawn-v1')
+  const gravelMap = surface(128, (x, y) => {
+    const grain = noise(x, y, 313) - .5
+    const patches = field(x, y, 16, 317) - .5
+    const value = 224 + grain * 35 + patches * 30
+    return [value, value * .987, value * .963]
+  })
+  // Add quiet ground variation without changing the baked overview or adding
+  // polygons. At wide zoom, mipmaps and the pixel footprint soften the grain.
+  function applyGroundGrain(material: THREE.MeshStandardMaterial) {
+    const prepare = material.onBeforeCompile
+    const key = material.customProgramCacheKey()
+    material.onBeforeCompile = (shader, renderer) => {
+      prepare.call(material, shader, renderer)
+      shader.uniforms.groundGrainMap = { value: gravelMap }
+      shader.vertexShader = 'varying vec2 groundMetres;\n' + shader.vertexShader.replace('#include <project_vertex>', `
+        groundMetres = (modelMatrix * vec4(transformed, 1.0)).xz / ${worldScale.toFixed(3)};
+        #include <project_vertex>`)
+      shader.fragmentShader = 'uniform sampler2D groundGrainMap; varying vec2 groundMetres;\n' + shader.fragmentShader.replace('#include <alphamap_fragment>', `
+        #include <alphamap_fragment>
+        float groundPatch = texture2D(groundGrainMap, groundMetres / 76.0).r - .746;
+        float groundGrain = texture2D(groundGrainMap, groundMetres / 7.0).r - .746;
+        float groundPixel = max(length(dFdx(groundMetres)), length(dFdy(groundMetres)));
+        diffuseColor.rgb *= 1.0 + (groundPatch * .72 + groundGrain * .30) * (1.0 - smoothstep(.7, 2.4, groundPixel));
+      `)
+    }
+    material.customProgramCacheKey = () => `${key}-ground-grain-${worldScale}`
+  }
   const asphalt = new THREE.MeshStandardMaterial({ color: '#96998f', map: asphaltMap, bumpMap: asphaltBump, bumpScale: .012 * worldScale, roughnessMap:asphaltRoughness, roughness: .97 })
   const paving = new THREE.MeshStandardMaterial({ color: '#d8d0bd', map: pavingMap, bumpMap:pavingBump, bumpScale:.018 * worldScale, roughness: .98 })
   // Horizontal materials keep a fixed grain and slab size across long road
@@ -597,6 +626,9 @@ export function createMiniatureMaterials(worldScale=1) {
     material.customProgramCacheKey = () => `${cacheKey}-rain-ground-v2`
   }
   const parkPath = cloneArchitecturalFinish(paving, '#d0c8b4')
+  parkPath.map = gravelMap
+  parkPath.bumpMap = aggregateBump
+  parkPath.bumpScale = .006 * worldScale
   const preparePath = parkPath.onBeforeCompile, pathKey = parkPath.customProgramCacheKey()
   parkPath.onBeforeCompile = (shader, renderer) => {
     preparePath.call(parkPath, shader, renderer)
@@ -694,14 +726,14 @@ export function createMiniatureMaterials(worldScale=1) {
   const foliageShadowDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking })
   wind(foliageShadowDepth)
   const foliageShadowProxy = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })
-  const materials = [brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing]
-  const textures = [brickMap, brickBump, slateMap, slateBump, slateRoughness, grassMap, parkMap, asphaltMap, asphaltBump, asphaltRoughness, pavingMap, pavingBump, foliageMap, foliageBump, foliageAlpha, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha, renderMap, renderBump, metalRoofMap, metalRoofBump, membraneMap, metalRoofRoughness, membraneRoughness]
+  const materials = [brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, mappedMembrane, glazing]
+  const textures = [brickMap, brickBump, slateMap, slateBump, slateRoughness, grassMap, parkMap, asphaltMap, asphaltBump, asphaltRoughness, pavingMap, pavingBump, foliageMap, foliageBump, foliageAlpha, grassBump, parkBump, aggregateMap, aggregateBump, woodMap, netAlpha, renderMap, renderBump, metalRoofMap, metalRoofBump, membraneMap, metalRoofRoughness, membraneRoughness, gravelMap]
   let disposed = false
 
   return {
-    brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, foliageGeometry, shrubGeometry, foliageDepth, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, glazing,
+    brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, foliageGeometry, shrubGeometry, foliageDepth, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, mappedMembrane, glazing,
     foliageShadowGeometry, foliageShadowDepth, foliageShadowProxy,
-    wind,
+    wind, applyGroundGrain,
     setWind(time: number, strength: number) { windTime.value = time; windStrength.value = strength },
     setRain(raining: boolean) { rainWetness.value = raining ? 1 : 0 },
     dispose() {
