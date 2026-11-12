@@ -6,12 +6,13 @@ import * as THREE from 'three';
 
 test('solid contact shading excludes blended, cutout and sprite surfaces without changing visibility',()=>{
  const scene=new THREE.Scene(),geometry=new THREE.BoxGeometry(),solid=new THREE.MeshBasicMaterial(),blend=new THREE.MeshBasicMaterial({transparent:true}),cutout=new THREE.MeshBasicMaterial({alphaTest:.4}),spriteMaterial=new THREE.SpriteMaterial();
- const wall=new THREE.Mesh(geometry,solid),fence=new THREE.Mesh(geometry,blend),net=new THREE.Mesh(geometry,cutout),mixed=new THREE.Mesh(geometry,[solid,blend]),sprite=new THREE.Sprite(spriteMaterial);
- fence.visible=false;scene.add(wall,fence,net,mixed,sprite);
+ const fading=new THREE.MeshBasicMaterial({alphaHash:true,opacity:.4});
+ const wall=new THREE.Mesh(geometry,solid),fence=new THREE.Mesh(geometry,blend),net=new THREE.Mesh(geometry,cutout),mixed=new THREE.Mesh(geometry,[solid,blend]),sprite=new THREE.Sprite(spriteMaterial),trim=new THREE.Mesh(geometry,fading);
+ fence.visible=false;scene.add(wall,fence,net,mixed,sprite,trim);
  try{
-  assert.deepEqual(collectOcclusionExclusions(scene),[fence,net,mixed,sprite]);
+  assert.deepEqual(collectOcclusionExclusions(scene),[fence,net,mixed,sprite,trim]);
   assert.equal(fence.visible,false);assert.equal(wall.visible,true);
- }finally{geometry.dispose();solid.dispose();blend.dispose();cutout.dispose();spriteMaterial.dispose();}
+ }finally{geometry.dispose();solid.dispose();blend.dispose();cutout.dispose();fading.dispose();spriteMaterial.dispose();}
 });
 
 test('render resolution respects phone and desktop pixel budgets',()=>{

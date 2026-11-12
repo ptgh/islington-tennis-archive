@@ -20,6 +20,8 @@ export function createBoroughCourts(materials:BoroughMaterials,invalidate:()=>vo
  const litPlaying=cloneCourtFinish(surfaces.synthetic);litPlaying.emissive.set('#a4c9b2');litPlaying.emissiveIntensity=0
  const lamp=new THREE.MeshStandardMaterial({color:'#e0dfcc',emissive:'#fff3ca',emissiveIntensity:0})
  const line=materials.white.clone(),lineWidth={value:.008}
+ line.emissive.copy(line.color)
+ line.emissiveIntensity=0
  line.onBeforeCompile=shader=>{
   shader.uniforms.courtLineWidth=lineWidth
   // Each line is a unit box scaled by its instance: widen only its narrow horizontal axis.
@@ -67,7 +69,10 @@ export function createBoroughCourts(materials:BoroughMaterials,invalidate:()=>vo
  }
  for(const [material,matrices] of batches){const mesh=new THREE.InstancedMesh(materials.box,material,matrices.length);matrices.forEach((matrix,i)=>mesh.setMatrixAt(i,matrix));mesh.receiveShadow=true;mesh.castShadow=material===materials.finishes.timber||material===surfaces.steel;mesh.computeBoundingSphere();root.add(mesh);if(material===line)lineMesh=mesh}
  const life=createTownLife(animated,[],()=>new THREE.Vector3(),[],false);root.add(life.root)
- return {root,setView(camera:THREE.OrthographicCamera,zoom:number,cssWidth:number){lineWidth.value=courtLineWidth((camera.right-camera.left)/zoom/cssWidth);if(lineMesh)lineMesh.visible=courtLinesVisible(zoom)},setNight(value:boolean){life.setNight(value);litPlaying.emissiveIntensity=value?.22:0;lamp.emissiveIntensity=value?2:0},setActivity:life.setActivity,animate:life.animate,dispose(){
+ return {root,setView(camera:THREE.OrthographicCamera,zoom:number,cssWidth:number){lineWidth.value=courtLineWidth((camera.right-camera.left)/zoom/cssWidth);if(lineMesh)lineMesh.visible=courtLinesVisible(zoom)},setNight(value:boolean){
+  life.setNight(value);litPlaying.emissiveIntensity=value?.22:0;lamp.emissiveIntensity=value?2:0
+  line.emissiveIntensity=value?.045:0
+ },setActivity:life.setActivity,animate:life.animate,dispose(){
   owned.forEach(g=>g.dispose());line.dispose();outer.dispose();litPlaying.dispose();lamp.dispose();surfaces.dispose()
   const geometries=new Set<THREE.BufferGeometry>(),mats=new Set<THREE.Material>()
   life.root.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>mats.add(m))}})

@@ -435,6 +435,8 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
         scene.background = new THREE.Color(night ? '#253940' : id === 'wimbledon' ? '#dce7d5' : '#e4e8d7')
         const glass = materials.get('#456b63')
         if (glass) { glass.emissive.set('#e0bd7d'); glass.emissiveIntensity = night ? .65 : 0 }
+        const paint = materials.get('#f5f2df')
+        if (paint) paint.emissiveIntensity = night ? .17 : .12
         lastNight = night
       }
     },

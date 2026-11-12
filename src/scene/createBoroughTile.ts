@@ -10,6 +10,8 @@ import { addCaledonianClockTower } from './caledonianClockTower.ts'
 import { boroughRoadProfile, boroughStreetEdges } from './boroughStreetEdges.ts'
 import { buildingHeight, containsPoint, roofBounds, boroughCourts, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
 
+export const BOROUGH_SILL_THICKNESS=.012
+
 /** Shared, owned finishes keep streamed cells consistent with the established miniature. */
 export function createBoroughMaterials() {
  const finishes=createMiniatureMaterials(.1)
@@ -26,6 +28,9 @@ export function createBoroughMaterials() {
  const parkPath=cloneArchitecturalFinish(finishes.parkPath,'#c6bfab')
  const road=cloneArchitecturalFinish(finishes.asphalt,'#838a7f')
  const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4'),stopRed=plain('#ba4d40')
+ const fineTrim=trim.clone()
+ // Coverage fades at subpixel sizes while the instance batches keep depth writes.
+ fineTrim.alphaHash=true
  const water=new THREE.MeshStandardMaterial({color:'#608d85',roughness:.27,metalness:.12})
  water.name='Borough canal water'
  const waterTime={value:0},waterWind={value:0}
@@ -44,10 +49,10 @@ export function createBoroughMaterials() {
  water.customProgramCacheKey=()=> 'borough-canal-ripples-v2'
  const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
- return {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
+ return {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
  animateSurfaces(time:number,wind:number){waterTime.value=time;waterWind.value=wind},
  setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
- dispose(){[...brick,...roofs,...flatRoofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
+ dispose(){[...brick,...roofs,...flatRoofs,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
@@ -60,7 +65,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
 /** Yields between pieces of work, so a cell can be built across several frames. */
 export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,traffic?:TrafficSpace,cellId?:string) {
  const root=new THREE.Group();root.name='Islington geographic cell'
- const {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,trim,stone,door,trunk,metal,white,stopRed,water,box,circle}=materials
+ const {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle}=materials
  const batches=new Map<THREE.Material,THREE.BufferGeometry[]>(),instances=new Map<THREE.Material,THREE.Matrix4[]>(),caps=new Map<THREE.Material,THREE.Matrix4[]>(),fine=new Map<THREE.Material,THREE.Matrix4[]>()
  const transform=new THREE.Object3D()
  function part(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number,angle=0,target=instances){transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,angle,0);transform.updateMatrix();const list=target.get(m)??[];list.push(transform.matrix.clone());target.set(m,list)}
@@ -141,9 +146,9 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
      const y=(floor+.58)*height/floors
      part(trim,x+nx*.012,y,z+nz*.012,w+.026,h+.026,.018,angle)
      part(glass,x+nx*.023,y,z+nz*.023,w,h,.012,angle)
-     part(trim,x+nx*.03,y-h/2-.008,z+nz*.03,w+.045,.012,.034,angle,fine)
-     part(trim,x+nx*.031,y,z+nz*.031,.006,h,.008,angle,fine)
-     if(!modern)part(trim,x+nx*.031,y,z+nz*.031,w,.006,.008,angle,fine)
+     part(fineTrim,x+nx*.03,y-h/2-.008,z+nz*.03,w+.045,BOROUGH_SILL_THICKNESS,.034,angle,fine)
+     part(fineTrim,x+nx*.031,y,z+nz*.031,.006,h,.008,angle,fine)
+     if(!modern)part(fineTrim,x+nx*.031,y,z+nz*.031,w,.006,.008,angle,fine)
     }
     if(!modern&&col%3===0){part(door,x+nx*.025,.105,z+nz*.025,.085,.21,.021,angle);part(trim,x+nx*.04,.219,z+nz*.04,.112,.016,.039,angle)}
    }

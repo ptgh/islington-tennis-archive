@@ -72,7 +72,7 @@ export function lightCycle(date: Date, night: boolean, weather: WeatherSceneKind
   return {
     direction,
     direct: night ? 1.05 * moonlight : (1.7 + Math.sqrt(elevation) * 1.1) * (weather === 'clear' ? 1 : weather === 'cloud' ? .33 : .12) * daylight,
-    ambient: night ? .48 + moonlight * .35 : .48 + (.4 + cloud * .22) * daylight,
+    ambient: night ? .56 + moonlight * .35 : .48 + (.4 + cloud * .22) * daylight,
     warmth: night ? 0 : Math.pow(1 - elevation, 3),
     illumination: sky.illumination,
     moonAboveHorizon: sky.moon.y > 0,

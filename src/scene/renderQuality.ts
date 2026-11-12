@@ -8,7 +8,7 @@ export function collectOcclusionExclusions(root: THREE.Object3D) {
   const objects: THREE.Object3D[] = []
   root.traverse(object => {
     const mesh = object as THREE.Mesh
-    if (object instanceof THREE.Sprite || mesh.isMesh && [mesh.material].flat().some(material => material.transparent || material.alphaTest > 0)) objects.push(object)
+    if (object instanceof THREE.Sprite || mesh.isMesh && [mesh.material].flat().some(material => material.transparent || material.alphaTest > 0 || material.alphaHash)) objects.push(object)
   })
   return objects
 }

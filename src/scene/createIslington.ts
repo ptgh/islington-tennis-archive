@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import {destinationGeometry,destinationOutline} from './destinationHighlight.ts'
 import { boroughBounds, boroughGeography, courtsNearVenue, detailCellLimit, detailCellsInView, type BoroughCell } from './boroughGeometry.ts'
 import { createBoroughBoundary } from './createBoroughBoundary.ts'
-import { buildBoroughTile, createBoroughMaterials, createBoroughTile } from './createBoroughTile.ts'
+import { BOROUGH_SILL_THICKNESS, buildBoroughTile, createBoroughMaterials, createBoroughTile } from './createBoroughTile.ts'
 import { createBoroughCourts } from './createBoroughCourts.ts'
 import { mapStations } from '../data/transit.ts'
 import { createGear } from './createGear.ts'
@@ -20,7 +20,7 @@ const OVERVIEW_EDGE_FADE=16
 /** Decoded, the full overview is about 90 MB of GPU memory: too much to spend on a phone. */
 const overviewPath=typeof window!=='undefined'&&window.matchMedia?.('(max-width:760px)').matches?'map/islington-overview-phone.webp':'map/islington-overview.png'
 const buildingsRise=typeof window!=='undefined'&&!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-const RISE_SECONDS=.45,SINK_SECONDS=.3,RISE_FROM=.02,FLIGHT_CELLS=10,FINE_DETAIL_ZOOM=11
+const RISE_SECONDS=.45,SINK_SECONDS=.3,RISE_FROM=.02,FLIGHT_CELLS=10
 /** A flat map is cheap to draw, so more of the frame can go on building what comes next. */
 const BUILD_MS_WITH_3D=6,BUILD_MS_FLAT=14,BUILD_MS_NO_FRAMES=60
 /** Browsers build cells across frames; tests and tools have no frames to wait for. */
@@ -132,7 +132,12 @@ export function createIslington(venues:MapVenue[],invalidate:()=>void=()=>{}):Is
  function updateView(camera:THREE.OrthographicCamera,zoom:number,target:THREE.Vector3,cssWidth=1440){
   if(disposed)return
   boundary.setView(camera,zoom,cssWidth);courts.setView(camera,zoom,cssWidth)
-  const fine=zoom>=FINE_DETAIL_ZOOM
+  // Sills are 12 cm in the model. Fade them and the glazing bars in as they
+  // approach a CSS pixel, independent of viewport size and render resolution.
+  const sillPixels=BOROUGH_SILL_THICKNESS*zoom*cssWidth/(camera.right-camera.left)
+  const coverage=THREE.MathUtils.smoothstep(sillPixels,.26,.58)
+  materials.fineTrim.opacity=coverage
+  const fine=coverage>0
   if(fine!==fineDetail){fineDetail=fine;for(const item of loaded.values())item.tile.setFineDetail(fine)}
   detailLife=zoom>=3.5
   for(const item of loaded.values()){item.tile.life.root.visible=detailLife;if(!detailLife||!item.tile.root.visible)item.tile.life.clearTraffic()}
