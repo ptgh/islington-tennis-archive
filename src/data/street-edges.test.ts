@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {streetEdgePieces,type StreetSegment} from '../scene/streetNetwork.ts'
-import {boroughRoadProfile,boroughStreetEdges} from '../scene/boroughStreetEdges.ts'
+import {boroughRoadProfile,boroughStreetDecorations} from '../scene/boroughStreetEdges.ts'
 
 test('borough kerbs preserve source roads and leave carriageways and footpath connections open',()=>{
  const roads=[
@@ -9,7 +9,7 @@ test('borough kerbs preserve source roads and leave carriageways and footpath co
   {id:2,kind:'secondary',points:[[-4,-5],[-4,5]]},
   {id:3,kind:'footway',points:[[4,0],[4,2]]},
   {id:4,kind:'secondary',points:[[0,0],[0,3]]},
- ],before=structuredClone(roads),edges=boroughStreetEdges(roads)
+ ],before=structuredClone(roads),{edges}=boroughStreetDecorations(roads)
  assert.deepEqual(roads,before)
  assert.ok(edges.length>4,'junctions split edges rather than covering their openings')
  for(const edge of edges)for(let i=0;i<=20;i++){
@@ -26,7 +26,19 @@ test('borough kerbs preserve source roads and leave carriageways and footpath co
 })
 
 test('walking-only and degenerate source lines do not acquire kerbs',()=>{
- assert.deepEqual(boroughStreetEdges([{id:1,kind:'path',points:[[0,0],[5,5]]},{id:2,kind:'service',points:[[2,2],[2,2]]}]),[])
+ assert.deepEqual(boroughStreetDecorations([{id:1,kind:'path',points:[[0,0],[5,5]]},{id:2,kind:'service',points:[[2,2],[2,2]]}]),{edges:[],markings:[]})
+})
+
+test('borough paint keeps its cadence through short source segments and clears junctions',()=>{
+ const main=[
+  {id:'9:0:0',kind:'primary',points:[[0,0],[.13,0]]},
+  {id:'9:1:0',kind:'primary',points:[[.13,0],[.7,0]]},
+  {id:'9:2:0',kind:'primary',points:[[.7,0],[4,0]]},
+  {id:'9:5:0',kind:'primary',points:[[5,0],[6,0]]},
+ ]
+ const {markings}=boroughStreetDecorations([...main,{id:10,kind:'residential',points:[[2,0],[2,3]]}])
+ const ranges=markings.map(({a,b})=>[a[0],b[0]].map(value=>Number(value.toFixed(2))))
+ assert.deepEqual(ranges,[[0,.23],[.9,1.13],[2.7,2.93],[3.6,3.83],[5,5.23],[5.9,6]])
 })
 
 test('raised kerbs leave the full width of a crossing road open',()=>{

@@ -7,7 +7,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
 import { createFootprintRoof, setFlatRoofUVs } from './footprintRoof.ts'
 import { addCaledonianClockTower } from './caledonianClockTower.ts'
-import { boroughRoadProfile, boroughStreetEdges } from './boroughStreetEdges.ts'
+import { boroughRoadProfile, boroughStreetDecorations } from './boroughStreetEdges.ts'
 import { buildingHeight, containsPoint, roofBounds, boroughCourts, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
 
 export const BOROUGH_SILL_THICKNESS=.012
@@ -94,13 +94,17 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
    part(ground,x,.003,z,len,.004,width+(walking?.03:.28),angle)
    if(!walking)part(road,x,.007,z,len,.004,width,angle)
    for(const p of [a,b]){const key=`${p[0]},${p[1]},${width}`;if(!junctions.has(key)){junctions.add(key);part(ground,p[0],.006,p[1],width+(walking?.03:.28),1,width+(walking?.03:.28),0,caps);if(!walking)part(road,p[0],.01,p[1],width,1,width,0,caps)}}
-   if(!walking&&width>=.75)for(let t=.3;t<len-.2;t+=.9)part(white,a[0]+dx*t/len,.011,a[1]+dz*t/len,.23,.001,.014,angle)
   }
  }
- // Reuse the owned stone/box instance batch: no extra material or draw pass.
- for(const {a,b,width} of boroughStreetEdges(data.roads)){
+ const {edges,markings}=boroughStreetDecorations(data.roads)
+ // Use the existing stone and paint instance batches.
+ for(const {a,b,width} of edges){
   const dx=b[0]-a[0],dz=b[1]-a[1]
   part(stone,(a[0]+b[0])/2,.015,(a[1]+b[1])/2,Math.hypot(dx,dz),.012,width,-Math.atan2(dz,dx))
+ }
+ for(const {a,b,width} of markings){
+  const dx=b[0]-a[0],dz=b[1]-a[1]
+  part(white,(a[0]+b[0])/2,.011,(a[1]+b[1])/2,Math.hypot(dx,dz),.001,width,-Math.atan2(dz,dx))
  }
  const benches=benchSites(data),stops=busStopSites(data,cellId)
  for(const site of benches){
