@@ -710,14 +710,18 @@ export function createMiniatureMaterials(worldScale=1) {
         transformed.z += cos(miniatureWindTime * .63 + windPhase) * crownBend * .55 * gust * crownWeight;
       `)
     }
-    material.customProgramCacheKey = () => 'miniature-crown-wind-v6'
+    material.customProgramCacheKey = () => `miniature-crown-wind-v6-${worldScale}`
   }
   wind(foliage)
   const prepareFoliage=foliage.onBeforeCompile
   foliage.onBeforeCompile=(shader,renderer)=>{
     prepareFoliage.call(foliage,shader,renderer)
     shader.vertexShader='attribute float foliageLeaf;\nvarying float leafTransmission;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n leafTransmission=foliageLeaf;')
-    shader.fragmentShader='varying float leafTransmission;\n'+shader.fragmentShader
+    shader.fragmentShader='varying float leafTransmission;\n'+shader.fragmentShader.replace('#include <roughnessmap_fragment>', `
+      #include <roughnessmap_fragment>
+      // Folded outer leaves catch a little more sky than the dense crown.
+      roughnessFactor = mix(roughnessFactor, .72, leafTransmission);
+    `)
     // Reuse each light's already-shadowed radiance. Thin leaves gain a little
     // transmitted light without another shadow lookup, glow pass or draw call.
     const lighting=THREE.ShaderChunk.lights_fragment_begin.replaceAll(
@@ -727,7 +731,7 @@ export function createMiniatureMaterials(worldScale=1) {
     )
     shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',lighting)
   }
-  foliage.customProgramCacheKey=()=> 'miniature-crown-wind-leaf-light-v6'
+  foliage.customProgramCacheKey=()=> `miniature-crown-wind-leaf-light-v7-${worldScale}`
   const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaMap:foliageAlpha, alphaTest:.18, side: THREE.DoubleSide })
   wind(foliageDepth)
   const foliageGeometry = createFoliageGeometry()
@@ -754,7 +758,7 @@ export function createMiniatureMaterials(worldScale=1) {
   return {
     brick, slate, grass, parkGrass, asphalt, paving, parkPath, foliage, foliageGeometry, shrubGeometry, foliageDepth, hardCourt, timber, ballast, net, stucco, seamRoof, membrane, mappedMembrane, glazing,
     foliageShadowGeometry, foliageShadowDepth, foliageShadowProxy,
-    wind, applyGroundGrain,
+    applyGroundGrain,
     setWind(time: number, strength: number) { windTime.value = time; windStrength.value = strength },
     setRain(raining: boolean) { rainWetness.value = raining ? 1 : 0 },
     dispose() {

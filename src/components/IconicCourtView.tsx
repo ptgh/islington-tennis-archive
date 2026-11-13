@@ -385,7 +385,8 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
     mesh.castShadow = castShadow; mesh.receiveShadow = !['f5f2df', 'fcf8e9'].includes((mat as THREE.MeshStandardMaterial).color.getHexString()); mesh.computeBoundingSphere(); scene.add(mesh)
   }
   for (const [shade, matrices] of foliageBatches) {
-    const mat = finishes.foliage.clone(); finishes.wind(mat); mat.color.set(shade); materials.set(`foliage-${shade}`, mat)
+    const mat = cloneArchitecturalFinish(finishes.foliage, shade)
+    materials.set(`foliage-${shade}`, mat)
     const mesh = new THREE.InstancedMesh(canopy, mat, matrices.length)
     matrices.forEach((matrix, i) => mesh.setMatrixAt(i, matrix))
     mesh.castShadow = false; mesh.receiveShadow = true; mesh.computeBoundingSphere(); scene.add(mesh)
