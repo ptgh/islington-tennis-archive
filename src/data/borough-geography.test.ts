@@ -42,7 +42,8 @@ test('borough window clones retain pane detail and light selected rooms without 
   assert.equal(materials.glass.onBeforeCompile,materials.finishes.glazing.onBeforeCompile)
   const color=materials.glass.color.getHex(),shader={vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader,uniforms:{}}
   materials.glass.onBeforeCompile(shader as Parameters<typeof materials.glass.onBeforeCompile>[0],{} as THREE.WebGLRenderer)
-  assert.match(shader.fragmentShader,/totalEmissiveRadiance \*= mix\(.055, 1.0, occupied\)/,'room occupancy modulates the evening light')
+  assert.match(shader.fragmentShader,/roomGlow = mix\(.055, 1.0, occupied\)/,'room occupancy modulates the evening light')
+  assert.match(shader.fragmentShader,/totalEmissiveRadiance \*= mix\(.36, roomGlow, paneDetail\)/,'subpixel panes blend to an average glow')
   materials.setNight(true)
   assert.equal(materials.glass.emissiveIntensity,.65)
   assert.equal(materials.glass.color.getHex(),color,'unlit panes retain their daytime glass finish')

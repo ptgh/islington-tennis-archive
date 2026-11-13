@@ -123,24 +123,38 @@ function architecturalGlass(material: THREE.MeshStandardMaterial, worldScale = 1
       ` + shader.fragmentShader.replace('#include <color_fragment>', `
         #include <color_fragment>
         vec2 paneCount = max(vec2(1.0), floor(glassSpan / 2.4 + .5));
-        vec2 paneCoordinates = clamp(glassPanel + .5, 0.0, .9999) * paneCount;
-        vec2 paneLocal = fract(paneCoordinates);
-        float pane = paneHash(floor(glassOrigin.xz * 1.7) + floor(glassOrigin.y) * 7.0 + floor(paneCoordinates));
+        vec2 paneCoordinates = (glassPanel + .5) * paneCount;
+        // Sample the unwrapped coordinates so edges and room lights fade to their
+        // average once a pixel covers most of a pane, even at a grazing angle.
+        vec2 paneFootprint = fwidth(paneCoordinates);
+        float paneDetail = 1.0 - smoothstep(.24, .8, max(paneFootprint.x, paneFootprint.y));
+        vec2 paneIndex = clamp(floor(paneCoordinates), vec2(0.0), paneCount - 1.0);
+        vec2 paneLocal = clamp(paneCoordinates - paneIndex, 0.0, 1.0);
+        float pane = paneHash(floor(glassOrigin.xz * 1.7) + floor(glassOrigin.y) * 7.0 + paneIndex);
         float reflection = smoothstep(0.0, 18.0, glassWorld.y);
-        diffuseColor.rgb *= mix(.82, 1.09, pane);
+        diffuseColor.rgb *= mix(.82, 1.09, mix(.5, pane, paneDetail));
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.91,1.025,1.12), reflection * .32);
-        float edgeDistance = min(min(paneLocal.x, 1.0-paneLocal.x), min(paneLocal.y, 1.0-paneLocal.y));
-        diffuseColor.rgb *= mix(1.0, mix(.68, 1.0, smoothstep(0.0, .07, edgeDistance)), glassVertical);
+        vec2 edgeDistance = min(paneLocal, 1.0 - paneLocal);
+        vec2 edgeSoftness = max(paneFootprint * .5, vec2(.001));
+        vec2 glassInterior = smoothstep(vec2(.035) - edgeSoftness, vec2(.035) + edgeSoftness, edgeDistance);
+        float edgeShade = 1.0 - glassInterior.x * glassInterior.y;
+        diffuseColor.rgb *= 1.0 - mix(.043, edgeShade * .32, paneDetail) * glassVertical;
+        float skyReflection = smoothstep(.12, .94, paneLocal.y) - .5;
+        diffuseColor.rgb *= 1.0 + skyReflection * .22 * paneDetail * glassVertical;
         float curtainX = mix(paneLocal.x, 1.0-paneLocal.x, step(.5, fract(pane * 7.13)));
-        float curtain = (1.0-smoothstep(.12 + pane*.16, .16 + pane*.16, curtainX)) * step(.48, pane) * glassVertical;
+        float curtainEdge = .14 + pane * .16;
+        float curtainSoftness = max(.02, edgeSoftness.x);
+        float curtain = (1.0 - smoothstep(curtainEdge - curtainSoftness, curtainEdge + curtainSoftness, curtainX)) * step(.48, pane) * glassVertical;
+        curtain = mix(.13 * glassVertical, curtain, paneDetail);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.46, .43, .34), curtain * .42);
       `).replace('#include <emissivemap_fragment>', `
         #include <emissivemap_fragment>
         float occupied = step(.60, pane);
-        totalEmissiveRadiance *= mix(.055, 1.0, occupied) * (1.0-curtain*.65);
+        float roomGlow = mix(.055, 1.0, occupied) * (1.0 - curtain * .65);
+        totalEmissiveRadiance *= mix(.36, roomGlow, paneDetail);
       `)
   }
-  material.customProgramCacheKey = () => `architecture-glass-v3-${worldScale}`
+  material.customProgramCacheKey = () => `architecture-glass-v4-${worldScale}`
 }
 
 function surface(size: number, pixel: (x: number, y: number) => Pixel, color = true) {
