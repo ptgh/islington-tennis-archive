@@ -153,12 +153,11 @@ export function createLensFinish() {
       contrast: { value: LENS_FINISH.contrast },
       saturation: { value: LENS_FINISH.saturation },
       grain: { value: LENS_FINISH.grain },
-      time: { value: 0 },
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: `
       uniform sampler2D tDiffuse; uniform vec2 resolution; uniform float pixelRatio;
-      uniform float focus, band, blur, vignette, contrast, saturation, grain, time;
+      uniform float focus, band, blur, vignette, contrast, saturation, grain;
       varying vec2 vUv;
       float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
       void main(){
@@ -166,14 +165,22 @@ export function createLensFinish() {
         float amount = smoothstep(0.0, .32, d) * blur;
         vec3 colour = texture2D(tDiffuse, vUv).rgb;
         if (amount > .01) {
-          vec3 sum = colour; float weight = 1.0;
-          for (int i = 0; i < 16; i++) {
-            float a = float(i) * 2.39996;
-            float r = sqrt(float(i) + .5) / 4.0;
-            vec2 o = vec2(cos(a), sin(a)) * r * amount * pixelRatio / resolution;
-            sum += texture2D(tDiffuse, vUv + o).rgb; weight += 1.0;
-          }
-          colour = sum / weight;
+          // Opposite pairs keep the blur centred. These radii preserve the
+          // previous kernel's approximate spread for the small CSS-pixel blur.
+          vec2 stepUv = amount * pixelRatio / resolution;
+          vec2 horizontal = vec2(.80, 0.0) * stepUv;
+          vec2 vertical = vec2(0.0, .80) * stepUv;
+          vec2 diagonal = vec2(.44, .44) * stepUv;
+          vec2 otherDiagonal = vec2(-diagonal.x, diagonal.y);
+          colour = (colour
+            + texture2D(tDiffuse, vUv + horizontal).rgb
+            + texture2D(tDiffuse, vUv - horizontal).rgb
+            + texture2D(tDiffuse, vUv + vertical).rgb
+            + texture2D(tDiffuse, vUv - vertical).rgb
+            + texture2D(tDiffuse, vUv + diagonal).rgb
+            + texture2D(tDiffuse, vUv - diagonal).rgb
+            + texture2D(tDiffuse, vUv + otherDiagonal).rgb
+            + texture2D(tDiffuse, vUv - otherDiagonal).rgb) / 9.0;
         }
         float luma = dot(colour, vec3(.2126,.7152,.0722));
         colour = mix(vec3(luma), colour, saturation);
@@ -182,7 +189,7 @@ export function createLensFinish() {
         colour += mix(vec3(-.006,.0,.012), vec3(.014,.006,-.01), smoothstep(.2,.8,luma));
         vec2 c = vUv - .5;
         colour *= 1.0 - vignette * smoothstep(.35, .85, length(c * vec2(1.0, .85)));
-        colour += (hash(vUv * resolution + time) - .5) * grain;
+        colour += (hash(vUv * resolution) - .5) * grain;
         gl_FragColor = vec4(clamp(colour, 0.0, 1.0), 1.0);
       }`,
   }
