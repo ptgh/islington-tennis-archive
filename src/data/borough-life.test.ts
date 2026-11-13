@@ -62,8 +62,8 @@ test('water ripple and foliage/grass gust clocks are shared and do not allocate 
  try{
   const water={vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader,uniforms:{} as Record<string,{value:number}>}
   materials.water.onBeforeCompile(water as Parameters<typeof materials.water.onBeforeCompile>[0],{} as THREE.WebGLRenderer)
-  materials.animateSurfaces(12,.02);assert.equal(water.uniforms.boroughWaterTime.value,12)
-  assert.match(water.fragmentShader,/ripples/)
+  materials.animateSurfaces(12,.2);assert.equal(water.uniforms.waterTime.value,12);assert.equal(water.uniforms.waterWind.value,.2)
+  assert.match(water.fragmentShader,/normal = normalize\(normal \+ waterTilt/)
   const grass={vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader,uniforms:{} as Record<string,{value:number}>}
   materials.finishes.parkGrass.onBeforeCompile(grass as Parameters<typeof materials.water.onBeforeCompile>[0],{} as THREE.WebGLRenderer)
   materials.finishes.setWind(12,.03);assert.equal(grass.uniforms.miniatureLawnTime.value,12);assert.equal(grass.uniforms.miniatureLawnWind.value,.03)

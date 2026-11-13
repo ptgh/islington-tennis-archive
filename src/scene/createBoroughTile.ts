@@ -8,6 +8,7 @@ import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitect
 import { createFootprintRoof, setFlatRoofUVs } from './footprintRoof.ts'
 import { addCaledonianClockTower } from './caledonianClockTower.ts'
 import { boroughRoadProfile, boroughStreetDecorations } from './boroughStreetEdges.ts'
+import { createWaterFinish } from './waterFinish.ts'
 import { buildingHeight, containsPoint, roofBounds, boroughCourts, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
 
 export const BOROUGH_SILL_THICKNESS=.012
@@ -31,26 +32,11 @@ export function createBoroughMaterials() {
  const fineTrim=trim.clone()
  // Coverage fades at subpixel sizes while the instance batches keep depth writes.
  fineTrim.alphaHash=true
- const water=new THREE.MeshStandardMaterial({color:'#608d85',roughness:.27,metalness:.12})
- water.name='Borough canal water'
- const waterTime={value:0},waterWind={value:0}
- water.onBeforeCompile=shader=>{
-  shader.uniforms.boroughWaterTime=waterTime;shader.uniforms.boroughWaterWind=waterWind
-  shader.vertexShader='varying vec2 waterWorld;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n waterWorld=(modelMatrix*vec4(transformed,1.0)).xz;')
-  shader.fragmentShader='varying vec2 waterWorld;\nuniform float boroughWaterTime;\nuniform float boroughWaterWind;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-   vec2 flow=waterWorld+vec2(sin(waterWorld.y*.7),sin(waterWorld.x*.5))*.16;
-   float waveA=dot(flow,vec2(8.0,2.1))-boroughWaterTime*.8;
-   float waveB=dot(flow,vec2(3.2,11.7))+boroughWaterTime*.53;
-   float rippleFilter=1.0-smoothstep(.5,2.5,max(fwidth(waveA),fwidth(waveB)));
-   float ripples=sin(waveA)*.65+sin(waveB)*.35;
-   diffuseColor.rgb*=1.0+ripples*(.018+min(.025,boroughWaterWind*.15))*rippleFilter;
-  `)
- }
- water.customProgramCacheKey=()=> 'borough-canal-ripples-v2'
+ const {material:water,animate:animateSurfaces}=createWaterFinish('#608d85',.1)
  const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
  return {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
- animateSurfaces(time:number,wind:number){waterTime.value=time;waterWind.value=wind},
+ animateSurfaces,
  setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
  dispose(){[...brick,...roofs,...flatRoofs,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
 }

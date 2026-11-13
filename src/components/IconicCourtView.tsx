@@ -427,7 +427,9 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
       life.setNight(night)
       life.animate(delta, running, false)
       if (running) { windTime += delta; clock = new Date() }
-      finishes.setWind(windTime, weatherWind(weather,windMph))
+      const wind = weatherWind(weather,windMph)
+      finishes.setWind(windTime, wind)
+      mapped.animateWater?.(windTime, wind)
       finishes.setRain(weather==='rain')
       updateSceneLight(sun, ambient, lightTarget, 850, lightingTime === null ? clock : new Date(lightingTime), night, weather, naturalTime || lightingTime !== null)
       if (night !== lastNight) {

@@ -8,6 +8,7 @@ import type { createMiniatureMaterials } from './miniatureMaterials'
 import { createFootprintRoof, createFootprintGables, setFlatRoofUVs } from './footprintRoof.ts'
 import { mappedRailwayParts } from './mappedRailway.ts'
 import { clubCourtSurface, type ClubCourtSurface } from './clubSurfaces.ts'
+import { createWaterFinish } from './waterFinish.ts'
 
 type Point = number[]
 type Feature = { id: number; tags: Record<string, string>; points: Point[]; outlines?: Point[][] }
@@ -74,6 +75,8 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   const outlines=venue?.outlines||[grounds]
   const withinVenue=(p:Point)=>outlines.some(outline=>inside(p,outline))
   const geometryBatches=new Map<THREE.Material,THREE.BufferGeometry[]>()
+  const waterAreas=features.filter(f=>f.tags.natural==='water'&&closed(f.points))
+  const water=waterAreas.length?createWaterFinish('#7d9e9a'):undefined
   const mats=new Map<string,THREE.MeshStandardMaterial>()
   const mat=(colour:string,kind:'brick'|'roof'|'paving'|'grass'|'ground'|'plain'|'stucco'|'membrane'='plain')=>{
     const key=kind+colour
@@ -90,12 +93,12 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     if(!geometryBatches.has(m))geometryBatches.set(m,[])
     geometryBatches.get(m)!.push(flat)
   }
-  function shape(points:Point[],y:number,colour:string,kind:'paving'|'grass'|'ground'|'roof'|'plain'|'membrane'='plain',roof?:ReturnType<typeof footprint>) {
+  function shape(points:Point[],y:number,material:THREE.Material,roof?:ReturnType<typeof footprint>) {
     if(!closed(points))return
     const g=new THREE.ShapeGeometry(new THREE.Shape(points.map(([x,z])=>new THREE.Vector2(x,-z))))
     g.rotateX(-Math.PI/2);g.translate(0,y,0)
     if(roof)setFlatRoofUVs(g,roof)
-    collect(g,mat(colour,kind))
+    collect(g,material)
   }
   function segment(a:Point,b:Point,width:number,y:number,colour:string,height=.06) {
     const dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz)
@@ -103,15 +106,15 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     place((a[0]+b[0])/2,(a[1]+b[1])/2,-Math.atan2(dz,dx),1,()=>box(0,y,0,length,height,width,colour,false))
   }
   const allGround=[[-1100,-1100],[1100,-1100],[1100,1100],[-1100,1100],[-1100,-1100]]
-  shape(allGround,-.24,'#8fa777','grass')
+  shape(allGround,-.24,mat('#8fa777','grass'))
   // Area geometry supplies the real park/garden/venue outlines, rather than a rectangular island.
   for(const f of features) {
     if(!closed(f.points)||f.tags.building||f.tags.leisure==='pitch'||f.tags.leisure==='stadium')continue
-    if(f.tags.landuse==='residential')shape(f.points,-.18,'#a3ab90','ground')
-    else if(['park','garden','recreation_ground'].includes(f.tags.leisure)||['grass','forest','cemetery','meadow'].includes(f.tags.landuse)||['wood','scrub','grassland'].includes(f.tags.natural))shape(f.points,-.12,f.tags.natural==='wood'?'#788e60':'#91a774','grass')
-    else if(f.tags.natural==='water')shape(f.points,-.10,'#7d9e9a')
+    if(f.tags.landuse==='residential')shape(f.points,-.18,mat('#a3ab90','ground'))
+    else if(['park','garden','recreation_ground'].includes(f.tags.leisure)||['grass','forest','cemetery','meadow'].includes(f.tags.landuse)||['wood','scrub','grassland'].includes(f.tags.natural))shape(f.points,-.12,mat(f.tags.natural==='wood'?'#788e60':'#91a774','grass'))
+    else if(f.tags.natural==='water'&&water)shape(f.points,-.10,water.material)
   }
-  for(const outline of outlines)if(outline.length)shape(outline,-.14,id==='wimbledon'?'#cfd0c8':'#a1b180',id==='wimbledon'?'paving':'grass')
+  for(const outline of outlines)if(outline.length)shape(outline,-.14,id==='wimbledon'?mat('#cfd0c8','paving'):mat('#a1b180','grass'))
   // Sourced surface tracks only; the stored extract omits tunnels. Rail height
   // remains illustrative at ground level, as documented by the geography.
   const railway=mappedRailwayParts(data.railways)
@@ -120,7 +123,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   for(const part of railway.rails)place(part.x,part.z,part.angle,1,()=>box(0,.255,0,part.length,.13,.075,'#3f5b49',false))
   const roadSegments:{a:Point;b:Point;width:number;path:boolean}[]=[]
   for(const f of roads) {
-    if(f.tags.area==='yes') { shape(f.points,.01,'#c7c5b0','paving'); continue }
+    if(f.tags.area==='yes') { shape(f.points,.01,mat('#c7c5b0','paving')); continue }
     const path=['footway','path','pedestrian','cycleway'].includes(f.tags.highway)
     const pathColour=f.tags.surface==='asphalt'?'#a4a598':['paved','paving_stones','concrete'].includes(f.tags.surface)?'#ccc5b0':'#c9c2ad'
     const width=path?2.4:f.tags.highway==='service'?4.2:['primary','secondary','tertiary'].includes(f.tags.highway)?8:5.5
@@ -209,7 +212,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     for(let i=1;i<f.points.length;i++)polygonArea+=f.points[i-1][0]*f.points[i][1]-f.points[i][0]*f.points[i-1][1]
     const coverage=Math.abs(polygonArea)/2/b.area
     const pitched=coverage>.60 && b.width<32 && f.tags['roof:shape']!=='flat' && (!inVenue || clubhouse)
-    shape(f.points,height+.035,pitched?roofTone:flatRoofs[Math.abs(f.id)%flatRoofs.length],pitched?'roof':'membrane',pitched?undefined:b)
+    shape(f.points,height+.035,pitched?mat(roofTone,'roof'):mat(flatRoofs[Math.abs(f.id)%flatRoofs.length],'membrane'),pitched?undefined:b)
     for(let i=1;i<f.points.length;i++) {
       const a=f.points[i-1],c=f.points[i],dx=c[0]-a[0],dz=c[1]-a[1],len=Math.hypot(dx,dz)
       if(len<2)continue
@@ -394,7 +397,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
     const inGrounds=withinVenue(p),inGreen=green.some(g=>inside(p,g.points))
     if(inGrounds&&!inGreen)continue
     if(!inGreen && random(i+57)>.20)continue
-    if(blocked(p,1.8))continue
+    if(waterAreas.some(f=>inside(p,f.points))||blocked(p,1.8))continue
     plant(p,2.6+random(i+94)*2.0,i)
     if(trees.length>=650)break
   }
@@ -418,7 +421,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   }
   const paths=connectedWalkRoutes([...access.paths,...access.links]).map(route=>route.map(([x,z])=>new THREE.Vector3(x,0,z)))
 
-  return {paths,accessLinkCount:access.links.length}
+  return {paths,accessLinkCount:access.links.length,animateWater:water?.animate}
 }
 
 export function mappedCourtPosition(id:Venue,stop:string) {
