@@ -207,6 +207,19 @@ test('building and ground finishes preserve shared relief and release owned text
  assert.equal(released,6)
 })
 
+test('paving colour and relief share bevels through the repeating tile edge',()=>{
+ const finishes=createMiniatureMaterials()
+ try{
+  const colour=finishes.paving.map!.image.data,height=finishes.paving.bumpMap!.image.data
+  for(const pixels of [colour,height]){
+   const at=(x:number,y:number)=>pixels[(y*256+x)*4]
+   assert.ok(at(0,16)<at(1,16)&&at(1,16)<at(3,16),'slab rises smoothly out of the joint')
+   assert.ok(at(255,16)<at(253,16),'bevel continues on the other side of the tile')
+   assert.ok(at(16,48)<at(19,48),'the next row offsets the vertical joint')
+  }
+ }finally{finishes.dispose()}
+})
+
 test('rain updates shared ground clones and restores dry finishes without recompiling',()=>{
  const finishes=createMiniatureMaterials(),copy=cloneArchitecturalFinish(finishes.asphalt,'#85897e');
  try{

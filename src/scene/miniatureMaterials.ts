@@ -222,13 +222,24 @@ function grassPixel(x: number, y: number): Pixel {
   return [value * (.961 + dry * .18), value, value * (.93 - dry * .15)]
 }
 
-function pavingPixel(x: number, y: number): Pixel {
-  const row = Math.floor(y / 32), col = Math.floor((x + (row % 2) * 16) / 32)
-  const seam = y % 32 < 1 || (x + (row % 2) * 16) % 32 < 1
-  const fleck = noise(x, y, 71) - .5
+/** One staggered slab layout for colour and relief. The bevel wraps through
+ * the tile boundary so its highlight stays aligned with the mortar seam. */
+function pavingPixel(x: number, y: number, relief = false): Pixel {
+  const row = Math.floor(y / 32)
+  const offsetX = (x + (row % 2) * 16) % 256
+  const col = Math.floor(offsetX / 32)
+  const u = offsetX % 32, v = y % 32
+  const distance = Math.min(u, 32 - u, v, 32 - v)
+  const slabFace = THREE.MathUtils.smoothstep(distance, .35, 2.1)
+  const grain = noise(x, y, 71) - .5
+  if (relief) {
+    const height = THREE.MathUtils.lerp(104, 155 + grain * 8, slabFace)
+    return [height, height, height]
+  }
   const slab = noise(col, row, 73) - .5
-  const value = seam ? 207 : 234 + slab * 12 + fleck * 13
-  return [value, value * .979, value * .94]
+  const wear = noise(col, row, 79) * (1 - THREE.MathUtils.smoothstep(distance, 2, 8))
+  const value = THREE.MathUtils.lerp(207, 235 + slab * 14 + grain * 11 - wear * 7, slabFace)
+  return [value, value * (.979 + slab * .012), value * (.94 + slab * .018)]
 }
 
 /** Twenty-four-metre asphalt tile: small repairs and occasional hairline cracks
@@ -402,11 +413,7 @@ export function createMiniatureMaterials(worldScale=1) {
   const asphaltRoughness = surface(256,(x,y)=>{const v=asphaltSample(x*2,y*2).roughness;return [v,v,v]},false)
   const pavingMap = surface(256, pavingPixel)
   pavingMap.repeat.set(3, 3)
-  const pavingBump = surface(256, (x,y) => {
-    const row=Math.floor(y/32),joint=y%32<1||(x+(row%2)*16)%32<1
-    const value=joint?100:153+noise(x,y,271)*9
-    return [value,value,value]
-  },false)
+  const pavingBump = surface(256, (x, y) => pavingPixel(x, y, true), false)
   const renderMap = surface(256, (x,y) => {
     const weather = field(x,y,48,211)-.5, grain=noise(x,y,223)-.5
     const streak = field(x, Math.floor(y/6), 13, 227)-.5
