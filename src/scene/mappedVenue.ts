@@ -6,7 +6,7 @@ import geography from '../data/iconic-geography.json' with { type: 'json' }
 import { cloneArchitecturalFinish } from './miniatureMaterials.ts'
 import type { createMiniatureMaterials } from './miniatureMaterials'
 import { createFootprintRoof, createFootprintGables, setFlatRoofUVs } from './footprintRoof.ts'
-import { mappedRailwayParts } from './mappedRailway.ts'
+import { mappedRailwayParts, RAIL_SLEEPER_LENGTH } from './mappedRailway.ts'
 import { clubCourtSurface, type ClubCourtSurface } from './clubSurfaces.ts'
 import { createWaterFinish } from './waterFinish.ts'
 
@@ -119,7 +119,7 @@ export function createMappedVenue(id:Venue, api:VenuePrimitives) {
   // remains illustrative at ground level, as documented by the geography.
   const railway=mappedRailwayParts(data.railways)
   for(const part of railway.ballast)place(part.x,part.z,part.angle,1,()=>box(0,-.035,0,part.length,.28,3.4,'#a4a191',false))
-  for(const part of railway.sleepers)place(part.x,part.z,part.angle,1,()=>box(0,.135,0,.23,.12,2.6,'#746b51',false))
+  for(const part of railway.sleepers)place(part.x,part.z,part.angle,1,()=>box(0,.135,0,RAIL_SLEEPER_LENGTH,.12,2.6,'#746b51',false))
   for(const part of railway.rails)place(part.x,part.z,part.angle,1,()=>box(0,.255,0,part.length,.13,.075,'#3f5b49',false))
   const roadSegments:{a:Point;b:Point;width:number;path:boolean}[]=[]
   for(const f of roads) {

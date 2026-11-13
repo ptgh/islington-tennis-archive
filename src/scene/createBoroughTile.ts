@@ -9,6 +9,7 @@ import { createFootprintRoof, setFlatRoofUVs } from './footprintRoof.ts'
 import { addCaledonianClockTower } from './caledonianClockTower.ts'
 import { boroughRoadProfile, boroughStreetDecorations } from './boroughStreetEdges.ts'
 import { createWaterFinish } from './waterFinish.ts'
+import { createBoroughRailFinish } from './boroughRailFinish.ts'
 import { buildingHeight, containsPoint, roofBounds, boroughCourts, type BoroughCell, type GeoFeature } from './boroughGeometry.ts'
 
 export const BOROUGH_SILL_THICKNESS=.012
@@ -28,6 +29,7 @@ export function createBoroughMaterials() {
  const paving=cloneArchitecturalFinish(finishes.paving,'#c6bfab')
  const parkPath=cloneArchitecturalFinish(finishes.parkPath,'#c6bfab')
  const road=cloneArchitecturalFinish(finishes.asphalt,'#838a7f')
+ const railBallast=createBoroughRailFinish(finishes.ballast)
  const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4'),stopRed=plain('#ba4d40')
  const fineTrim=trim.clone()
  // Coverage fades at subpixel sizes while the instance batches keep depth writes.
@@ -35,10 +37,10 @@ export function createBoroughMaterials() {
  const {material:water,animate:animateSurfaces}=createWaterFinish('#608d85',.1)
  const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
- return {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
+ return {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
  animateSurfaces,
  setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
- dispose(){[...brick,...roofs,...flatRoofs,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
+ dispose(){[...brick,...roofs,...flatRoofs,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
@@ -109,7 +111,8 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  }
  for(const f of data.railways)for(let i=1;i<f.points.length;i++){
   const a=f.points[i-1],b=f.points[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz),angle=-Math.atan2(dz,dx)
-  part(stone,(a[0]+b[0])/2,.005,(a[1]+b[1])/2,len,.005,.3,angle)
+  if(len<.001)continue
+  part(materials.railBallast,(a[0]+b[0])/2,.005,(a[1]+b[1])/2,len,.005,.3,angle)
   for(const side of [-1,1])part(metal,(a[0]+b[0])/2-dz/len*side*.07,.015,(a[1]+b[1])/2+dx/len*side*.07,len,.01,.014,angle)
  }
  yield
