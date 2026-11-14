@@ -384,7 +384,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
     if (geometry === carWheel) mesh.name = 'Parked car wheels'
     if (geometry === pathJoinGeometry) mesh.name = 'Club path joins'
     matrices.forEach((matrix, i) => mesh.setMatrixAt(i, matrix))
-    mesh.castShadow = castShadow; mesh.receiveShadow = !['f5f2df', 'fcf8e9'].includes((mat as THREE.MeshStandardMaterial).color.getHexString()); mesh.computeBoundingSphere(); scene.add(mesh)
+    mesh.castShadow = castShadow; mesh.receiveShadow = true; mesh.computeBoundingSphere(); scene.add(mesh)
   }
   for (const [shade, matrices] of foliageBatches) {
     const mat = cloneArchitecturalFinish(finishes.foliage, shade)

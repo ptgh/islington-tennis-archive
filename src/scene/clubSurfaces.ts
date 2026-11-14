@@ -100,14 +100,21 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
         float irregular = .65 + .35*sin(courtUv.x*51.0 + sin(courtUv.y*33.0)*2.0);
         ${kind === 'grass' ? `
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.18,.27,.075), .28);
-          float stripe = smoothstep(.47,.53,fract(courtUv.x*10.0));
-          diffuseColor.rgb *= mix(.95,1.045,stripe);
+          // Keep stripes centred on the playing axis and soften them as they
+          // approach the pixel footprint, including in oblique map views.
+          float mowing = (courtUv.x-.5)*10.0;
+          float stripe = cos(mowing*6.2831853);
+          float footprint = fwidth(mowing);
+          float edgeBlend = min(.95,.12+3.14159265*footprint);
+          float bands = smoothstep(-edgeBlend,edgeBlend,stripe);
+          float contrast = 1.0-smoothstep(.12,.50,footprint);
+          diffuseColor.rgb *= mix(.9975,mix(.95,1.045,bands),contrast);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.25,.22,.12), baseline*footfall*irregular*.20);
         ` : 'diffuseColor.rgb *= 1.0 - baseline*footfall*irregular*.06;'}
         diffuseColor.rgb *= 1.0-edge*irregular*.10;
       `)
     }
-    material.customProgramCacheKey = () => `club-surface-${kind}-v3`
+    material.customProgramCacheKey = () => `club-surface-${kind}-v4`
   }
   const meshBytes = new Uint8Array(128 * 128 * 4)
   for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
