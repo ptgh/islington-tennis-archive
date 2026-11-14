@@ -50,6 +50,7 @@
  .map-courts{position:fixed;left:calc(var(--app-visible-left,0px) + 19px);top:calc(var(--app-visible-top,0px) + var(--app-visible-height,100dvh) - 20px - env(safe-area-inset-bottom));transform:translateY(-100%)}
  .app.panel-open .map-courts,.app.court-visit .map-courts{display:none}
  .app .map-courts__trigger{min-height:44px}
- .map-courts__panel{width:min(370px,calc(var(--app-visible-width,100vw) - 38px));max-height:min(540px,calc(var(--app-visible-height,100dvh) - 110px))}
+ .map-courts__panel{width:min(370px,calc(var(--app-visible-width,100vw) - 38px));max-height:min(540px,calc(var(--app-visible-height,100dvh) - 180px))}
+ .app:has(.map-courts__panel) .mobile-panel-toggle{visibility:hidden}
 }
 
