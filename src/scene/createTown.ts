@@ -874,6 +874,7 @@ export function createTown(venues: MapVenue[], invalidate: () => void = () => {}
       line(-2, -5.4, -2, 5.4); line(2, -5.4, 2, 5.4)
       line(-2, -2.9, 2, -2.9); line(-2, 2.9, 2, 2.9)
       line(0, -2.9, 0, 2.9)
+      line(0, -5.4, 0, -5.3); line(0, 5.4, 0, 5.3)
       mesh(courtNets.net, netMaterial, x, .73, z, 6, .8, 1).castShadow=false
       mesh(courtNets.tape, courtLine, x, 1.14, z, 6.05, .08, .065)
       const strapTop=1.14-courtNets.sag

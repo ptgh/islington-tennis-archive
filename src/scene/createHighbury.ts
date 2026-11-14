@@ -37,7 +37,10 @@ export function createHighbury(lighting:ReturnType<typeof createCourtLighting>, 
   const w=court.width,d=court.depth,ow=w*1.46,od=d*1.32;
   part(g,paving,0,.18,0,ow+.6,.06,od+.6);part(g,green,0,.25,0,ow,.08,od);part(g,litPlaying,0,.345,0,w,.025,d);
   const line=(x:number,z:number,lw:number,ld:number)=>part(g,white,x,.375,z,lw,.012,ld);
-  for(const sign of [-1,1]){line(0,sign*d/2,w,.09);line(sign*w/2,0,.09,d);line(sign*w*.375,0,.08,d);line(0,sign*d*.27,w*.75,.08);}
+  for(const sign of [-1,1]){
+   line(0,sign*d/2,w,.09);line(sign*w/2,0,.09,d);line(sign*w*.375,0,.08,d);line(0,sign*d*.27,w*.75,.08);
+   line(0,sign*(d/2-.10),.08,.20);
+  }
   line(0,0,.08,d*.54);
   // One open mesh replaces the duplicate solid wire layer.
   const strapTop=1.08-courtNets.sag;

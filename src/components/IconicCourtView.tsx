@@ -21,7 +21,7 @@ import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
 import { createMappedVenue, mappedCourtPosition } from '../scene/mappedVenue'
 import { addSkyEnvironment, scenePixelRatio, createAdaptiveResolution, createLensFinish, resizeLensFinish, applyViewFocus, applySceneGrade, SCENE_TONE_MAPPING, collectOcclusionExclusions } from '../scene/renderQuality'
-import { createClubSurfaces, type ClubCourtSurface } from '../scene/clubSurfaces'
+import { courtFenceGeometry, createClubSurfaces, type ClubCourtSurface } from '../scene/clubSurfaces'
 import { createAntialiasedBeauty } from '../scene/antialiasedBeauty'
 import { createCourtNetGeometries } from '../scene/courtNet'
 import { createViewShadowFitter } from '../scene/viewShadows'
@@ -74,6 +74,7 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
   const finishes = createMiniatureMaterials()
   const surfaces = createClubSurfaces(finishes.parkGrass, invalidate)
   const unitPlane = new THREE.PlaneGeometry(1, 1)
+  const fencePlane = courtFenceGeometry(1, 1)
   const pathJoinGeometry=new THREE.CircleGeometry(.5,16);pathJoinGeometry.rotateX(-Math.PI/2)
   const courtNets = createCourtNetGeometries(.65,.045)
   const materials = new Map<string, THREE.MeshStandardMaterial>()
@@ -219,14 +220,15 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
     }
     // Slightly exaggerated paint remains legible at miniature overview scale.
     const line = (x: number, z: number, w: number, d: number) => box(cx + x, .25, cz + z, w, .025, d, '#f5f2df', false)
-    const doubles = width * .44, singles = width * .36, baseline = depth * .44, service = depth * .23
+    const doubles = width * .44, singles = doubles * .75, baseline = depth * .44, service = baseline * .54
     for (const side of [-1, 1]) {
       line(side * doubles, 0, .18, baseline * 2)
       line(side * singles, 0, .16, baseline * 2)
       line(0, side * baseline, doubles * 2, .2)
       line(0, side * service, singles * 2, .18)
-      line(0, side * service / 2, .16, service)
+      line(0, side * (baseline - .10), .15, .20)
     }
+    line(0, 0, .16, service * 2)
     transform.position.set(cx,.61,cz);transform.rotation.set(0,0,0);transform.scale.set(doubles*2,.65,.015)
     instance(finishes.net,false,courtNets.net)
     transform.position.set(cx,.96,cz);transform.scale.set(doubles*2+.5,.045,.07)
@@ -239,9 +241,9 @@ function buildScene(id: IconicClubId, invalidate: () => void) {
     if (width < 15) {
       for (const side of [-1, 1]) {
         transform.position.set(cx + side * fenceX, 1.4, cz); transform.rotation.set(0, Math.PI / 2, 0); transform.scale.set(fenceZ * 2, 2.4, 1)
-        instance(surfaces.fence, false, unitPlane)
+        instance(surfaces.fence, false, fencePlane)
         transform.position.set(cx, 1.4, cz + side * fenceZ); transform.rotation.set(0, 0, 0); transform.scale.set(fenceX * 2, 2.4, 1)
-        instance(surfaces.fence, false, unitPlane)
+        instance(surfaces.fence, false, fencePlane)
         for (let i = 0; i <= 6; i++) box(cx + side * fenceX, 1.35, cz - fenceZ + i * fenceZ / 3, .07, 2.5, .07, '#3f5b49')
         for (let i = 0; i <= 4; i++) box(cx - fenceX + i * fenceX / 2, 1.35, cz + side * fenceZ, .07, 2.5, .07, '#3f5b49')
         for (const y of [.4, 1.4, 2.6]) {

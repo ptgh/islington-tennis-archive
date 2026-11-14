@@ -46,6 +46,7 @@ export function createBoroughCourts(materials:BoroughMaterials,invalidate:()=>vo
    part(g,line,side*w/2,.19,0,.08,.012,d)
    part(g,line,side*w*.375,.19,0,.08,.012,d)
    part(g,line,0,.19,side*d/2,w,.012,.10)
+   part(g,line,0,.19,side*(d/2-.10),.08,.012,.20)
    part(g,line,0,.19,side*d*.27,w*.75,.012,.08)
    part(g,surfaces.steel,side*w*.57,.685,0,.08,1.07,.08)
    for(const along of [false,true]){

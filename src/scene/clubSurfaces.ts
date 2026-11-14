@@ -119,9 +119,20 @@ export function createClubSurfaces(fallback: THREE.MeshStandardMaterial, invalid
   alpha.wrapS = alpha.wrapT = THREE.RepeatWrapping; alpha.repeat.set(10, 2)
   // Filter coverage rather than hard-cutting averaged wires, avoiding both
   // disappearing fences and sparkling moiré at overview distances.
-  alpha.generateMipmaps = true; alpha.minFilter = THREE.LinearMipmapLinearFilter; alpha.needsUpdate = true
+  alpha.generateMipmaps = true; alpha.minFilter = THREE.LinearMipmapLinearFilter; alpha.magFilter = THREE.LinearFilter
+  alpha.anisotropy = 4; alpha.needsUpdate = true
   textures.push(alpha)
   const fence = new THREE.MeshStandardMaterial({ color: '#52605a', alphaMap: alpha, alphaTest: .02, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: .72, metalness: .3 })
+  // The Atlas batches one metre planes. Scale their UVs to the actual panel
+  // dimensions, matching the baked UVs on the individual borough panels.
+  fence.onBeforeCompile = shader => {
+    shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', `
+      #include <uv_vertex>
+      #ifdef USE_INSTANCING
+        vAlphaMapUv *= vec2(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz));
+      #endif
+    `)
+  }
   const steel = new THREE.MeshStandardMaterial({ color: '#5e685f', roughness: .68, metalness: .42 })
   materials.push(fence, steel)
   return { grass, synthetic, concrete, clay, fence, steel,
