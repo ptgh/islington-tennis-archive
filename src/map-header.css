@@ -1,0 +1,136 @@
+.app-header .map-header-tools,
+.app-header .map-header-account,
+.app-header .map-header-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-header .map-header-group {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #fff9;
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 3px 14px #172e2726;
+}
+
+.app .app-header .map-header-group .pill {
+  position: static;
+  width: auto;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.app .app-header .map-header-group .pill:hover {
+  background: #e8eddf;
+}
+
+.app .app-header .map-header-group .pill[aria-expanded=true] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.app-header .map-header-group .weather-widget,
+.app-header .map-header-group .places-widget,
+.app-header .map-header-group .lighting-control {
+  position: static;
+  z-index: auto;
+  gap: 2px;
+}
+
+.app .app-header .map-header-account .pill {
+  position: static;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border-radius: 14px;
+}
+
+.app .app-header .about-button > svg { display: block; }
+
+.app .app-header .places-panel,
+.app .app-header .weather-panel,
+.app .app-header .lighting-control .lighting-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(340px, calc(var(--app-visible-width, 100vw) - 38px));
+  max-height: calc(var(--app-visible-height, 100dvh) - 110px);
+  border-radius: 18px;
+}
+
+.app-header:has(.places-panel, .weather-panel, .lighting-popover) { z-index: 9; }
+.app:has(.map-courts__panel) .place-title { opacity: 0; }
+
+@media (max-width: 760px) {
+  .app .app-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 10px;
+  }
+
+  .app-header .map-header-tools {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-self: start;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-width: 100%;
+  }
+
+  .app .app-header .map-header-group .pill {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 7px;
+  }
+
+  .app .app-header .day-button > span { display: none; }
+  .app .app-header .day-button > svg { width: 18px; }
+
+  .app .app-header .places-panel,
+  .app .app-header .weather-panel,
+  .app .app-header .lighting-control .lighting-popover {
+    left: 0;
+    right: auto;
+    max-height: calc(var(--app-visible-height, 100dvh) - 160px);
+  }
+
+  /* The existing phone layers sit below the new navigation row. */
+  .app .map-footer { top: 132px; }
+  .app .traffic-cameras { top: 180px; }
+}
+
+@media (max-width: 360px) {
+  .app .app-header { left: 12px; right: 12px; }
+  .app-header .map-header-group { gap: 0; padding: 1px; }
+  .app .app-header .map-header-group .pill { padding-inline: 3px; font-size: 11px; }
+}
+
+/* Map chrome uses the same compact corners as the card controls. */
+.app .map-footer .map-layers__trigger,
+.app .map-footer .map-courts__trigger,
+.app .map-footer .layer-controls .pill,
+.app .traffic-cameras > .pill,
+.app .mobile-panel-toggle,
+.app .atlas-court-panel-toggle {
+  border-radius: 9px;
+}
+
+.app .map-footer .map-layers__trigger[aria-expanded=true],
+.app .map-footer .map-courts__trigger[aria-expanded=true] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.app:has(dialog:modal) .ask-minimized { display: none; }

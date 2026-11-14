@@ -61,6 +61,8 @@ export function createBoroughCourts(materials:BoroughMaterials,invalidate:()=>vo
   part(g,line,0,.19,0,.08,.012,d*.54)
   const net=new THREE.Mesh(courtNets.net,materials.finishes.net);net.position.set(0,.685,0);net.scale.set(w*1.12,1.07,1);net.updateMatrix();net.applyMatrix4(g.matrixWorld);root.add(net)
   const tape=new THREE.Mesh(courtNets.tape,materials.white);tape.position.set(0,1.22,0);tape.scale.set(w*1.12,.045,.04);tape.updateMatrix();tape.applyMatrix4(g.matrixWorld);root.add(tape)
+  const strapBase=.16,strapTop=1.22-courtNets.sag
+  part(g,materials.white,0,(strapBase+strapTop)/2,0,.045,strapTop-strapBase,.065)
   // Seating and masts are illustrative furniture, always outside the playing area.
   part(g,materials.finishes.timber,ow/2+1.4,.65,0,.55,.12,2.4)
   for(const z of [-.8,.8])part(g,surfaces.steel,ow/2+1.4,.33,z,.28,.65,.1)

@@ -12,17 +12,17 @@
 .town-pin__number:before{content:'';position:absolute;left:12px;bottom:-6px;width:8px;height:8px;transform:rotate(45deg);background:inherit;border-right:2px solid #fffdf0;border-bottom:2px solid #fffdf0;z-index:-1}
 .town-pin:hover,.town-pin:focus-visible,.town-pin--selected{z-index:7}
 .town-pin:hover .town-pin__number,.town-pin:focus-visible .town-pin__number,.town-pin--selected .town-pin__number{background:#c1ce6c;color:#193d2b;box-shadow:0 0 0 5px #ffffe833;scale:1.12}
-.town-pin__label{position:absolute;bottom:5px;left:26px;min-width:max-content;max-width:245px;padding:11px 15px;background:#fbfaf1;border:1px solid #e7e7d4;border-radius:9px;box-shadow:0 6px 18px #1b332529;color:#234333;text-align:left;font:500 14px/1.2 Georgia,serif;opacity:0;visibility:hidden;transition:opacity .15s;pointer-events:none}
+.town-pin__label{position:absolute;bottom:5px;left:26px;min-width:max-content;max-width:245px;padding:7px 10px;background:#fbfaf1;border:1px solid #e7e7d4;border-radius:5px;box-shadow:0 6px 18px #1b332529;color:#234333;text-align:left;font:500 14px/1.2 Georgia,serif;opacity:0;visibility:hidden;transition:opacity .15s;pointer-events:none}
 .town-pin__label>span{display:block;margin-top:4px;color:#738173;font:400 10px/1.2 Arial,sans-serif}
 .town-pin:hover .town-pin__label,.town-pin:focus-visible .town-pin__label,.town-pin--selected .town-pin__label{opacity:1;visibility:visible}
 .town-station{position:absolute;left:0;top:0;display:flex;align-items:center;gap:7px;white-space:nowrap;color:#294237;z-index:2;font:500 10px/1.2 Georgia,serif;filter:drop-shadow(0 2px 3px #233e2320)}
-.town-station>span:last-child{position:absolute;left:13px;top:-9px;background:#fbfaf0e8;border:1px solid #e2e2d499;padding:6px 10px 6px 15px;border-radius:20px;z-index:-1}
+.town-station>span:last-child{position:absolute;left:13px;top:-9px;background:#fbfaf0e8;border:1px solid #e2e2d499;padding:4px 8px 4px 13px;border-radius:5px;z-index:-1}
 .town-station__roundel{display:block;position:absolute;left:-9px;top:-8px;width:20px;height:20px;border:4px solid #b44c3c;border-radius:50%;background:#f8f8ec}
 .town-station__roundel:after{content:'';position:absolute;top:4px;left:-7px;width:26px;height:4px;background:#3d5876;border-radius:1px}
 .town-station--major{font-size:12px}
 .town-station--major .town-station__roundel{width:25px;height:25px;left:-12px;top:-12px;border-width:5px}
 .town-station--major .town-station__roundel:after{width:31px;height:5px;top:5px;left:-8px}
-.town-station--major>span:last-child{left:14px;top:-12px;padding:8px 13px 8px 17px}
+.town-station--major>span:last-child{left:14px;top:-12px;padding:5px 8px 5px 15px}
 .town-park-label{position:absolute;left:0;top:0;color:#3f5439;white-space:nowrap;text-align:center;font:500 12px/1.35 Georgia,serif;text-transform:uppercase;letter-spacing:2.8px;text-shadow:0 1px 4px #c9d9a5;opacity:.85}
 .town-map--night .town-park-label{color:#cfdbb7;text-shadow:0 1px 4px #1a3238}
 .town-map__loading,.town-map__fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:14px;z-index:3;color:#34563c;font:15px/1.5 Georgia,serif;background:#c2c9aa}
@@ -56,7 +56,7 @@
 
 /* One selected destination stays tied to its geographic anchor while panning. */
 .map-destination{position:absolute;left:0;top:0;z-index:3;pointer-events:none}
-.map-destination>span{display:flex;align-items:center;gap:7px;transform:translate(clamp(calc(12px - var(--label-x,120px)),-50%,calc(var(--label-width,100vw) - var(--label-x,120px) - 100% - 12px)),var(--label-lift,-100%));max-width:min(240px,65vw);padding:9px 13px;border:1px solid #d7ddcb;border-radius:22px;background:#fbfaf2f5;color:#294d3d;box-shadow:0 3px 12px #163a2830;font:500 13px/1.25 var(--sans,sans-serif);text-align:center}
+.map-destination>span{display:flex;align-items:center;gap:7px;transform:translate(clamp(calc(12px - var(--label-x,120px)),-50%,calc(var(--label-width,100vw) - var(--label-x,120px) - 100% - 12px)),var(--label-lift,-100%));max-width:min(240px,65vw);padding:5px 8px;border:1px solid #d7ddcb;border-radius:5px;background:#fbfaf2f5;color:#294d3d;box-shadow:0 2px 8px #163a2826;font:600 11px/1.25 var(--sans,sans-serif);text-align:center}
 .map-destination:after{content:'';position:absolute;top:var(--stem-top,0px);left:0;height:var(--stem-height,7px);width:1px;background:#fbfaf2}
 .map-destination svg{flex-shrink:0}
 
@@ -69,7 +69,7 @@
 /* Positioned every frame by transform, so the global button transition must not apply. */
 .court-site{position:absolute;left:0;top:0;display:block;width:0;height:0;padding:0;border:0;background:none;z-index:2;cursor:pointer;pointer-events:auto;transition:none}
 .court-site__dot{position:absolute;left:-6px;top:-6px;width:12px;height:12px;border-radius:50%;background:#4e8b86;border:2px solid #fbfaf0;box-shadow:0 1px 4px #1b332540;transition:scale .15s}
-.court-site__label{position:absolute;left:11px;top:-12px;display:flex;align-items:baseline;gap:6px;padding:4px 10px;white-space:nowrap;border-radius:20px;background:#fbfaf0e8;border:1px solid #e2e2d499;color:#294237;font:500 11px/1.3 Georgia,serif;box-shadow:0 2px 6px #233e2318;transition:background .15s}
+.court-site__label{position:absolute;left:11px;top:-12px;display:flex;align-items:baseline;gap:6px;padding:4px 7px;white-space:nowrap;border-radius:5px;background:#fbfaf0e8;border:1px solid #e2e2d499;color:#294237;font:500 11px/1.3 Georgia,serif;box-shadow:0 2px 6px #233e2318;transition:background .15s}
 .court-site__label small{font:500 9.5px/1 'DM Sans',sans-serif;color:#6f7f70}
 .court-site:hover,.court-site:focus-visible{z-index:6}
 .court-site:hover .court-site__dot,.court-site:focus-visible .court-site__dot{scale:1.25}
@@ -82,3 +82,7 @@
 .court-hover b{font:500 12px/1.3 Georgia,serif}
 .court-hover small{font:500 10px/1 'DM Sans',sans-serif;color:#6f7f70}
 .court-site--covered .court-site__label{visibility:hidden}
+
+.map-destination__dismiss{display:grid;place-items:center;flex:none;width:28px;height:28px;margin:-3px -5px -3px 0;border-radius:4px;pointer-events:auto;touch-action:manipulation}
+.map-destination__dismiss:hover,.map-destination__dismiss:focus-visible{background:#e2e9db}
+@media(pointer:coarse){.map-destination__dismiss{width:44px;height:44px}}

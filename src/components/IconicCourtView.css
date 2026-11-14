@@ -9,7 +9,7 @@
 .atlas-court-panel h3{font:34px/1.02 var(--serif);letter-spacing:-.5px;margin:7px 0 9px}
 .atlas-court-intro{font-size:12px;line-height:1.55;color:#657962;margin:0 0 15px}
 .atlas-court-choices{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
-.atlas-court-choices button{padding:7px 9px;min-height:31px;border:1px solid #d8e0cc;border-radius:18px;background:#f6f6ec;color:#56735b;font-size:11px}
+.atlas-court-choices button{padding:7px 9px;min-height:31px;border:1px solid #d8e0cc;border-radius:7px;background:#f6f6ec;color:#56735b;font-size:11px}
 .atlas-court-choices button[aria-pressed=true]{background:#244b3d;color:#f8f7e8;border-color:#244b3d}
 .atlas-court-selected{padding:13px 15px;border:1px solid #d4dfcb;border-radius:11px;background:#edf1e4}
 .atlas-court-selected>span,.atlas-court-event>span{font-size:9px;letter-spacing:1.15px;font-weight:600;color:#7c8e73}
@@ -24,10 +24,10 @@
 .atlas-court-source{display:inline-flex;align-items:center;gap:5px;margin-top:10px;color:#526f56;font-size:11px;text-underline-offset:3px}
 .atlas-court-disclaimer{font-size:10px;line-height:1.5;color:#7a8974;margin:12px 0 0}
 .atlas-court-world{position:absolute;z-index:2;top:65px;right:19px;display:flex;gap:6px}
-.atlas-court-world button{display:flex;align-items:center;gap:5px;padding:8px 11px;border-radius:20px;background:#f8f8edee;color:#315844;box-shadow:0 4px 15px #30462c28;font-size:11px}
+.atlas-court-world button{display:flex;align-items:center;gap:5px;padding:8px 11px;border-radius:8px;background:#f8f8edee;color:#315844;box-shadow:0 4px 15px #30462c28;font-size:11px}
 .atlas-court-world button:hover{background:#e6eddf}
-.atlas-court-switch{position:absolute;z-index:2;top:18px;right:19px;display:flex;gap:3px;padding:4px;border-radius:25px;background:#f8f8edee;box-shadow:0 4px 15px #30462c28}
-.atlas-court-switch button{padding:8px 13px;border-radius:19px;font-size:11px;color:#506e55}
+.atlas-court-switch{position:absolute;z-index:2;top:18px;right:19px;display:flex;gap:3px;padding:4px;border-radius:10px;background:#f8f8edee;box-shadow:0 4px 15px #30462c28}
+.atlas-court-switch button{padding:8px 13px;border-radius:7px;font-size:11px;color:#506e55}
 .atlas-court-switch button[aria-pressed=true]{background:#244b3d;color:#fff9e9}
 .atlas-court-controls{position:absolute;z-index:2;right:19px;bottom:48px;display:flex;flex-direction:column;overflow:hidden;border-radius:12px;background:#faf9efef;box-shadow:0 6px 18px #28432a30}
 .atlas-court-controls button{display:grid;place-items:center;width:39px;height:38px;border-bottom:1px solid #dbe2d1;color:#315844;font:24px/1 var(--serif)}

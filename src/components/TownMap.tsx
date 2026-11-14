@@ -58,6 +58,7 @@ interface TownMapProps {
   naturalTime?: boolean
   weather: WeatherSceneKind
   windMph?: number
+  onClearPlace?: () => void
   locatedPlace?: {lat:number;lng:number;name:string;wildlife?:boolean}|null
   showTransit: boolean
   trainRunning: boolean
@@ -109,7 +110,7 @@ const RALLY_MAX_ZOOM = 44
 /** Quiet map labels hide before they reach the header and the bottom row of buttons. */
 const LABEL_CLEAR_TOP = 110, LABEL_CLEAR_BOTTOM = 90
 
-export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, locatedPlace, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showTrains, busRouteId, showShops, selectedServiceId, followVan = true, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, showOtherCourts = false, selectedCameraId, onSelectCamera, onVisitSite }, forwardedRef) {
+export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap({ viewSettings, suspended = false, venues, selectedId, playCounts, nextFree, coachingPins, onSelect, visibleIds, night, lightingTime, naturalTime = false, locatedPlace, onClearPlace, weather, windMph, showTransit, trainRunning, activityRunning, showBuses, showTrains, busRouteId, showShops, selectedServiceId, followVan = true, activeVisitId, onSelectService, onReset, onReady, cameras = [], showCameras = false, showOtherCourts = false, selectedCameraId, onSelectCamera, onVisitSite }, forwardedRef) {
   const hostRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<SceneHandle | null>(null)
   const markerRefs = useRef(new Map<string, HTMLButtonElement>())
@@ -758,7 +759,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
 
         {cameras.map(camera => <button className={`town-pin town-pin--camera${camera.available===false?' town-pin--camera-offline':''}${selectedCameraId === camera.id ? ' town-pin--selected' : ''}`} key={camera.id} ref={element => { if (element) cameraRefs.current.set(camera.id,element); else cameraRefs.current.delete(camera.id) }} style={{display:'none'}} aria-label={`${camera.name}. Show TfL traffic camera. ${cameraAvailability(camera)}`} aria-pressed={selectedCameraId === camera.id} onClick={() => onSelectCamera?.(camera)}><span className="town-pin__number"><Icon name="camera" size={17}/></span><span className="town-pin__label">{camera.name}<span>TfL · {cameraAvailability(camera)} · refreshed still</span></span></button>)}
         {otherCourtPins.map(site=><button className="court-site" key={site.id} ref={element=>{if(element)siteRefs.current.set(site.id,element);else siteRefs.current.delete(site.id)}} style={{display:'none'}} aria-label={`${site.name}, ${site.courts.length} tennis ${site.courts.length===1?'court':'courts'}${site.note?`. ${site.note}`:''}. Watch a rally`} onClick={()=>onVisitSite?.(site.id)}><span className="court-site__dot" aria-hidden="true"/><span className="court-site__label" aria-hidden="true">{site.name}<small>{site.courts.length}{site.note?` · ${site.note}`:''}</small></span></button>)}
-        {locatedPlace&&<div className={`map-destination${locatedPlace.wildlife?' map-destination--wildlife':''}`} ref={placeRef} style={{display:'none'}} role="status"><span><Icon name="pin" size={16}/>{locatedPlace.name}</span></div>}
+        {locatedPlace&&<div className={`map-destination${locatedPlace.wildlife?' map-destination--wildlife':''}`} ref={placeRef} style={{display:'none'}}><span><Icon name="pin" size={13}/><span role="status">{locatedPlace.name}</span><button type="button" className="map-destination__dismiss" onClick={onClearPlace} aria-label="Clear map selection" title="Clear map selection"><Icon name="close" size={14}/></button></span></div>}
         {STATION_NAMES.map((name) => (
           <div className={`town-station${name === 'Highbury & Islington' || name === 'Angel' ? ' town-station--major' : ''}`} key={name} ref={(element) => { if (element) stationRefs.current.set(name, element); else stationRefs.current.delete(name) }} style={{ display: 'none' }}>
             <span className="town-station__roundel" aria-hidden="true" /><span hidden={!showTransit}>{name}</span>

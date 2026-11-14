@@ -19,7 +19,7 @@
 .ask-eyebrow{display:flex;align-items:center;gap:6px;font-size:8px;letter-spacing:1.1px;color:var(--muted);margin-bottom:7px}
 .ask-header h2{font-family:var(--serif);font-weight:400;font-size:32px;margin:0;letter-spacing:-.6px}
 .ask-header p{margin:4px 0 0;font-size:11px;color:var(--muted)}
-.ask-window-actions{display:flex;gap:2px;flex-shrink:0}
+.ask-window-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
 .ask-window-button{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--ink)}
 .ask-window-button:hover{background:#e7ecdf}
 .ask-move{cursor:grab;touch-action:none}
@@ -107,3 +107,5 @@
 @media (max-width:760px){.ask-launch{top:221px;right:97px;width:68px}}
 .ask-message a{color:#2f6b4c;text-decoration:underline;text-underline-offset:2px}.ask-message a:hover{color:#c79556}
 @media (prefers-reduced-motion:reduce){.ask-typing span{animation:none}}
+
+@media(max-width:400px){.ask-eyebrow{display:none}.ask-header h2{font-size:25px}}

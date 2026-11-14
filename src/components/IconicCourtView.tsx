@@ -465,6 +465,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
   // Dev builds only: window.__townOverride pins weather/time for render comparisons.
   runtime.current = { viewSettings, active, night, motionRunning, weather, windMph, naturalTime, lightingTime,
     ...(import.meta.env.DEV ? (window as { __townOverride?: object }).__townOverride : undefined) }
+  const [labelledCourt, setLabelledCourt] = useState<{ clubId: IconicClubId; courtId: string } | null>(null)
   const courtLabel=useRef<HTMLDivElement>(null)
   const host = useRef<HTMLDivElement>(null)
   const engine = useRef<SceneHandle | null>(null)
@@ -614,7 +615,7 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
       applyResolution()
       frame()
     }
-    const reset = () => { cancelJourney(); camera.position.copy(offset).add(overview); controls.target.copy(overview); camera.zoom = 1; updateProjection(); controls.update(); frame() }
+    const reset = () => { setLabelledCourt(null); cancelJourney(); camera.position.copy(offset).add(overview); controls.target.copy(overview); camera.zoom = 1; updateProjection(); controls.update(); frame() }
     const focus = (courtId: string) => {
       const stop = COURTS[activeId].find(item => item.id === courtId)
       if (!stop) return
@@ -724,15 +725,20 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
 
   useEffect(() => {
     if (!active) return
+    setLabelledCourt(null)
     setSelectedId(COURTS[clubId][0].id)
     setPreparing(true)
     const timer = window.setTimeout(() => engine.current?.activate(clubId), 80)
     return () => window.clearTimeout(timer)
   }, [clubId, active])
 
-  useEffect(() => { engine.current?.frame() }, [viewSettings, active, selectedId])
+  useEffect(() => { engine.current?.frame() }, [viewSettings, active, selectedId, labelledCourt])
 
-  function chooseCourt(id: string) { setSelectedId(id); engine.current?.focus(id) }
+  function chooseCourt(id: string) {
+    setSelectedId(id)
+    setLabelledCourt({ clubId, courtId: id })
+    engine.current?.focus(id)
+  }
 
   return <section className={`atlas-court-view${night ? ' atlas-court-view--night' : ''}${panelOpen ? '' : ' atlas-court-view--panel-closed'}`} aria-label={`${club.name} illustrated court view`}>
     <div ref={host} className="atlas-court-stage">
@@ -763,7 +769,8 @@ export function IconicCourtView({ viewSettings, onViewSettings, active = true, c
     </div>
     <div className="atlas-quality-control"><QualityControl settings={viewSettings} onChange={onViewSettings} open={card === 'quality'} onOpenChange={open => setCard(open ? 'quality' : null)}/></div>
     <div className="atlas-court-controls" aria-label="Court view controls"><button onClick={() => engine.current?.zoom(1.25)} aria-label="Zoom in">+</button><button onClick={() => engine.current?.zoom(.8)} aria-label="Zoom out">−</button><button onClick={() => engine.current?.reset()} aria-label="Reset court view"><Icon name="reset" size={18}/></button></div>
-    <div ref={courtLabel} className="map-destination atlas-court-destination" hidden={preparing} style={{display:'none'}} aria-label="Selected court on map"><span><Icon name="court" size={15}/>{selected.name}</span></div>
+    {!preparing && labelledCourt?.clubId === clubId && labelledCourt.courtId === selectedId &&
+      <div ref={courtLabel} className="map-destination atlas-court-destination" style={{display:'none'}} role="status"><span><Icon name="court" size={13}/>{selected.name}</span></div>}
     <p className="atlas-court-hint">Drag to move · scroll to zoom · double-click to reset</p>
   </section>
 }

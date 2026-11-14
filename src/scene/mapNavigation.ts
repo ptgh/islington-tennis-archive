@@ -16,7 +16,7 @@ export function flightZoom(fromZoom: number, toZoom: number, cruise: number | nu
   return Math.exp(from + (to - from) * eased - dip * 4 * eased * (1 - eased));
 }
 
-const OWN_SCROLLING = 'dialog,.tennis-atlas,.directory-panel,.ask-dialog';
+const OWN_SCROLLING = 'dialog,.tennis-atlas,.directory-panel,.ask-dialog,.map-courts__panel,.places-panel,.weather-panel,.lighting-popover,.map-view-panel';
 const FLOATS_OVER_MAP = '.pill,.icon-button,.map-toolbar,.map-footer,.app-header';
 /** Pins, labels and floating buttons sit on top of the canvas, so a gesture that starts on
  * one never reaches it, and a pinch then zooms the whole page. Panels keep their own
