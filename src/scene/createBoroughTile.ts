@@ -6,6 +6,7 @@ import type { TrafficSpace } from './trafficSpace.ts'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitecturalFinish, SHADOW_PROXY_LAYER } from './miniatureMaterials.ts'
 import { createFootprintRoof, setFlatRoofUVs } from './footprintRoof.ts'
+import { addBarbicanArchitecture } from './barbicanArchitecture.ts'
 import { addCaledonianClockTower } from './caledonianClockTower.ts'
 import { boroughRoadProfile, boroughStreetDecorations } from './boroughStreetEdges.ts'
 import { createWaterFinish } from './waterFinish.ts'
@@ -31,16 +32,17 @@ export function createBoroughMaterials() {
  const road=cloneArchitecturalFinish(finishes.asphalt,'#838a7f')
  const railBallast=createBoroughRailFinish(finishes.ballast)
  const trim=plain('#e4d9c3'),stone=plain('#ada792'),door=plain('#355449'),trunk=plain('#75634e'),metal=plain('#52665b'),white=plain('#eee9d4'),stopRed=plain('#ba4d40')
+ const concrete=cloneWorldArchitecturalFinish(finishes.stucco,'#b6b3a3',false,.1)
  const fineTrim=trim.clone()
  // Coverage fades at subpixel sizes while the instance batches keep depth writes.
  fineTrim.alphaHash=true
  const {material:water,animate:animateSurfaces}=createWaterFinish('#608d85',.1)
  const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
- return {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
+ return {finishes,brick,roofs,flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
  animateSurfaces,
  setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
- dispose(){[...brick,...roofs,...flatRoofs,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
+ dispose(){[...brick,...roofs,...flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
@@ -53,7 +55,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
 /** Yields between pieces of work, so a cell can be built across several frames. */
 export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,traffic?:TrafficSpace,cellId?:string) {
  const root=new THREE.Group();root.name='Islington geographic cell'
- const {finishes,brick,roofs,flatRoofs,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle}=materials
+ const {finishes,brick,roofs,flatRoofs,concrete,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle}=materials
  const batches=new Map<THREE.Material,THREE.BufferGeometry[]>(),instances=new Map<THREE.Material,THREE.Matrix4[]>(),caps=new Map<THREE.Material,THREE.Matrix4[]>(),fine=new Map<THREE.Material,THREE.Matrix4[]>()
  const transform=new THREE.Object3D()
  function part(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number,angle=0,target=instances){transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,angle,0);transform.updateMatrix();const list=target.get(m)??[];list.push(transform.matrix.clone());target.set(m,list)}
@@ -121,6 +123,7 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
   if(++done%14===0)yield
   const id=Number(f.id),height=buildingHeight(f.tags,f.points),bounds=roofBounds(f.points),modern=bounds.width>2.2||['industrial','warehouse','commercial'].includes(f.tags?.building??'')
   if(addCaledonianClockTower(f,height,{stone:trim,dark:door,dial:white,roof:roofs[0],polygon,part,collect})){detailedBuildings++;continue}
+  if(addBarbicanArchitecture(f,height,{concrete,glass,roof:flatRoofs[0],dark:door,polygon,part})){detailedBuildings++;continue}
   const palette=Math.abs(id)%brick.length;polygon(f,brick[palette],.012,height)
   const pitched=!modern&&!f.holes?.length&&f.tags?.['roof:shape']!=='flat'&&bounds.width>.3
   if(pitched){const g=createFootprintRoof(f.points,bounds,height+.012,Math.min(.3,bounds.width*.30));collect(roofs[Math.abs(id)%roofs.length],g)}else polygon(f,flatRoofs[Math.abs(id)%flatRoofs.length],height+.015,0,bounds)
@@ -181,7 +184,7 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  avenue.forEach((site,i)=>tree(site.x,site.z,200000+i,true))
  yield
  const owned:THREE.BufferGeometry[]=[]
- for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===trim||brick.includes(material as THREE.MeshStandardMaterial)||[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
+ for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=material===concrete?'Barbican concrete':material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===concrete||material===trim||brick.includes(material as THREE.MeshStandardMaterial)||[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
  function batch(geometry:THREE.BufferGeometry,material:THREE.Material,matrices:THREE.Matrix4[],shadows=false){if(!matrices.length)return;const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.castShadow=shadows;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);return mesh}
  yield
  for(const [material,matrices] of instances){batch(box,material,matrices,material===trunk);yield}

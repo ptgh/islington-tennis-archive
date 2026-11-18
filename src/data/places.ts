@@ -11,6 +11,7 @@ export const places = [
   {id:'clock-tower',name:'Caledonian Clock Tower',lat:51.5471382,lng:-.1236244,kind:'landmark'},
   {id:'estorick',name:'Estorick Collection',lat:51.5438936,lng:-.1004414,kind:'landmark'},
   // Source footprint centres; destinations reuse the continuous geographic world.
+  {id:'british-library',name:'British Library',lat:51.5302507,lng:-.1276186,kind:'destination',sourceWay:'4680891',sourceUrl:'https://www.bl.uk/visit'},
   {id:'kings-place',name:'Kings Place',lat:51.5350329,lng:-.1216162,kind:'destination',sourceWay:'27511817',sourceUrl:'https://www.kingsplace.co.uk/your-visit/'},
   {id:'sadlers-wells',name:'Sadler’s Wells',lat:51.5296180,lng:-.1061029,kind:'destination',sourceWay:'98992534',sourceUrl:'https://www.sadlerswells.com/your-visit/sadlers-wells-theatre/'},
   {id:'canal-museum',name:'London Canal Museum',lat:51.5342186,lng:-.1202069,kind:'destination',sourceWay:'190831613',sourceUrl:'https://canalmuseum.org.uk/visit/index.html'},

@@ -1,5 +1,6 @@
 import { MapViewControl } from './components/MapViewControl';
 import { MapLayers } from './components/MapLayers';
+import { MapStations } from './components/MapStations';
 import { MapCourts } from './components/MapCourts';
 import { otherCourtPins, watchableCourts } from './scene/boroughGeometry';
 import { useVisibleViewport } from './components/useVisibleViewport';
@@ -43,7 +44,7 @@ import { TrafficCameras } from './components/TrafficCameras';
 import { cameraInMap, type TrafficCamera } from './data/trafficCameras';
 import { useTrafficCameras } from './components/useTrafficCameras';
 
-type MapCard='places'|'forecast'|'time'|'quality'|'cameras'|'view'|'layers'|'courts';
+type MapCard='places'|'forecast'|'time'|'quality'|'cameras'|'view'|'layers'|'courts'|'stations';
 
 export default function App() {
   useVisibleViewport();
@@ -242,7 +243,7 @@ export default function App() {
       <HubNavigation section={section} onChange={changeSection}/>
       {selected?<CourtDetail initialBooking={bookingId===selected.id} onMappedHighbury={selected.id==='highbury-fields'?openMappedHighbury:undefined} venue={selected} onBack={()=>setSelectedId(null)} onVisit={()=>visitCourt(selected.id)} coaching={servicesForVenue(selected.id)} onCoaching={selectService} onPlay={playOpportunities.some(item=>item.venueIds.includes(selected.id))?()=>browsePlayAtVenue(selected.id):undefined}/>:service?<ServiceDetail followingVan={followVan} onFollowVan={()=>{if(!followVan)map.current?.visitVan();setFollowVan(!followVan);}} service={service} onBack={()=>setServiceId(null)} onCourt={select} onLocate={()=>{if(service.id==='sweet-spot-stringer')map.current?.visitVan();if(service.lat!==undefined&&service.lng!==undefined)locateMap(service.lat,service.lng);}}/>:route?<BusRouteDetail rideUnavailable={rideUnavailable} route={route} onBack={()=>setRouteId(null)} onView={()=>rideRoute(route.id)}/>:opportunity?<PlayDetail opportunity={opportunity} onBack={()=>setPlayId(null)} onCourt={select} onLocate={locatePlayCourt} venues={venues}/>:section==='play'?<PlayDirectory results={playResults} filter={playFilter} onFilter={setPlayFilter} venueId={playVenueId} onVenue={browsePlayAtVenue} venues={venues} onSelect={selectPlay} onRacquets={openMyFrame} partners={partnersOpen} onPartners={setPartnersOpen}/>:section==='courts'?<CourtDirectory onAvailability={id=>{select(id);setBookingId(id);}} planner={planner} onPlanner={setPlanner} plannerError={plannerError} availability={availability} compareIds={compareIds} onCompare={toggleCompare} onClearCompare={()=>setCompareIds([])} facility={facility} onFacility={setFacility} favourites={favourites} onFavourite={toggleFavourite} savedOnly={savedOnly} onSavedOnly={setSavedOnly} saveError={saveError} results={results} allVenues={venues} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} onSelect={select} onAbout={openAbout}/>:<HubDirectory venueId={coachVenue} onClearVenue={()=>setCoachVenue(null)} section={section} onService={selectService} onRoute={selectRoute} onRacquets={()=>{clearForDialog();setRacquetView('collection');setRacquetRoom(true);}}/>}
     </aside>
-    {!visitId&&<button className="mobile-panel-toggle pill" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen}><Icon name={panelOpen?'layers':'court'} size={18}/>{panelOpen?'Explore map':'Tennis hub'}</button>}
+    {!visitId&&<div className="mobile-panel-toggle map-bottom-actions"><button className="pill" onClick={()=>setPanelOpen(!panelOpen)} aria-controls="court-browser" aria-expanded={panelOpen}><Icon name={panelOpen?'layers':'court'} size={18}/>{panelOpen?'Explore map':'Tennis hub'}</button><MapStations {...cardProps('stations')} labels={stations} onLabels={()=>setStations(!stations)} onLocate={(lat,lng,name)=>{clearTimeout(restoreTimer.current);restoreSheet.current=false;setCard(null);setPanelOpen(false);setServiceId(null);setRouteId(null);setStations(true);locateMap(lat,lng,30);setLocatedPlace({lat,lng,name});}}/></div>}
     {visited&&<div className="visit-bar"><div><strong>{visited.name}</strong><span>Miniature animation · not live court use</span></div><button ref={practiceButton} className="practice-launch" aria-expanded={practiceOpen} onClick={()=>{if(!practiceOpen)clearForDialog();setPracticeOpen(!practiceOpen);}}><Icon name="ball" size={15}/> Practice</button><button ref={leaveVisitButton} onClick={leaveVisit}><Icon name="back" size={16}/> Back to map</button></div>}
     {visited&&practiceOpen&&<CourtPractice venueId={visited.id} venueName={visited.name} onClose={()=>{setPracticeOpen(false);practiceButton.current?.focus({preventScroll:true});}}/>}
     <div className="place-title"><h2>Islington</h2><p>London, at play.</p><span className="title-rule"/></div>
