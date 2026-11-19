@@ -6,7 +6,7 @@ import { lifePaths, lifePose, roadLifePose, inPolygon, type LifeRoute } from './
 import type { BoroughCell } from './boroughGeometry.ts'
 import { createTrafficSpace,type TrafficSpace } from './trafficSpace.ts'
 
-type Model = ResponderKind|'car'|'cycle'|'motorbike'|'streetlight'|'person'|'leg'|'arm'|'fox'|'bird'|'wing'|'boat'|'train'|'signal'|'lamp'|'roadmark'|'cycleleg'|'spoke'
+type Model = ResponderKind|'car'|'cycle'|'motorbike'|'streetlight'|'person'|'leg'|'arm'|'fox'|'bird'|'wing'|'boat'|'train'|'signal'|'lamp'|'roadmark'|'cycleleg'|'spoke'|'taxi'|'officer'
 /** Small, shared coloured meshes: cells own only instance buffers, not finishes. */
 export function createBoroughLifeAssets() {
  const geometry={} as Record<Model,THREE.BufferGeometry>
@@ -27,6 +27,18 @@ export function createBoroughLifeAssets() {
   p('#e1b76f',0,.19,-.025,.15,.025,.22)
   for(const x of [-.085,.085])for(const z of [-.12,.12])p('#303d39',x,.045,z,.035,.07,.07,true)
   for(const x of [-.055,.055]){p('#fff0c5',x,.09,.199,.04,.022,.008);p('#a44332',x,.09,-.199,.035,.022,.008)}
+ })
+ model('taxi',p=>{
+  // A black cab stays within the existing car's checked .206 x .40 envelope.
+  p('#253632',0,.087,0,.178,.10,.392);p('#273c38',0,.153,-.02,.148,.115,.23)
+  p('#758e8b',0,.17,.098,.124,.059,.012);p('#263a36',0,.216,-.02,.153,.02,.23)
+  p('#ddbe72',0,.243,-.005,.075,.031,.034)
+  for(const x of [-.077,.077]){p('#5f7875',x,.17,-.025,.008,.06,.15);p('#b9c0b3',x,.13,.015,.009,.008,.025)}
+ })
+ model('officer',p=>{
+  p('#2b4145',0,.106,0,.057,.074,.038);p('#cfdb7c',0,.117,.023,.053,.05,.008)
+  p('#2c4246',0,.184,0,.033,.014,.033);p('#334b4b',0,.177,.014,.037,.007,.023)
+  p('#e0e4cf',0,.12,.029,.014,.012,.005)
  })
  // Compact illustrative UK response vehicles share the car's safe envelope.
  model('responseFire',p=>{
@@ -127,6 +139,8 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
  const cars=batch('car',routes.cars.length),people=batch('person',routes.walkers.length),foxes=batch('fox',routes.foxes.length),birds=batch('bird',routes.birds.length),wings=batch('wing',routes.birds.length*2),boats=batch('boat',routes.boats.length),trains=batch('train',routes.train?3:0)
  const responseKinds=routes.cars.map((r,i)=>responderKind(r.seed,i)),responseMeshes=new Map<ResponderKind,THREE.InstancedMesh>(),responsePose=new THREE.Matrix4()
  for(const kind of new Set(responseKinds))if(kind){const mesh=batch(kind,routes.cars.length);if(mesh)responseMeshes.set(kind,mesh)}
+ const taxiKinds=routes.cars.map((r,i)=>!responseKinds[i]&&r.seed%4===0),taxis=batch('taxi',taxiKinds.some(Boolean)?routes.cars.length:0)
+ const officerKinds=routes.walkers.map(r=>r.seed%13===0),officers=batch('officer',officerKinds.some(Boolean)?routes.walkers.length:0)
  const carLamps=batch('lamp',routes.cars.length*4)
  if(carLamps)carLamps.name='Borough vehicle lights'
  const legs=batch('leg',routes.walkers.length*2),arms=batch('arm',routes.walkers.length*2)
@@ -171,6 +185,7 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
     const stopped=braking.get(key)??false
     for(const end of [-1,1])for(const side of [-1,1]){const index=i*4+(end===1?2:0)+(side===1?1:0);put(carLamps,index,x+dz*side*.055+dx*end*.204,y+.09,z-dx*side*.055+dz*end*.204,Math.atan2(dx,dz)+(end<0?Math.PI:0),end<0?.65:.7);carLamps.setColorAt(index,color.set(end>0?'#fff0c5':stopped?'#ed543c':'#8e3026'))}
    }
+   if(taxiKinds[i]){cars?.getMatrixAt(i,responsePose);taxis?.setMatrixAt(i,responsePose)}
    const response=responseKinds[i];if(response){cars?.getMatrixAt(i,responsePose);responseMeshes.get(response)?.setMatrixAt(i,responsePose)}
    cars?.setColorAt(i,color.set(response==='responseFire'?'#ef8b74':response?'#edf1eb':['#e3b872','#c7d0bf','#9fb8ba'][r.seed%3]))
   })
@@ -182,6 +197,7 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
   motorRoutes.forEach((r,i)=>vehicle(motors,r,i,'motor'+i,.40,.05,.12))
   routes.walkers.forEach((r,i)=>{
    const pause=2+i%3,pose=lifePose(r,time,.13,pause),y=.015+(pose.stopped?0:Math.abs(Math.sin(time*7+i))*.004),p=run(people,r,i,.13,y,'person',roadDelta,pause),yaw=headings.get('person'+i)??p.heading
+   if(officerKinds[i]){people?.getMatrixAt(i,responsePose);officers?.setMatrixAt(i,responsePose)}
    const stride=p.stopped?0:Math.sin(time*7+i)*.42
    for(const side of [-1,1]){
     const index=i*2+(side===1?1:0),dx=Math.cos(yaw)*side,dz=-Math.sin(yaw)*side
@@ -229,6 +245,6 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
   for(const mesh of meshes){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true}
  }
  draw(1)
- root.userData.counts={cars:routes.cars.length,cycles:cycleRoutes.length,motorbikes:motorRoutes.length,streetlights:lampSites.length,people:routes.walkers.length,foxes:routes.foxes.length,birds:routes.birds.length,narrowboats:routes.boats.length,trains:routes.train?1:0,signals:signalRoutes.length*2,responseMiniatures:responseKinds.filter(Boolean).length}
+ root.userData.counts={blackCabs:taxiKinds.filter(Boolean).length,walkingOfficers:officerKinds.filter(Boolean).length,cars:routes.cars.length,cycles:cycleRoutes.length,motorbikes:motorRoutes.length,streetlights:lampSites.length,people:routes.walkers.length,foxes:routes.foxes.length,birds:routes.birds.length,narrowboats:routes.boats.length,trains:routes.train?1:0,signals:signalRoutes.length*2,responseMiniatures:responseKinds.filter(Boolean).length}
  return {root,routes,lifeLocation(kind:'cycle'|'fox'|'emergency'){if(kind==='emergency'){for(const mesh of responseMeshes.values())for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,responsePose);if(responsePose.elements[15]===1)return new THREE.Vector3().setFromMatrixPosition(responsePose)}return null}const mesh=kind==='cycle'?cycles:foxes;if(!mesh)return null;for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,transform.matrix);if(transform.matrix.elements[15]===1)return new THREE.Vector3().setFromMatrixPosition(transform.matrix)}return null},clearTraffic(){traffic.release(scope);for(const mesh of [cars,carLamps,...responseMeshes.values(),cycles,motors,cycleLegs,spokes])if(mesh){mesh.instanceMatrix.array.fill(0);mesh.instanceMatrix.needsUpdate=true}},setTrains(value:boolean){if(trains)trains.visible=value},setNight(value:boolean){night=value;if(carLamps)carLamps.visible=night;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night);bulbs&&(bulbs.visible=night);pools&&(pools.visible=night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){traffic.release(scope);meshes.forEach(m=>m.dispose());root.clear()}}
 }

@@ -63,7 +63,10 @@ export function footprintArea(points:number[][]){
 const HUT_AREA=.3,HUT_HEIGHT=.32
 export function buildingHeight(tags:Record<string,string>={},points?:number[][]) {
  const height=Number.parseFloat(tags.height??''),levels=Number.parseFloat(tags['building:levels']??'')
- const unrecorded=points&&footprintArea(points)<HUT_AREA?HUT_HEIGHT:.95
+ // Named landmark defaults apply only when the snapshot has no height or levels.
+ // These envelopes are illustrative; recorded measurements still take precedence.
+ const landmarkDefault=tags.name==="London King's Cross (main station building)"?3.4:tags.name==='The Standard, London'?3.3:undefined
+ const unrecorded=landmarkDefault??(points&&footprintArea(points)<HUT_AREA?HUT_HEIGHT:.95)
  return Math.max(.22,Math.min(9,Number.isFinite(height)&&height>0?height*.1:Number.isFinite(levels)&&levels>0?levels*.3:['garage','garages','shed','outbuilding'].includes(tags.building)?.28:['industrial','warehouse','sports_centre'].includes(tags.building)?1:tags.building==='apartments'?1.5:unrecorded))
 }
 /** Phones keep the original budget. Desktop can afford more, because window detail is off at this scale. */

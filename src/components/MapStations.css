@@ -27,3 +27,9 @@
  .map-stations__panel{position:fixed;left:50%;transform:translateX(-50%)}
  .app:has(.map-stations__panel) .map-courts{visibility:hidden}
 }
+/* On narrow phones, leave a separate lane for the existing Rallies launcher. */
+@media(max-width:360px){
+ .app .mobile-panel-toggle.map-bottom-actions{left:calc(100% - 19px);transform:translateX(-100%)}
+ .app .mobile-panel-toggle.map-bottom-actions:active{transform:translateX(-100%)}
+ .map-stations__panel{left:calc(100% - var(--app-visible-width,100vw)/2 + 19px)}
+}

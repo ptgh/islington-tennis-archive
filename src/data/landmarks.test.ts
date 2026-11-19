@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import {boroughGeography,containsPoint} from '../scene/boroughGeometry.ts';
 import {projectPoint} from '../scene/courtGeometry.ts';
 import {places} from './places.ts';
+import {londonArtworks} from './londonDetails.ts';
 import {createLandmarks} from '../scene/createLandmarks.ts';
 import {createMiniatureMaterials} from '../scene/miniatureMaterials.ts';
 test('every selectable landmark has finite, visible building geometry at its destination',()=>{
@@ -59,10 +60,10 @@ test('landmark window lighting restores daylight without changing masonry or sha
  }finally{geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());finishes.dispose();}
 });
 
-// A destination must point inside its recorded building, not a nearby court.
-test('new Places destinations stay inside their stored source footprints',()=>{
+// Buildings stay inside their source footprint; public artwork uses its checked source node.
+test('new Places destinations use their stored footprint or checked artwork node',()=>{
  const destinations=places.filter(p=>p.kind==='destination');
  const footprints=new Map<string,number[][]>();
  for(const cell of boroughGeography.cells){const data=JSON.parse(fs.readFileSync('public/'+cell.url,'utf8'));for(const building of data.buildings)footprints.set(String(building.id),building.points);}
- for(const place of destinations){assert.ok('sourceWay' in place);const ring=footprints.get(place.sourceWay!);assert.ok(ring,place.name);const [x,z]=projectPoint(place.lng,place.lat);assert.ok(containsPoint(x,z,ring as [number,number][]),place.name);}
+ for(const place of destinations){if('sourceNode' in place){const art=londonArtworks.find(a=>String(a.id)===place.sourceNode);assert.ok(art,place.name);assert.equal(place.lat,art.lat);assert.equal(place.lng,art.lng);continue;}assert.ok('sourceWay' in place);const ring=footprints.get(place.sourceWay!);assert.ok(ring,place.name);const [x,z]=projectPoint(place.lng,place.lat);assert.ok(containsPoint(x,z,ring as [number,number][]),place.name);}
 });
