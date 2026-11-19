@@ -578,19 +578,20 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       } else quality.pause()
     }
     animation = requestAnimationFrame(tick)
-    const observer = new ResizeObserver(resize)
+    const observer = new ResizeObserver(() => { hideCourtHover();resize() })
     observer.observe(host)
     const visibility = new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; if (onScreen) frame() })
     visibility.observe(host)
-    const start = () => {cancelTravel();setMoving(true)}
+    const start = () => {hideCourtHover();cancelTravel();setMoving(true)}
     const end = () => setMoving(false)
-    const cameraChanged = () => { needsFrame = true }
+    const cameraChanged = () => { hideCourtHover();needsFrame = true }
     const motionChanged = () => { controls.enableDamping = !reducedMotion.matches }
     controls.addEventListener('start', start)
     controls.addEventListener('end', end)
     controls.addEventListener('change', cameraChanged)
     reducedMotion.addEventListener('change', motionChanged)
     const keydown = (event: KeyboardEvent) => {
+      hideCourtHover()
       const step = 18 / camera.zoom
       const direction = new THREE.Vector3()
       camera.getWorldDirection(direction)
