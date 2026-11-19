@@ -86,3 +86,7 @@
 .map-destination__dismiss{display:grid;place-items:center;flex:none;width:28px;height:28px;margin:-3px -5px -3px 0;border-radius:4px;pointer-events:auto;touch-action:manipulation}
 .map-destination__dismiss:hover,.map-destination__dismiss:focus-visible{background:#e2e9db}
 @media(pointer:coarse){.map-destination__dismiss{width:44px;height:44px}}
+/* Keep names inside the map while their roundels stay at the recorded point. */
+.town-station>span:last-child{max-width:var(--station-label-space,none);white-space:normal;overflow-wrap:break-word;width:max-content}
+.town-station--left>span:last-child{left:auto;right:13px;padding-right:13px;padding-left:8px;text-align:right}
+.town-station--major.town-station--left>span:last-child{right:14px;padding-right:15px}

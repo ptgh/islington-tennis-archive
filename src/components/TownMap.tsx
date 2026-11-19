@@ -266,6 +266,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const lens=new ShaderPass(createLensFinish())
     composer.addPass(beauty);composer.addPass(occlusion);composer.addPass(output);composer.addPass(antialias);composer.addPass(lens)
     let width = host.clientWidth, height = host.clientHeight
+    const stationLabelWidths=new Map<string,number>()
     let animation = 0
     let lastDraw = 0
     let destroyed = false
@@ -425,6 +426,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     const resize = () => {
       const wasMobile = width <= 760
       const changed=width!==host.clientWidth||height!==host.clientHeight
+      if(changed)stationLabelWidths.clear()
       width = host.clientWidth; height = host.clientHeight
       if (!width || !height) return
       const aspect = width / height
@@ -454,6 +456,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       if (visible) {
         element.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`
         if(element===placeRef.current){element.style.setProperty('--label-x',`${x}px`);element.style.setProperty('--label-width',`${width}px`)}
+        return x
       }
     }
     let lightClock = new Date()
@@ -486,7 +489,23 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       for (const place of BOROUGH_NEIGHBOURS) project(new THREE.Vector3(place.x,0,place.z),neighbourRefs.current.get(place.name),camera.zoom<NEIGHBOUR_LABEL_MAX_ZOOM,0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
       for (const site of otherCourtPins) project(new THREE.Vector3(site.x,.15,site.z),siteRefs.current.get(site.id),!!runtime.showOtherCourts&&site.id!==runtime.activeVisitId&&(site.courts.length>=3||camera.zoom>=2.2),0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
       host.classList.toggle('town-map--far',camera.zoom<1.4)
-      for (const station of world.stations) project(station.position,stationRefs.current.get(station.name),runtime.showTransit)
+      for (const station of world.stations) {
+        const element=stationRefs.current.get(station.name)
+        // The selected destination card already names this station.
+        const selected=runtime.locatedPlace?.name===station.name&&!runtime.locatedPlace.wildlife
+        const x=project(station.position,element,runtime.showTransit&&!selected)
+        if(x===undefined||!element)continue
+        const label=element.lastElementChild as HTMLElement
+        let labelWidth=stationLabelWidths.get(station.name)
+        if(labelWidth===undefined){
+          // Measure once per viewport size, rather than reading layout while panning.
+          label.style.maxWidth='none';labelWidth=label.offsetWidth;label.style.maxWidth=''
+          if(labelWidth)stationLabelWidths.set(station.name,labelWidth)
+        }
+        const right=width-x-25,left=x-25,faceLeft=labelWidth>right&&left>right
+        element.classList.toggle('town-station--left',faceLeft)
+        element.style.setProperty('--station-label-space',`${Math.max(1,faceLeft?left:right)}px`)
+      }
       for (const camera of runtime.cameras) project(geoPosition(camera.lat,camera.lng).setY(.15),cameraRefs.current.get(camera.id),runtime.showCameras,3)
       project(world.vanPosition.clone().setY(.3),vanRef.current,runtime.showShops)
       const ride=world.busRideStatus()
