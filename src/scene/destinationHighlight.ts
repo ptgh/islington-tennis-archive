@@ -1,5 +1,18 @@
 import * as THREE from 'three'
 import {containsPoint,buildingHeight,type BoroughCell,type GeoFeature} from './boroughGeometry.ts'
+import {places} from '../data/places.ts'
+
+// Label anchors clear the illustrative crowns rather than covering the lift,
+// clock or artwork. These are scene coordinates, not measured building heights.
+const labelHeights:Record<string,number>={
+ 'kings-cross-station':3.55,'st-pancras-station':3.2,'british-library':1.65,
+ 'standard-hotel':3.45,'bt-tower':9.15,'newton-sculpture':.65,'paradigm-sculpture':1.55,
+}
+export function destinationLabelHeight(point:{name:string;lat:number;lng:number;wildlife?:boolean}){
+ if(point.wildlife)return .3
+ const place=places.find(p=>p.name===point.name&&Math.abs(p.lat-point.lat)<1e-6&&Math.abs(p.lng-point.lng)<1e-6)
+ return place?labelHeights[place.id]??.3:.3
+}
 
 /** Select a recorded footprint only; never approximate a missing building. */
 export function destinationFeature(data:BoroughCell,x:number,z:number,park=false):GeoFeature|undefined {

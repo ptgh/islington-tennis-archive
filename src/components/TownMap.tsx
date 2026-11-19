@@ -1,5 +1,6 @@
 import { attachMapOrbitGesture, flightPlan, flightZoom, orbitMapCamera, wheelBelongsToMap } from '../scene/mapNavigation';
 import { CloseButton } from './CloseButton';
+import { destinationLabelHeight } from '../scene/destinationHighlight';
 import type { ViewSettings } from '../data/viewQuality'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import {boroughAmenities} from '../data/boroughAmenities'
@@ -481,7 +482,7 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       composer.render()
       const runtime = runtimeRef.current
       for (const venue of venues) project(world.anchors.get(venue.id)!,markerRefs.current.get(venue.id),runtime.visibleIds.includes(venue.id),3)
-      if(runtime.locatedPlace)project(geoPosition(runtime.locatedPlace.lat,runtime.locatedPlace.lng).setY(.3),placeRef.current,true,8)
+      if(runtime.locatedPlace)project(geoPosition(runtime.locatedPlace.lat,runtime.locatedPlace.lng).setY(destinationLabelHeight(runtime.locatedPlace)),placeRef.current,true,8)
       for (const place of BOROUGH_NEIGHBOURS) project(new THREE.Vector3(place.x,0,place.z),neighbourRefs.current.get(place.name),camera.zoom<NEIGHBOUR_LABEL_MAX_ZOOM,0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
       for (const site of otherCourtPins) project(new THREE.Vector3(site.x,.15,site.z),siteRefs.current.get(site.id),!!runtime.showOtherCourts&&site.id!==runtime.activeVisitId&&(site.courts.length>=3||camera.zoom>=2.2),0,LABEL_CLEAR_TOP,LABEL_CLEAR_BOTTOM)
       host.classList.toggle('town-map--far',camera.zoom<1.4)

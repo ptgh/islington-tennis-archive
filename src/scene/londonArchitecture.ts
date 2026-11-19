@@ -31,20 +31,31 @@ export function addLondonArchitecture(f:GeoFeature,height:number,api:Parts){
  function dial(x:number,y:number,z:number,r:number,heading=0){
   const disk=new THREE.CircleGeometry(r,24);disk.rotateY(heading);disk.translate(x,y,z);collect(trim,disk);
   const c=Math.cos(heading),s=Math.sin(heading);
+  for(let mark=0;mark<12;mark++){
+   const tick=new THREE.BoxGeometry(r*.055,r*.14,.008);
+   tick.translate(0,r*.80,0);tick.rotateZ(-mark*Math.PI/6);tick.rotateY(heading);tick.translate(x+s*.009,y,z+c*.009);collect(dark,tick);
+  }
   for(const [dx,dy,w,h] of [[0,r*.22,.014,r*.48],[r*.18,0,r*.38,.014]])part(dark,x+c*dx+s*.004,y+dy,z-s*dx+c*.004,w,h,.012,heading);
  }
  function barrel(x0:number,x1:number,z0:number,z1:number,base:number,rise:number,shift=0){
   // The checked strips sit inside the mapped shed. Reject any edge tile that
   // would project beyond its source ring; no rectangular replacement footprint.
-  const positions:number[]=[],uv:number[]=[],steps=24,ribs=12;
+  const positions:number[]=[],uv:number[]=[],glazed:number[]=[],glassUV:number[]=[],steps=24,ribs=12;
   const at=(u:number,v:number)=>[x0+(x1-x0)*u+shift*v,base+Math.sin(u*Math.PI)*rise,z0+(z1-z0)*v];
   for(let row=0;row<ribs;row++)for(let col=0;col<steps;col++){
    const q=[at(col/steps,row/ribs),at((col+1)/steps,row/ribs),at((col+1)/steps,(row+1)/ribs),at(col/steps,(row+1)/ribs)];
    if(q.some(p=>!inside(p[0],p[2])))continue;
-   for(const i of [0,2,1,0,3,2]){positions.push(...q[i]);uv.push(q[i][0],q[i][2]);}
+   // A continuous crown rooflight, divided by the existing structural ribs.
+   // Both finishes use the same surface; there is no coplanar overlay to shimmer.
+   const rooflight=col>=10&&col<14,vertices=rooflight?glazed:positions,texcoords=rooflight?glassUV:uv;
+   for(const i of [0,2,1,0,3,2]){vertices.push(...q[i]);texcoords.push(q[i][0],q[i][2]);}
    if(row%2===0){const a=q[0],b=q[1],g=new THREE.CylinderGeometry(.012,.012,new THREE.Vector3(...a).distanceTo(new THREE.Vector3(...b)),4);g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]).normalize()));g.translate((a[0]+b[0])/2,(a[1]+b[1])/2+.012,(a[2]+b[2])/2);collect(trim,g);}
+   if([4,8,12,16,20].includes(col)){
+    const a=q[0],b=q[3],g=new THREE.CylinderGeometry(.006,.006,new THREE.Vector3(...a).distanceTo(new THREE.Vector3(...b)),4);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]).normalize()));g.translate((a[0]+b[0])/2,(a[1]+b[1])/2+.009,(a[2]+b[2])/2);collect(trim,g);
+   }
   }
-  if(positions.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.computeVertexNormals();collect(roof,g);}
+  for(const [vertices,texcoords,finish] of [[positions,uv,roof],[glazed,glassUV,glass]] as const)if(vertices.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(texcoords,2));g.computeVertexNormals();collect(finish,g);}
  }
  if(id===107005576){
   // Restored concrete grid, dark top floors and the Euston Road red-pill lift.

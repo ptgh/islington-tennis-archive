@@ -5,8 +5,9 @@ import * as THREE from 'three';
 import {createBoroughMaterials,createBoroughTile} from '../scene/createBoroughTile.ts';
 import {buildingHeight,containsPoint,type BoroughCell} from '../scene/boroughGeometry.ts';
 import {createBoroughLifeAssets,createBoroughLife} from '../scene/createBoroughLife.ts';
-import {destinationOutline} from '../scene/destinationHighlight.ts';
+import {destinationOutline,destinationLabelHeight} from '../scene/destinationHighlight.ts';
 import {londonArtworks,londonMasts,londonStreetNames} from './londonDetails.ts';
+import {places} from './places.ts';
 const files=fs.readdirSync('public/map/islington').filter(p=>p.endsWith('.json'));
 const cells=files.map(p=>({id:p.replace(/-[a-f0-9]+\.json$/,''),data:JSON.parse(fs.readFileSync('public/map/islington/'+p,'utf8')) as BoroughCell}));
 for(const id of [-72165470,4256246,4680891,107005576,5022282])test(`London landmark ${id} preserves the source ring and owns finite bounded geometry`,()=>{
@@ -18,6 +19,12 @@ for(const id of [-72165470,4256246,4680891,107005576,5022282])test(`London landm
   for(const [x,z] of f.points)assert.ok(Array.from({length:p.count},(_,i)=>i).some(i=>Math.abs(p.getX(i)-x)<.00003&&Math.abs(p.getZ(i)-z)<.00003&&Math.abs(p.getY(i)-.012)<.00001),'mapped base vertex missing');
   tile.root.traverse(o=>{if(o instanceof THREE.Mesh)assert.ok(Array.from(o.geometry.getAttribute('position').array).every(Number.isFinite));});
   const bounds=new THREE.Box3().setFromObject(tile.root);assert.ok(bounds.max.y<buildingHeight(f.tags,f.points)+.15,'architectural crown exceeds its envelope');
+  const place=places.find(p=>Number(p.sourceWay)===id)!;assert.ok(destinationLabelHeight(place)>bounds.max.y,'destination label covers its landmark crown');
+  if(id===-72165470||id===4256246){
+   let rooflightVertices=0;
+   tile.root.traverse(o=>{if(o instanceof THREE.Mesh&&!(o instanceof THREE.InstancedMesh)&&o.material===m.glass){const p=o.geometry.getAttribute('position'),n=o.geometry.getAttribute('normal');for(let i=0;i<p.count;i++)if(n.getY(i)>.9){rooflightVertices++;assert.ok(containsPoint(p.getX(i),p.getZ(i),f.points));assert.ok(!f.holes?.some(h=>containsPoint(p.getX(i),p.getZ(i),h)));}}});
+   assert.ok(rooflightVertices>0,'station roof has no upward-facing glazing');
+  }
   assert.equal(JSON.stringify(f),original);let disposed=false;wall.geometry.addEventListener('dispose',()=>disposed=true);tile.dispose();assert.ok(disposed);
  }finally{m.dispose();}
 });
