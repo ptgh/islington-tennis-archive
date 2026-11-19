@@ -649,9 +649,18 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       if(name.textContent!==court.name)name.textContent=court.name
       const box=host.getBoundingClientRect()
       tip.style.display='flex'
-      const tipBox=tip.getBoundingClientRect(),tipWidth=tipBox.width,tipHeight=tipBox.height,pointerX=event.clientX-box.left,pointerY=event.clientY-box.top
-      const x=Math.max(12,Math.min(pointerX+14,box.width-tipWidth-12))
-      const above=pointerY-tipHeight-12,y=Math.max(12,Math.min(above>=12?above:pointerY+14,box.height-tipHeight-12))
+      tip.style.maxWidth=''
+      let tipBox=tip.getBoundingClientRect()
+      const pointerX=event.clientX-box.left,pointerY=event.clientY-box.top
+      let x=Math.max(12,Math.min(pointerX+14,box.width-tipBox.width-12))
+      const placeY=()=>{const above=pointerY-tipBox.height-12;return Math.max(12,Math.min(above>=12?above:pointerY+14,box.height-tipBox.height-12))}
+      let y=placeY()
+      const toolbar=app?.querySelector('.map-toolbar')?.getBoundingClientRect()
+      if(toolbar&&x+tipBox.width>toolbar.left-box.left-12&&x<toolbar.right-box.left&&y+tipBox.height>toolbar.top-box.top&&y<toolbar.bottom-box.top){
+        // Leave the quality/zoom controls clear, wrapping the hint when needed.
+        tip.style.maxWidth=`${Math.max(1,toolbar.left-box.left-24)}px`
+        tipBox=tip.getBoundingClientRect();x=Math.max(12,Math.min(pointerX+14,toolbar.left-box.left-tipBox.width-12));y=placeY()
+      }
       tip.style.transform=`translate3d(${x}px,${y}px,0)`
     }
     renderer.domElement.addEventListener('pointerdown',pointerDown)
