@@ -37,6 +37,8 @@ export function createBoroughMaterials() {
  const concrete=cloneWorldArchitecturalFinish(finishes.stucco,'#b6b3a3',false,.1)
  const stationBrick=cloneWorldArchitecturalFinish(finishes.brick,'#bfa981',false,.1)
  const londonBrick=cloneWorldArchitecturalFinish(finishes.brick,'#aa6750',false,.1),londonRoof=cloneWorldArchitecturalFinish(finishes.slate,'#a2aaa2',true,.1),liftRed=plain('#be3f32')
+ const bronze=new THREE.MeshStandardMaterial({color:'#81775b',metalness:.48,roughness:.68})
+ const weatheringSteel=new THREE.MeshStandardMaterial({color:'#a16a48',metalness:.22,roughness:.9,vertexColors:true})
  const streetSigns=createStreetSignMaterials()
  const fineTrim=trim.clone()
  // Coverage fades at subpixel sizes while the instance batches keep depth writes.
@@ -44,10 +46,10 @@ export function createBoroughMaterials() {
  const {material:water,animate:animateSurfaces}=createWaterFinish('#608d85',.1)
  const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
- return {stationBrick,londonBrick,londonRoof,liftRed,streetSigns,finishes,brick,roofs,flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
+ return {stationBrick,londonBrick,londonRoof,liftRed,bronze,weatheringSteel,streetSigns,finishes,brick,roofs,flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
  animateSurfaces,
  setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
- dispose(){[stationBrick,londonBrick,londonRoof,liftRed,...streetSigns.values(),...brick,...roofs,...flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());for(const material of streetSigns.values())material.map?.dispose();box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
+ dispose(){[stationBrick,londonBrick,londonRoof,liftRed,bronze,weatheringSteel,...streetSigns.values(),...brick,...roofs,...flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());for(const material of streetSigns.values())material.map?.dispose();box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
@@ -60,7 +62,7 @@ export function createBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
 /** Yields between pieces of work, so a cell can be built across several frames. */
 export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,traffic?:TrafficSpace,cellId?:string) {
  const root=new THREE.Group();root.name='Islington geographic cell'
- const {stationBrick,londonBrick,londonRoof,liftRed,streetSigns,finishes,brick,roofs,flatRoofs,concrete,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle}=materials
+ const {stationBrick,londonBrick,londonRoof,liftRed,bronze,weatheringSteel,streetSigns,finishes,brick,roofs,flatRoofs,concrete,glass,paving,parkPath,road,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle}=materials
  const batches=new Map<THREE.Material,THREE.BufferGeometry[]>(),instances=new Map<THREE.Material,THREE.Matrix4[]>(),caps=new Map<THREE.Material,THREE.Matrix4[]>(),fine=new Map<THREE.Material,THREE.Matrix4[]>()
  const transform=new THREE.Object3D()
  function part(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number,angle=0,target=instances){transform.position.set(x,y,z);transform.scale.set(w,h,d);transform.rotation.set(0,angle,0);transform.updateMatrix();const list=target.get(m)??[];list.push(transform.matrix.clone());target.set(m,list)}
@@ -162,7 +164,7 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
   detailedBuildings++
  }
  yield
- const londonDetails=addLondonStreetDetails(data,cellId,{bronze:door,stone,metal,trim,red:liftRed,signs:streetSigns,part,collect})
+ const londonDetails=addLondonStreetDetails(data,cellId,{bronze,stone,metal,trim,weatheringSteel,signs:streetSigns,part,collect})
  const crowns:THREE.Matrix4[]=[]
  function tree(x:number,z:number,index:number,source=false){
   // Stable source IDs vary illustrative mature canopies without moving mapped
@@ -191,7 +193,7 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  avenue.forEach((site,i)=>tree(site.x,site.z,200000+i,true))
  yield
  const owned:THREE.BufferGeometry[]=[]
- for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=(material===londonBrick||material===stationBrick)?'London landmark masonry':material===londonRoof?'London landmark roofs':material===liftRed?'Standard red lift':material===concrete?'Barbican concrete':material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===stationBrick||material===londonBrick||material===londonRoof||material===liftRed||material===concrete||material===trim||brick.includes(material as THREE.MeshStandardMaterial)||[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
+ for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=material===bronze?'London bronze sculpture':material===weatheringSteel?'London weathering steel sculpture':(material===londonBrick||material===stationBrick)?'London landmark masonry':material===londonRoof?'London landmark roofs':material===liftRed?'Standard red lift':material===concrete?'Barbican concrete':material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===bronze||material===weatheringSteel||material===stationBrick||material===londonBrick||material===londonRoof||material===liftRed||material===concrete||material===trim||brick.includes(material as THREE.MeshStandardMaterial)||[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
  function batch(geometry:THREE.BufferGeometry,material:THREE.Material,matrices:THREE.Matrix4[],shadows=false){if(!matrices.length)return;const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.castShadow=shadows;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);return mesh}
  yield
  for(const [material,matrices] of instances){batch(box,material,matrices,material===trunk);yield}

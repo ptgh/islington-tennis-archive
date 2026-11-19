@@ -60,3 +60,29 @@ test('King’s Cross selection stays at its eaves instead of floating at the clo
  const f=cells.flatMap(c=>c.data.buildings).find(f=>Number(f.id)===-72165470)!;
  const outline=destinationOutline(f);try{outline.computeBoundingBox();assert.ok(Math.abs(outline.boundingBox!.max.y-(buildingHeight(f.tags,f.points)*.36+.04))<.00001);}finally{outline.dispose();}
 });
+test('public art keeps its source anchor, casts shadows and releases cell geometry without disposing shared metals',()=>{
+ const materials=createBoroughMaterials();let released=0;
+ for(const material of [materials.bronze,materials.weatheringSteel])material.addEventListener('dispose',()=>released++);
+ try{for(const art of londonArtworks){
+  const x=(art.lng+.115)*6900,z=-(art.lat-51.549)*11100,tile=createBoroughTile({buildings:[],roads:[],parks:[],trees:[],railways:[],water:[]},materials,undefined,`${Math.floor(x/40)}_${Math.floor(z/40)}`);
+  try{
+   const mesh=tile.root.getObjectByName(art.kind==='newton'?'London bronze sculpture':'London weathering steel sculpture') as THREE.Mesh;
+   assert.ok(mesh?.castShadow);assert.equal(mesh.material,art.kind==='newton'?materials.bronze:materials.weatheringSteel);
+   const bounds=new THREE.Box3().setFromObject(mesh);assert.ok(bounds.min.x>x-.4&&bounds.max.x<x+.4&&bounds.min.z>z-.4&&bounds.max.z<z+.4);
+   assert.ok(bounds.min.y>=0&&bounds.max.y<destinationLabelHeight(places.find(p=>p.sourceNode===String(art.id))!));
+   assert.ok(Array.from(mesh.geometry.getAttribute('position').array).every(Number.isFinite));
+   if(art.kind==='paradigm'){const colors=mesh.geometry.getAttribute('color');assert.equal(colors.count,mesh.geometry.getAttribute('position').count);assert.ok(new Set(Array.from(colors.array)).size>4);}
+   let disposed=false;mesh.geometry.addEventListener('dispose',()=>disposed=true);tile.dispose();assert.ok(disposed);assert.equal(released,0);
+  }catch(error){tile.dispose();throw error;}
+ }}finally{materials.dispose();}
+ assert.equal(released,2);
+});
+test('street plates have independent outward-facing text on both sides of the backing',()=>{
+ const materials=createBoroughMaterials(),tile=createBoroughTile({buildings:[],roads:[{id:4256091,kind:'residential',points:[[0,0],[4,0]]}],parks:[],trees:[],railways:[],water:[]},materials);
+ try{
+  const material=materials.streetSigns.get('Argyle Street')!,mesh=tile.root.children.find(o=>o instanceof THREE.Mesh&&o.material===material) as THREE.Mesh;
+  assert.equal(material.side,THREE.FrontSide);assert.equal(tile.root.userData.coverage.londonDetails.streetNames,1);
+  const p=mesh.geometry.getAttribute('position'),n=mesh.geometry.getAttribute('normal');assert.equal(p.count,12);
+  for(const side of [-1,1]){const vertices:number[]=Array.from({length:p.count},(_,i)=>i).filter(i=>n.getZ(i)*side>.99);assert.equal(vertices.length,6);for(const i of vertices)assert.ok(Math.abs(p.getZ(i)-(.38+.007*side))<1e-5);}
+ }finally{tile.dispose();materials.dispose();}
+});
