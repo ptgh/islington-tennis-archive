@@ -649,7 +649,10 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
       if(name.textContent!==court.name)name.textContent=court.name
       const box=host.getBoundingClientRect()
       tip.style.display='flex'
-      tip.style.transform=`translate3d(${Math.min(event.clientX-box.left+14,box.width-250)}px,${event.clientY-box.top-34}px,0)`
+      const tipBox=tip.getBoundingClientRect(),tipWidth=tipBox.width,tipHeight=tipBox.height,pointerX=event.clientX-box.left,pointerY=event.clientY-box.top
+      const x=Math.max(12,Math.min(pointerX+14,box.width-tipWidth-12))
+      const above=pointerY-tipHeight-12,y=Math.max(12,Math.min(above>=12?above:pointerY+14,box.height-tipHeight-12))
+      tip.style.transform=`translate3d(${x}px,${y}px,0)`
     }
     renderer.domElement.addEventListener('pointerdown',pointerDown)
     renderer.domElement.addEventListener('pointerup',pointerUp)
