@@ -43,6 +43,11 @@ test('black cab overlays and walking officers inherit accepted poses and pause w
     life.animate(.3,true,true);const car=life.root.getObjectByName('Borough car') as THREE.InstancedMesh,taxi=life.root.getObjectByName('Borough taxi') as THREE.InstancedMesh,person=life.root.getObjectByName('Borough person') as THREE.InstancedMesh,officer=life.root.getObjectByName('Borough officer') as THREE.InstancedMesh,a=new THREE.Matrix4(),b=new THREE.Matrix4();
     for(const [overlay,base] of [[taxi,car],[officer,person]])if(overlay)for(let i=0;i<overlay.count;i++){overlay.getMatrixAt(i,a);if(a.elements[15]!==1)continue;base.getMatrixAt(i,b);assert.deepEqual(a.elements,b.elements);if(overlay===taxi)cabs++;else officers++;}
     const before=[taxi,officer].filter(Boolean).map(m=>Array.from(m.instanceMatrix.array));life.animate(10,false,false);for(const [i,m]of [taxi,officer].filter(Boolean).entries())assert.deepEqual(Array.from(m.instanceMatrix.array),before[i]);
+    life.clearTraffic();life.animate(10,false,false);
+    if(taxi)assert.ok(Array.from(taxi.instanceMatrix.array).every(value=>value===0),'cleared traffic leaves a cab body behind');
+    if(officer)assert.deepEqual(Array.from(officer.instanceMatrix.array),before[taxi?1:0],'clearing road traffic also clears pedestrians');
+    life.animate(.05,true,false);
+    if(taxi)for(let i=0;i<taxi.count;i++){taxi.getMatrixAt(i,a);if(a.elements[15]!==1)continue;car.getMatrixAt(i,b);assert.deepEqual(a.elements,b.elements,'resumed cab differs from accepted road pose');}
    }finally{life.dispose();}
   }
   assert.ok(cabs>0);assert.ok(officers>0);

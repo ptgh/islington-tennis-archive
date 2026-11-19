@@ -33,7 +33,18 @@ export function createBoroughLifeAssets() {
   p('#253632',0,.087,0,.178,.10,.392);p('#273c38',0,.153,-.02,.148,.115,.23)
   p('#758e8b',0,.17,.098,.124,.059,.012);p('#263a36',0,.216,-.02,.153,.02,.23)
   p('#ddbe72',0,.243,-.005,.075,.031,.034)
-  for(const x of [-.077,.077]){p('#5f7875',x,.17,-.025,.008,.06,.15);p('#b9c0b3',x,.13,.015,.009,.008,.025)}
+  p('#758e8b',0,.17,-.137,.12,.055,.008)
+  p('#253632',0,.17,.105,.008,.059,.008)
+  // Separate door panes, chrome trim and a compact grille distinguish a cab
+  // at street zoom while the existing car still owns its wheels and lamps.
+  for(const x of [-.077,.077]){
+   for(const z of [-.068,.021])p('#5f7875',x,.17,z,.008,.06,.067)
+   for(const z of [-.072,.018])p('#b9c0b3',x,.13,z,.009,.008,.025)
+  }
+  for(const z of [-.196,.196])p('#b9c0b3',0,.065,z,.16,.014,.006)
+  p('#172b29',0,.104,.197,.069,.049,.002)
+  for(const x of [-.026,-.013,0,.013,.026])p('#aeb7aa',x,.104,.1985,.004,.039,.001)
+  p('#d5b55c',0,.09,-.197,.06,.02,.004)
  })
  model('officer',p=>{
   p('#2b4145',0,.106,0,.057,.074,.038);p('#cfdb7c',0,.117,.023,.053,.05,.008)
@@ -246,5 +257,5 @@ export function createBoroughLife(data:BoroughCell,assets:BoroughLifeAssets,traf
  }
  draw(1)
  root.userData.counts={blackCabs:taxiKinds.filter(Boolean).length,walkingOfficers:officerKinds.filter(Boolean).length,cars:routes.cars.length,cycles:cycleRoutes.length,motorbikes:motorRoutes.length,streetlights:lampSites.length,people:routes.walkers.length,foxes:routes.foxes.length,birds:routes.birds.length,narrowboats:routes.boats.length,trains:routes.train?1:0,signals:signalRoutes.length*2,responseMiniatures:responseKinds.filter(Boolean).length}
- return {root,routes,lifeLocation(kind:'cycle'|'fox'|'emergency'){if(kind==='emergency'){for(const mesh of responseMeshes.values())for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,responsePose);if(responsePose.elements[15]===1)return new THREE.Vector3().setFromMatrixPosition(responsePose)}return null}const mesh=kind==='cycle'?cycles:foxes;if(!mesh)return null;for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,transform.matrix);if(transform.matrix.elements[15]===1)return new THREE.Vector3().setFromMatrixPosition(transform.matrix)}return null},clearTraffic(){traffic.release(scope);for(const mesh of [cars,carLamps,...responseMeshes.values(),cycles,motors,cycleLegs,spokes])if(mesh){mesh.instanceMatrix.array.fill(0);mesh.instanceMatrix.needsUpdate=true}},setTrains(value:boolean){if(trains)trains.visible=value},setNight(value:boolean){night=value;if(carLamps)carLamps.visible=night;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night);bulbs&&(bulbs.visible=night);pools&&(pools.visible=night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){traffic.release(scope);meshes.forEach(m=>m.dispose());root.clear()}}
+ return {root,routes,lifeLocation(kind:'cycle'|'fox'|'emergency'){if(kind==='emergency'){for(const mesh of responseMeshes.values())for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,responsePose);if(responsePose.elements[15]===1)return new THREE.Vector3().setFromMatrixPosition(responsePose)}return null}const mesh=kind==='cycle'?cycles:foxes;if(!mesh)return null;for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,transform.matrix);if(transform.matrix.elements[15]===1)return new THREE.Vector3().setFromMatrixPosition(transform.matrix)}return null},clearTraffic(){traffic.release(scope);for(const mesh of [cars,taxis,carLamps,...responseMeshes.values(),cycles,motors,cycleLegs,spokes])if(mesh){mesh.instanceMatrix.array.fill(0);mesh.instanceMatrix.needsUpdate=true}},setTrains(value:boolean){if(trains)trains.visible=value},setNight(value:boolean){night=value;if(carLamps)carLamps.visible=night;foxes&&(foxes.visible=night);birds&&(birds.visible=!night);wings&&(wings.visible=!night);bulbs&&(bulbs.visible=night);pools&&(pools.visible=night)},animate(delta:number,activity:boolean,runTrain:boolean){if(activity)time+=delta;if(runTrain)railTime+=delta;if(activity||runTrain)draw(delta,activity)},dispose(){traffic.release(scope);meshes.forEach(m=>m.dispose());root.clear()}}
 }
