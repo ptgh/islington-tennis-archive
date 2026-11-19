@@ -112,11 +112,17 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
   for(const x of [-.07,.07]){for(const z of [-.024,.024])piece(metal,x,.029,z,.012,.05,.012);piece(metal,x,.086,-.039,.01,.11,.01)}
  }
  for(const stop of stops){
+  const angle=stop.heading,nx=Math.sin(angle),nz=Math.cos(angle)
   part(metal,stop.x,.15,stop.z,.009,.30,.009)
-  part(white,stop.x,.285,stop.z,.095,.10,.009)
-  part(stopRed,stop.x,.292,stop.z+.006,.07,.05,.004)
-  part(white,stop.x,.292,stop.z+.009,.045,.026,.004)
-  part(metal,stop.x,.292,stop.z+.012,.075,.013,.004)
+  part(metal,stop.x,.285,stop.z,.10,.108,.011,angle)
+  part(white,stop.x,.285,stop.z,.095,.10,.012,angle)
+  // A miniature red-on-white bus roundel, visible from either pavement.
+  // Shared paint batches keep these source-positioned flags inexpensive.
+  for(const side of [-1,1]){
+   const x=stop.x+nx*.007*side,z=stop.z+nz*.007*side,g=new THREE.RingGeometry(.020,.031,20)
+   g.rotateY(angle+(side<0?Math.PI:0));g.translate(x,.299,z);collect(stopRed,g)
+   part(stopRed,x,.299,z,.074,.012,.001,angle)
+  }
  }
  for(const f of data.railways)for(let i=1;i<f.points.length;i++){
   const a=f.points[i-1],b=f.points[i],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz),angle=-Math.atan2(dz,dx)
@@ -193,7 +199,7 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  avenue.forEach((site,i)=>tree(site.x,site.z,200000+i,true))
  yield
  const owned:THREE.BufferGeometry[]=[]
- for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=material===bronze?'London bronze sculpture':material===weatheringSteel?'London weathering steel sculpture':(material===londonBrick||material===stationBrick)?'London landmark masonry':material===londonRoof?'London landmark roofs':material===liftRed?'Standard red lift':material===concrete?'Barbican concrete':material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===bronze||material===weatheringSteel||material===stationBrick||material===londonBrick||material===londonRoof||material===liftRed||material===concrete||material===trim||brick.includes(material as THREE.MeshStandardMaterial)||[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
+ for(const [material,parts] of batches){const g=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(g){const mesh=new THREE.Mesh(g,material);mesh.name=material===stopRed?'London bus stop roundels':material===bronze?'London bronze sculpture':material===weatheringSteel?'London weathering steel sculpture':(material===londonBrick||material===stationBrick)?'London landmark masonry':material===londonRoof?'London landmark roofs':material===liftRed?'Standard red lift':material===concrete?'Barbican concrete':material===trim?'Caledonian Tower stonework':brick.includes(material as THREE.MeshStandardMaterial)?'Borough mapped walls':[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial)?'Borough footprint roofs':'Borough mapped ground';mesh.castShadow=material===bronze||material===weatheringSteel||material===stationBrick||material===londonBrick||material===londonRoof||material===liftRed||material===concrete||material===trim||brick.includes(material as THREE.MeshStandardMaterial)||[...roofs,...flatRoofs].includes(material as THREE.MeshStandardMaterial);mesh.receiveShadow=true;root.add(mesh);owned.push(g)}}
  function batch(geometry:THREE.BufferGeometry,material:THREE.Material,matrices:THREE.Matrix4[],shadows=false){if(!matrices.length)return;const mesh=new THREE.InstancedMesh(geometry,material,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.castShadow=shadows;mesh.receiveShadow=true;mesh.computeBoundingSphere();root.add(mesh);return mesh}
  yield
  for(const [material,matrices] of instances){batch(box,material,matrices,material===trunk);yield}

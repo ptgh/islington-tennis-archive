@@ -52,5 +52,17 @@ export function avenueTreeSites(data:BoroughCell,limit=36){
 }
 export function busStopSites(data:BoroughCell,cellId?:string){
  if(!cellId)return []
- return boroughAmenities.busStops.filter(stop=>stop.cell===cellId).map(stop=>({...stop,x:(stop.lng+.115)*6900,z:-(stop.lat-51.549)*11100})).filter(p=>![...data.buildings,...data.water,...boroughCourts].some(f=>within(p.x,p.z,f))&&data.roads.every(r=>boroughRoadProfile(r.kind).walking||r.points.slice(1).every((b,i)=>distanceToRoad(p.x,p.z,r.points[i],b)>boroughRoadProfile(r.kind).width/2+.025))).slice(0,12)
+ return boroughAmenities.busStops.filter(stop=>stop.cell===cellId).map(stop=>{
+  const x=(stop.lng+.115)*6900,z=-(stop.lat-51.549)*11100;let nearest=Infinity,heading=0
+  // Only the flag turns: the recorded pole position and clearance stay intact.
+  for(const road of data.roads){
+   if(boroughRoadProfile(road.kind).walking)continue
+   for(let i=1;i<road.points.length;i++){
+    const a=road.points[i-1],b=road.points[i],dx=b[0]-a[0],dz=b[1]-a[1];if(Math.hypot(dx,dz)<.001)continue
+    const distance=distanceToRoad(x,z,a,b)
+    if(distance<nearest){nearest=distance;heading=-Math.atan2(dz,dx)}
+   }
+  }
+  return {...stop,x,z,heading}
+ }).filter(p=>![...data.buildings,...data.water,...boroughCourts].some(f=>within(p.x,p.z,f))&&data.roads.every(r=>boroughRoadProfile(r.kind).walking||r.points.slice(1).every((b,i)=>distanceToRoad(p.x,p.z,r.points[i],b)>boroughRoadProfile(r.kind).width/2+.025))).slice(0,12)
 }

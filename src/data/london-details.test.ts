@@ -8,6 +8,8 @@ import {createBoroughLifeAssets,createBoroughLife} from '../scene/createBoroughL
 import {destinationOutline,destinationLabelHeight} from '../scene/destinationHighlight.ts';
 import {londonArtworks,londonMasts,londonStreetNames} from './londonDetails.ts';
 import {places} from './places.ts';
+import {busStopSites} from '../scene/boroughFurniture.ts';
+import {boroughRoadProfile} from '../scene/boroughStreetEdges.ts';
 const files=fs.readdirSync('public/map/islington').filter(p=>p.endsWith('.json'));
 const cells=files.map(p=>({id:p.replace(/-[a-f0-9]+\.json$/,''),data:JSON.parse(fs.readFileSync('public/map/islington/'+p,'utf8')) as BoroughCell}));
 for(const id of [-72165470,4256246,4680891,107005576,5022282])test(`London landmark ${id} preserves the source ring and owns finite bounded geometry`,()=>{
@@ -90,4 +92,24 @@ test('street plates have independent outward-facing text on both sides of the ba
   const p=mesh.geometry.getAttribute('position'),n=mesh.geometry.getAttribute('normal');assert.equal(p.count,12);
   for(const side of [-1,1]){const vertices:number[]=Array.from({length:p.count},(_,i)=>i).filter(i=>n.getZ(i)*side>.99);assert.equal(vertices.length,6);for(const i of vertices)assert.ok(Math.abs(p.getZ(i)-(.38+.007*side))<1e-5);}
  }finally{tile.dispose();materials.dispose();}
+});
+test('bus-stop flags keep recorded coordinates and face along the nearest source carriageway',()=>{
+ const materials=createBoroughMaterials();let checked=0;
+ try{for(const cell of cells.filter(c=>['-2_4','-2_5','-3_5'].includes(c.id))){
+  const stops=busStopSites(cell.data,cell.id),tile=createBoroughTile(cell.data,materials,undefined,cell.id);
+  try{
+   const mesh=tile.root.getObjectByName('London bus stop roundels') as THREE.Mesh,p=mesh.geometry.getAttribute('position'),n=mesh.geometry.getAttribute('normal');
+   assert.ok(stops.length>0&&stops.length<=12);assert.ok(Array.from(p.array).every(Number.isFinite));
+   for(const stop of stops){
+    assert.equal(stop.x,(stop.lng+.115)*6900);assert.equal(stop.z,-(stop.lat-51.549)*11100);
+    const runs=cell.data.roads.filter(r=>!boroughRoadProfile(r.kind).walking).flatMap(r=>r.points.slice(1).map((b,i)=>{const a=r.points[i],dx=b[0]-a[0],dz=b[1]-a[1],l2=dx*dx+dz*dz,t=l2?Math.max(0,Math.min(1,((stop.x-a[0])*dx+(stop.z-a[1])*dz)/l2)):0;return {dx,dz,d:Math.hypot(stop.x-a[0]-dx*t,stop.z-a[1]-dz*t)};})).filter(r=>Math.hypot(r.dx,r.dz)>=.001).sort((a,b)=>a.d-b.d);
+    assert.ok(Math.abs(Math.sin(stop.heading+Math.atan2(runs[0].dz,runs[0].dx)))<1e-8);
+    const nx=Math.sin(stop.heading),nz=Math.cos(stop.heading);
+    for(const side of [-1,1]){let faces=0;for(let i=0;i<p.count;i++)if(Math.hypot(p.getX(i)-stop.x,p.getZ(i)-stop.z)<.04&&Math.abs(p.getY(i)-.299)<.032&&Math.abs(n.getX(i)-nx*side)<1e-5&&Math.abs(n.getZ(i)-nz*side)<1e-5)faces++;assert.ok(faces>0,'missing outward-facing roundel');}
+    checked++;
+   }
+   let disposed=false;mesh.geometry.addEventListener('dispose',()=>disposed=true);tile.dispose();assert.ok(disposed);
+  }catch(error){tile.dispose();throw error;}
+ }}finally{materials.dispose();}
+ assert.ok(checked>10);
 });
