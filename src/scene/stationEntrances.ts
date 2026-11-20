@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import {stationEntrances} from '../data/stationEntrances.ts';
 import type {GeoFeature} from './boroughGeometry.ts';
 
-/** Dalston's source building=roof is an open shelter, not a solid facade. */
+/** Recorded station canopies are open shelters, not solid facades. */
 export function addStationCanopy(f:GeoFeature,api:{roof:THREE.Material;metal:THREE.Material;polygon:(f:GeoFeature,m:THREE.Material,y:number,height?:number)=>void;part:(m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number,angle?:number)=>void}){
- if(!stationEntrances.some(e=>'canopy' in e&&e.canopy===Number(f.id)))return false;
+ const entry=stationEntrances.find(e=>'canopy' in e&&e.canopy===Number(f.id));if(!entry||!('canopyPosts' in entry))return false;
  api.polygon(f,api.roof,.34,.018);
- for(const i of [0,6,7,8]){const [x,z]=f.points[i];api.part(api.metal,x,.17,z,.015,.34,.015);}
+ for(const i of entry.canopyPosts){const [x,z]=f.points[i];api.part(api.metal,x,.17,z,.015,.34,.015);}
  return true;
 }
 
@@ -39,10 +39,24 @@ export function addStationEntrance(f:GeoFeature,api:{stone:THREE.Material;dark:T
  for(const side of [-1,1])piece(trim,side*(width/2+.018),.17,.037,.035,.32,.055);
  piece(trim,0,.325,.055,width+.10,.045,.12);
  piece(trim,0,.13,.041,.018,.24,.012);
- // Name fascia and network roundel use the station's actual name and network.
+ // Name fascia and network symbol use the station's actual name and network.
  piece(dark,0,.39,.035,width+.10,.13,.045);
  const name=new THREE.PlaneGeometry(width+.08,.115);name.rotateY(entry.facing);name.translate(px+nx*.060,.39,pz+nz*.060);collect(signs.get(entry.name)!,name);
- const ring=new THREE.RingGeometry(.073,.108,32);ring.rotateY(entry.facing);ring.translate(px+nx*.064,.59,pz+nz*.064);collect(entry.network==='overground'?orange:red,ring);
- piece(signs.get(entry.name)!,0,.59,.066,.265,.05,.012);
+ if(entry.network==='rail'){
+  // Essex Road is National Rail: a double arrow on a pale plate, not a roundel.
+  piece(trim,0,.59,.066,.30,.24,.015);
+  for(const [a,b] of [
+   [[-.132,.03],[.132,.03]],[[-.132,-.03],[.132,-.03]],
+   [[-.07,.10],[.07,.03]],[[.07,.03],[-.07,-.04]],
+   [[.07,.04],[-.07,-.03]],[[-.07,-.03],[.07,-.10]],
+  ]){
+   const dx=b[0]-a[0],dy=b[1]-a[1],g=new THREE.PlaneGeometry(Math.hypot(dx,dy),.019);
+   g.rotateZ(Math.atan2(dy,dx));g.rotateY(entry.facing);
+   const u=(a[0]+b[0])/2;g.translate(px+Math.cos(entry.facing)*u+nx*.075,.59+(a[1]+b[1])/2,pz-Math.sin(entry.facing)*u+nz*.075);collect(red,g);
+  }
+ }else{
+  const ring=new THREE.RingGeometry(.073,.108,32);ring.rotateY(entry.facing);ring.translate(px+nx*.064,.59,pz+nz*.064);collect(entry.network==='overground'?orange:red,ring);
+  piece(signs.get(entry.name)!,0,.59,.066,.265,.05,.012);
+ }
  return true;
 }
