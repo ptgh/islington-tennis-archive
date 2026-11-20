@@ -33,7 +33,7 @@ export function addStationEntrance(f:GeoFeature,api:{stone:THREE.Material;dark:T
  const t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(length*length))),px=a[0]+dx*t,pz=a[1]+dz*t,angle=-Math.atan2(dz,dx),nx=Math.sin(entry.facing),nz=Math.cos(entry.facing);
  const {part,collect,stone,dark,trim,red,orange,signs}=api;
  const piece=(m:THREE.Material,u:number,y:number,out:number,w:number,h:number,d:number)=>part(m,px+dx/length*u+nx*out,y,pz+dz/length*u+nz*out,w,h,d,angle);
- const width=entry.name==='Farringdon'?.84:entry.name==='Angel'?.52:.5;
+ const width='width' in entry?entry.width:entry.name==='Farringdon'?.84:entry.name==='Angel'?.52:.5;
  piece(stone,0,.024,.065,width+.08,.025,.18);
  piece(dark,0,.16,.027,width,.29,.018);
  for(const side of [-1,1])piece(trim,side*(width/2+.018),.17,.037,.035,.32,.055);

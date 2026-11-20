@@ -12,7 +12,7 @@ const source=(id:string):BoroughCell=>JSON.parse(fs.readFileSync('public/'+borou
 test('station street arrivals match source hosts and outward facade signs; cells release their own geometry',()=>{
  const materials=createBoroughMaterials();let sharedReleased=0;
  for(const sign of materials.stationSigns.values())sign.addEventListener('dispose',()=>sharedReleased++);
- try{for(const [i,id] of ['1_4','1_7','6_0'].entries()){
+ try{for(const [i,id] of ['1_4','1_7','6_0','1_0','0_-2'].entries()){
   const entry=stationEntrances[i],data=source(id),host=data.buildings.find(f=>Number(f.id)===entry.building)!;
   assert.ok(host);const before=JSON.stringify(data),a=host.points[entry.edge],b=host.points[entry.edge+1],dx=b[0]-a[0],dz=b[1]-a[1];
   const signed=host.points.slice(1).reduce((sum,q,i)=>sum+host.points[i][0]*q[1]-q[0]*host.points[i][1],0),sign=signed>0?1:-1;
@@ -36,7 +36,7 @@ test('station street arrivals match source hosts and outward facade signs; cells
    let disposed=false;name.geometry.addEventListener('dispose',()=>disposed=true);tile.dispose();assert.ok(disposed);assert.equal(sharedReleased,0);
   }catch(error){tile.dispose();throw error;}
  }}finally{materials.dispose();}
- assert.equal(sharedReleased,3);assert.deepEqual(stationArrival('Unverified station',51,-.1,18),{lat:51,lng:-.1,zoom:18});
+ assert.equal(sharedReleased,stationEntrances.length);assert.deepEqual(stationArrival('Unverified station',51,-.1,18),{lat:51,lng:-.1,zoom:18});
 });
 
 test('roof detail clearance respects concave outlines, courtyard holes and cell budgets',()=>{
