@@ -23,6 +23,11 @@ test('local actors use bounded source paths and keep off buildings and courts',(
 })
 test('narrowboat full hull stays in mapped water throughout its reversible run',()=>{
  const data=source('3_4'),paths=lifePaths(data);assert.equal(paths.boats.length,1)
+ const assets=createBoroughLifeAssets()
+ try{
+  assets.geometry.boat.computeBoundingBox();const bounds=assets.geometry.boat.boundingBox!
+  assert.ok(bounds.min.x>=-.100001&&bounds.max.x<=.100001&&bounds.min.z>=-.900001&&bounds.max.z<=.900001,'boat detail exceeds the hull checked against source water')
+ }finally{assets.dispose()}
  for(const path of paths.boats){
   const dx=(path.b[0]-path.a[0])/path.length,dz=(path.b[1]-path.a[1])/path.length
   for(let i=0;i<=200;i++){

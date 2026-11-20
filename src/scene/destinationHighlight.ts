@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import {containsPoint,buildingHeight,type BoroughCell,type GeoFeature} from './boroughGeometry.ts'
 import {places} from '../data/places.ts'
+import {stationEntrances} from '../data/stationEntrances.ts'
 
 // Label anchors clear the illustrative crowns rather than covering the lift,
 // clock or artwork. These are scene coordinates, not measured building heights.
@@ -10,6 +11,7 @@ const labelHeights:Record<string,number>={
 }
 export function destinationLabelHeight(point:{name:string;lat:number;lng:number;wildlife?:boolean}){
  if(point.wildlife)return .3
+ if(stationEntrances.some(e=>e.name===point.name&&Math.abs(e.lat-point.lat)<1e-6&&Math.abs(e.lng-point.lng)<1e-6))return .9
  const place=places.find(p=>p.name===point.name&&Math.abs(p.lat-point.lat)<1e-6&&Math.abs(p.lng-point.lng)<1e-6)
  return place?labelHeights[place.id]??.3:.3
 }

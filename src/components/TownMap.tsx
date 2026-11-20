@@ -1,3 +1,4 @@
+import {stationEntrances} from '../data/stationEntrances';
 import { attachMapOrbitGesture, flightPlan, flightZoom, orbitMapCamera, wheelBelongsToMap } from '../scene/mapNavigation';
 import { CloseButton } from './CloseButton';
 import { destinationLabelHeight } from '../scene/destinationHighlight';
@@ -94,7 +95,7 @@ interface SceneHandle {
   resize: () => void
   frame: () => void
   focus: (point: THREE.Vector3) => void
-  travel: (point: THREE.Vector3, zoom: number) => void
+  travel: (point: THREE.Vector3, zoom: number, immediate?:boolean, offset?:THREE.Vector3) => void
   cancelTravel: () => void
   followRoute: (id: string) => boolean
   visitCourt: (id: string) => void
@@ -156,7 +157,10 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
     },
     reset() { engineRef.current?.reset() },
     visitCourt(id) { engineRef.current?.visitCourt(id) },
-    locate(lat,lng,zoom=18) { engineRef.current?.travel(geoPosition(lat,lng),zoom) },
+    locate(lat,lng,zoom=18) {
+      const entry=stationEntrances.find(e=>Math.abs(e.lat-lat)<1e-7&&Math.abs(e.lng-lng)<1e-7)
+      engineRef.current?.travel(geoPosition(lat,lng),zoom,false,entry?new THREE.Vector3(Math.sin(entry.facing)*700,650,Math.cos(entry.facing)*700):undefined)
+    },
     followRoute(id) { return engineRef.current?.followRoute(id) ?? false },
     orbit(yaw,pitch) {
       const engine=engineRef.current;

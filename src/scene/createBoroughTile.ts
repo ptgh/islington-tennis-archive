@@ -8,6 +8,8 @@ import { createMiniatureMaterials, cloneArchitecturalFinish, cloneWorldArchitect
 import { createFootprintRoof, setFlatRoofUVs } from './footprintRoof.ts'
 import { addLondonArchitecture } from './londonArchitecture.ts'
 import { addLondonStreetDetails, createStreetSignMaterials } from './londonStreetDetails.ts'
+import {addStationEntrance,addStationCanopy,createStationSignMaterials} from './stationEntrances.ts'
+import {roofDetailSites} from './boroughRoofDetails.ts'
 import { addBarbicanArchitecture } from './barbicanArchitecture.ts'
 import { addCaledonianClockTower } from './caledonianClockTower.ts'
 import { boroughRoadProfile, boroughStreetDecorations } from './boroughStreetEdges.ts'
@@ -40,16 +42,17 @@ export function createBoroughMaterials() {
  const bronze=new THREE.MeshStandardMaterial({color:'#81775b',metalness:.48,roughness:.68})
  const weatheringSteel=new THREE.MeshStandardMaterial({color:'#a16a48',metalness:.22,roughness:.9,vertexColors:true})
  const streetSigns=createStreetSignMaterials()
+ const stationSigns=createStationSignMaterials(),overgroundOrange=plain('#dc853e')
  const fineTrim=trim.clone()
  // Coverage fades at subpixel sizes while the instance batches keep depth writes.
  fineTrim.alphaHash=true
  const {material:water,animate:animateSurfaces}=createWaterFinish('#608d85',.1)
  const lifeAssets=createBoroughLifeAssets()
  const box=new THREE.BoxGeometry(1,1,1),circle=new THREE.CircleGeometry(.5,12);circle.rotateX(-Math.PI/2)
- return {stationBrick,londonBrick,londonRoof,liftRed,bronze,weatheringSteel,streetSigns,finishes,brick,roofs,flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
+ return {stationSigns,overgroundOrange,stationBrick,londonBrick,londonRoof,liftRed,bronze,weatheringSteel,streetSigns,finishes,brick,roofs,flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water,box,circle,lifeAssets,
  animateSurfaces,
- setNight(night:boolean){glass.emissiveIntensity=night?.65:0},
- dispose(){[stationBrick,londonBrick,londonRoof,liftRed,bronze,weatheringSteel,...streetSigns.values(),...brick,...roofs,...flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());for(const material of streetSigns.values())material.map?.dispose();box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
+ setNight(night:boolean){glass.emissiveIntensity=night?.65:0;for(const sign of stationSigns.values())sign.emissiveIntensity=night?.35:0},
+ dispose(){[...stationSigns.values(),overgroundOrange,stationBrick,londonBrick,londonRoof,liftRed,bronze,weatheringSteel,...streetSigns.values(),...brick,...roofs,...flatRoofs,concrete,glass,paving,parkPath,road,railBallast,trim,fineTrim,stone,door,trunk,metal,white,stopRed,water].forEach(m=>m.dispose());for(const material of [...streetSigns.values(),...stationSigns.values()])material.map?.dispose();box.dispose();circle.dispose();finishes.dispose();lifeAssets.dispose()}}
 }
 export type BoroughMaterials=ReturnType<typeof createBoroughMaterials>
 /** Every wall/roof follows the source ring; facade/roof furniture is decorative. */
@@ -131,10 +134,12 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
   for(const side of [-1,1])part(metal,(a[0]+b[0])/2-dz/len*side*.07,.015,(a[1]+b[1])/2+dx/len*side*.07,len,.01,.014,angle)
  }
  yield
- let detailedBuildings=0
+ let detailedBuildings=0,entrances=0,roofDetails=0,nests=0
  for(const f of data.buildings){
   if(++done%14===0)yield
   const id=Number(f.id),height=buildingHeight(f.tags,f.points),bounds=roofBounds(f.points),modern=bounds.width>2.2||['industrial','warehouse','commercial'].includes(f.tags?.building??'')
+  if(addStationCanopy(f,{roof:flatRoofs[0],metal,polygon,part})){detailedBuildings++;continue}
+  if(addStationEntrance(f,{stone,dark:door,trim,red:stopRed,orange:materials.overgroundOrange,signs:materials.stationSigns,part,collect}))entrances++
   if(addCaledonianClockTower(f,height,{stone:trim,dark:door,dial:white,roof:roofs[0],polygon,part,collect})){detailedBuildings++;continue}
   if(addLondonArchitecture(f,height,{stationBrick,brick:londonBrick,concrete,glass,roof:londonRoof,trim,dark:door,red:liftRed,polygon,part,collect})){detailedBuildings++;continue}
   if(addBarbicanArchitecture(f,height,{concrete,glass,roof:flatRoofs[0],dark:door,polygon,part})){detailedBuildings++;continue}
@@ -166,6 +171,20 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
   if(pitched&&bounds.depth>.7){
    const c=Math.cos(bounds.angle),s=Math.sin(bounds.angle),along=.27,rx=bounds.x+along*s,rz=bounds.z+along*c
    if(containsPoint(rx,rz,f.points)){part(brick[palette],rx,height+.13,rz,.14,.32,.19,bounds.angle);part(trim,rx,height+.3,rz,.18,.025,.23,bounds.angle);for(const side of [-1,1])part(metal,rx+side*.043,height+.35,rz,.033,.08,.04,bounds.angle)}
+  }
+  if(!pitched&&roofDetails<24&&f.tags?.building!=='roof'&&f.tags?.building!=='train_station')for(const site of roofDetailSites(f)){
+   if(roofDetails>=24)break
+   // Do not put equipment on the lower roof of an overlapping mapped building.
+   if(data.buildings.some(other=>other!==f&&buildingHeight(other.tags,other.points)>height+.05&&containsPoint(site.x,site.z,other.points)&&!other.holes?.some(h=>containsPoint(site.x,site.z,h))))continue
+   const c=Math.cos(site.angle),s=Math.sin(site.angle),y=height+.02
+   const piece=(m:THREE.Material,x:number,h:number,z:number,w:number,d:number,tall:number)=>part(m,site.x+c*x+s*z,y+h,site.z-s*x+c*z,w,tall,d,site.angle)
+   for(const z of [-.14,.14]){piece(stone,-.10,.055,z,.19,.19,.10);piece(metal,-.10,.112,z,.21,.21,.015);for(const x of [-.155,-.10,-.045])piece(trim,x,.122,z,.012,.17,.006)}
+   piece(trim,.18,.025,0,.25,.40,.04);piece(glass,.18,.050,0,.21,.35,.018);piece(trim,.18,.063,0,.012,.35,.008)
+   if(site.nest&&nests<2){
+    const x=site.x-c*.24-s*.23,z=site.z+s*.24-c*.23,g=new THREE.TorusGeometry(.052,.009,4,10);g.rotateX(Math.PI/2);g.translate(x,y+.016,z);collect(trunk,g)
+    part(metal,x,y+.043,z,.045,.026,.067,site.angle);part(stone,x+s*.025,y+.064,z+c*.025,.026,.025,.025,site.angle);nests++
+   }
+   roofDetails++
   }
   detailedBuildings++
  }
@@ -214,6 +233,6 @@ export function* buildBoroughTile(data:BoroughCell,materials:BoroughMaterials,tr
  const proxies=batch(finishes.foliageShadowGeometry,finishes.foliageShadowProxy,crowns,true);if(proxies){if(proxies.boundingSphere)proxies.boundingSphere.radius+=.05;proxies.layers.set(SHADOW_PROXY_LAYER);proxies.customDepthMaterial=finishes.foliageShadowDepth}
  yield
  const life=createBoroughLife(data,materials.lifeAssets,traffic);root.add(life.root)
- root.userData.coverage={londonDetails,buildings:detailedBuildings,trees:data.trees.length,decorativePlanting:planted,avenuePlanting:avenue.length,illustrativeBenches:benches.length,recordedBusStops:stops.length}
+ root.userData.coverage={londonDetails,buildings:detailedBuildings,stationEntrances:entrances,illustrativeRoofDetails:roofDetails,illustrativeNests:nests,trees:data.trees.length,decorativePlanting:planted,avenuePlanting:avenue.length,illustrativeBenches:benches.length,recordedBusStops:stops.length}
  return {root,life,setFineDetail(show:boolean){for(const mesh of fineMeshes)mesh.visible=show},destinationAt:(x:number,z:number,park:boolean)=>destinationFeature(data,x,z,park),dispose(){life.dispose();owned.forEach(g=>g.dispose());root.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose()})}}
 }
