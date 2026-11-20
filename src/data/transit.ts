@@ -56,3 +56,13 @@ export const tubeConnections = [
   {name:'Northern · Bank branch',color:'#555957',stops:['Euston','King’s Cross St Pancras','Angel','Old Street']},
   {name:'Victoria',color:'#599fb9',stops:['Euston','King’s Cross St Pancras','Highbury & Islington','Finsbury Park']},
 ];
+
+/** One primary symbol for orientation; the station list retains every service.
+ * Match whole line names, so Great Northern never becomes Northern line. */
+export function stationNetwork(lines:string):'underground'|'overground'|'elizabeth'|'rail'{
+  const services=lines.split('·').map(line=>line.trim());
+  const tube=['Bakerloo','Central','Circle','District','Hammersmith & City','Jubilee','Metropolitan','Northern','Piccadilly','Victoria','Waterloo & City'];
+  if(services.some(line=>tube.includes(line)))return 'underground';
+  if(services.some(line=>line==='Overground'||line.endsWith('(Overground)')))return 'overground';
+  return services.includes('Elizabeth line')?'elizabeth':'rail';
+}

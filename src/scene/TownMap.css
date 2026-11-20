@@ -23,6 +23,11 @@
 .town-station--major .town-station__roundel{width:25px;height:25px;left:-12px;top:-12px;border-width:5px}
 .town-station--major .town-station__roundel:after{width:31px;height:5px;top:5px;left:-8px}
 .town-station--major>span:last-child{left:14px;top:-12px;padding:5px 8px 5px 15px}
+.town-station--overground .town-station__roundel{border-color:#dc853e}
+.town-station--elizabeth .town-station__roundel{border-color:#7e6398}
+.town-station--rail .town-station__roundel{display:grid;place-items:center;border:1px solid #e2e2d499;border-radius:3px;color:#b44c3c}
+.town-station--rail .town-station__roundel:after{display:none}
+.town-station--rail .town-station__roundel svg{display:block;flex-shrink:0}
 .town-park-label{position:absolute;left:0;top:0;color:#3f5439;white-space:nowrap;text-align:center;font:500 12px/1.35 Georgia,serif;text-transform:uppercase;letter-spacing:2.8px;text-shadow:0 1px 4px #c9d9a5;opacity:.85}
 .town-map--night .town-park-label{color:#cfdbb7;text-shadow:0 1px 4px #1a3238}
 .town-map__loading,.town-map__fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:14px;z-index:3;color:#34563c;font:15px/1.5 Georgia,serif;background:#c2c9aa}

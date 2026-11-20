@@ -18,7 +18,7 @@ import type { MapVenue } from '../scene/types'
 import { mappedServices } from '../data/hub'
 import { createWeather, type WeatherSceneKind } from '../scene/createWeather'
 import { highburyCourts } from '../scene/courtGeometry'
-import { mapStations } from '../data/transit'
+import { mapStations,stationNetwork } from '../data/transit'
 import { Icon } from './Icon'
 import { updateSceneLight, weatherWind } from '../scene/sceneAtmosphere'
 import { SHADOW_PROXY_LAYER } from '../scene/miniatureMaterials'
@@ -102,7 +102,7 @@ interface SceneHandle {
 }
 
 
-const STATION_NAMES = mapStations.map(s=>s.name)
+const STATIONS = mapStations.map(s=>({...s,network:stationNetwork(s.lines)}))
 const CAMERA_OFFSET = new THREE.Vector3(275, 480, 475)
 const DAY_BACKGROUND = '#b8bca8'
 /** Only miniature traffic moves on a still map: 30 frames a second is plenty, and drawing flat out just heats the machine. */
@@ -797,9 +797,9 @@ export const TownMap = forwardRef<TownMapHandle, TownMapProps>(function TownMap(
         {cameras.map(camera => <button className={`town-pin town-pin--camera${camera.available===false?' town-pin--camera-offline':''}${selectedCameraId === camera.id ? ' town-pin--selected' : ''}`} key={camera.id} ref={element => { if (element) cameraRefs.current.set(camera.id,element); else cameraRefs.current.delete(camera.id) }} style={{display:'none'}} aria-label={`${camera.name}. Show TfL traffic camera. ${cameraAvailability(camera)}`} aria-pressed={selectedCameraId === camera.id} onClick={() => onSelectCamera?.(camera)}><span className="town-pin__number"><Icon name="camera" size={17}/></span><span className="town-pin__label">{camera.name}<span>TfL · {cameraAvailability(camera)} · refreshed still</span></span></button>)}
         {otherCourtPins.map(site=><button className="court-site" key={site.id} ref={element=>{if(element)siteRefs.current.set(site.id,element);else siteRefs.current.delete(site.id)}} style={{display:'none'}} aria-label={`${site.name}, ${site.courts.length} tennis ${site.courts.length===1?'court':'courts'}${site.note?`. ${site.note}`:''}. Watch a rally`} onClick={()=>onVisitSite?.(site.id)}><span className="court-site__dot" aria-hidden="true"/><span className="court-site__label" aria-hidden="true">{site.name}<small>{site.courts.length}{site.note?` · ${site.note}`:''}</small></span></button>)}
         {locatedPlace&&<div className={`map-destination${locatedPlace.wildlife?' map-destination--wildlife':''}`} ref={placeRef} style={{display:'none'}}><span><Icon name="pin" size={13}/><span role="status">{locatedPlace.name}</span><button type="button" className="map-destination__dismiss" onClick={onClearPlace} aria-label="Clear map selection" title="Clear map selection"><Icon name="close" size={14}/></button></span></div>}
-        {STATION_NAMES.map((name) => (
-          <div className={`town-station${name === 'Highbury & Islington' || name === 'Angel' ? ' town-station--major' : ''}`} key={name} ref={(element) => { if (element) stationRefs.current.set(name, element); else stationRefs.current.delete(name) }} style={{ display: 'none' }}>
-            <span className="town-station__roundel" aria-hidden="true" /><span hidden={!showTransit}>{name}</span>
+        {STATIONS.map(({name,network}) => (
+          <div className={`town-station town-station--${network}${name === 'Highbury & Islington' || name === 'Angel' ? ' town-station--major' : ''}`} key={name} ref={(element) => { if (element) stationRefs.current.set(name, element); else stationRefs.current.delete(name) }} style={{ display: 'none' }}>
+            <span className="town-station__roundel" aria-hidden="true">{network==='rail'&&<svg width="23" height="18" viewBox="0 0 32 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinejoin="miter"><path d="M2 8h28M2 16h28M9 1l14 7-14 7m14-6L9 16l14 7"/></svg>}</span><span hidden={!showTransit}>{name}</span>
           </div>
         ))}
         <button className="town-pin town-pin--shop" ref={vanRef} style={{display:'none'}} aria-label="Sweet Spot Stringer van. Follow the miniature" onClick={()=>{onSelectService('sweet-spot-stringer');const e=engineRef.current;if(e)e.travel(e.world.vanPosition.clone(),55);}}><span className="town-pin__number"><Icon name="bus" size={17}/></span><span className="town-pin__label">Sweet Spot Stringer<span>Follow the miniature van</span></span></button>
